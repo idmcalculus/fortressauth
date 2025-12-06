@@ -1,0 +1,42 @@
+// Main class
+
+export type { OAuthProviderId, ProviderId } from './domain/entities/account.js';
+// Domain entities
+export { Account } from './domain/entities/account.js';
+export { LoginAttempt } from './domain/entities/login-attempt.js';
+export { Session } from './domain/entities/session.js';
+export { User } from './domain/entities/user.js';
+export type { AuthResult, SignInInput, SignUpInput } from './fortress.js';
+export { FortressAuth } from './fortress.js';
+
+// Ports
+export type { AuthRepository } from './ports/auth-repository.js';
+export type { RateLimiterPort } from './ports/rate-limiter.js';
+export type {
+  AuthResponse,
+  ErrorResponse,
+  LoginRequest,
+  SignupRequest,
+  UserResponse,
+} from './schemas/auth.js';
+// Schemas
+export {
+  AuthResponseSchema,
+  ErrorResponseSchema,
+  LoginRequestSchema,
+  SignupRequestSchema,
+  UserResponseSchema,
+} from './schemas/auth.js';
+export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
+export { FortressConfigSchema } from './schemas/config.js';
+
+// Security utilities
+export { hashPassword, verifyPassword } from './security/password.js';
+export { MemoryRateLimiter } from './security/rate-limiter.js';
+export type { PasswordConfig } from './security/validation.js';
+export { validatePassword } from './security/validation.js';
+
+// Types
+export type { AuthErrorCode } from './types/errors.js';
+export type { Result } from './types/result.js';
+export { err, isErr, isOk, ok } from './types/result.js';
