@@ -61,6 +61,6 @@ export class Session {
   }
 
   isExpired(): boolean {
-    return this.expiresAt < new Date();
+    return this.expiresAt <= new Date();
   }
 }
