@@ -137,3 +137,16 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Turborepo
+.turbo
+
+# Build output
+dist/
+
+# SQLite database files
+*.db
+*.db-journal
+
+# OS files
+.DS_Store
