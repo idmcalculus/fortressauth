@@ -85,7 +85,7 @@ describe('FortressConfigSchema', () => {
       expect(() =>
         FortressConfigSchema.parse({
           password: { minLength: 5 },
-        })
+        }),
       ).toThrow();
     });
 
@@ -93,7 +93,7 @@ describe('FortressConfigSchema', () => {
       expect(() =>
         FortressConfigSchema.parse({
           password: { maxLength: 200 },
-        })
+        }),
       ).toThrow();
     });
   });

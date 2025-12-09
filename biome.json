@@ -19,5 +19,8 @@
       "quoteStyle": "single",
       "semicolons": "always"
     }
+  },
+  "files": {
+    "includes": ["**", "!coverage"]
   }
 }

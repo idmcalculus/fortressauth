@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../../../domain/entities/account.js';
 
 describe('Account entity', () => {
@@ -16,10 +16,12 @@ describe('Account entity', () => {
       const account = Account.createEmailAccount(
         'user-123',
         'Test@Example.com',
-        'hashed_password_123'
+        'hashed_password_123',
       );
 
-      expect(account.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(account.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
       expect(account.userId).toBe('user-123');
       expect(account.providerId).toBe('email');
       expect(account.providerUserId).toBe('test@example.com'); // lowercase
@@ -37,7 +39,9 @@ describe('Account entity', () => {
     it('should create a Google OAuth account', () => {
       const account = Account.createOAuthAccount('user-123', 'google', 'google-user-456');
 
-      expect(account.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(account.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
       expect(account.userId).toBe('user-123');
       expect(account.providerId).toBe('google');
       expect(account.providerUserId).toBe('google-user-456');
