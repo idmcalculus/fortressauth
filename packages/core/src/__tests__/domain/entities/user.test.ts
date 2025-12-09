@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { User } from '../../../domain/entities/user.js';
 
 describe('User entity', () => {
@@ -15,7 +15,9 @@ describe('User entity', () => {
     it('should create a new user with UUIDv7 id', () => {
       const user = User.create('Test@Example.com');
 
-      expect(user.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(user.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
       expect(user.email).toBe('test@example.com'); // lowercase
       expect(user.emailVerified).toBe(false);
       expect(user.createdAt).toEqual(new Date('2024-01-15T10:00:00.000Z'));

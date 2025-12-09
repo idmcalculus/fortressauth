@@ -1,13 +1,12 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { FortressAuth } from '../fortress.js';
-import { User } from '../domain/entities/user.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../domain/entities/account.js';
 import { Session } from '../domain/entities/session.js';
-import { LoginAttempt } from '../domain/entities/login-attempt.js';
+import { User } from '../domain/entities/user.js';
+import { FortressAuth } from '../fortress.js';
 import type { AuthRepository } from '../ports/auth-repository.js';
 import type { RateLimiterPort } from '../ports/rate-limiter.js';
-import { ok, err } from '../types/result.js';
 import { hashPassword } from '../security/password.js';
+import { ok } from '../types/result.js';
 
 // Mock repository
 function createMockRepository(): AuthRepository {
@@ -25,29 +24,33 @@ function createMockRepository(): AuthRepository {
     deleteSessionsByUserId: vi.fn().mockResolvedValue(undefined),
     recordLoginAttempt: vi.fn().mockResolvedValue(undefined),
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
-    transaction: vi.fn().mockImplementation(async (fn) => fn({
-      findUserByEmail: vi.fn(),
-      findUserById: vi.fn(),
-      createUser: vi.fn().mockResolvedValue(ok(undefined)),
-      updateUser: vi.fn(),
-      findAccountByProvider: vi.fn(),
-      findEmailAccountByUserId: vi.fn(),
-      createAccount: vi.fn(),
-      findSessionByTokenHash: vi.fn(),
-      createSession: vi.fn(),
-      deleteSession: vi.fn(),
-      deleteSessionsByUserId: vi.fn(),
-      recordLoginAttempt: vi.fn(),
-      countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
-      transaction: vi.fn(),
-    })),
+    transaction: vi.fn().mockImplementation(async (fn) =>
+      fn({
+        findUserByEmail: vi.fn(),
+        findUserById: vi.fn(),
+        createUser: vi.fn().mockResolvedValue(ok(undefined)),
+        updateUser: vi.fn(),
+        findAccountByProvider: vi.fn(),
+        findEmailAccountByUserId: vi.fn(),
+        createAccount: vi.fn(),
+        findSessionByTokenHash: vi.fn(),
+        createSession: vi.fn(),
+        deleteSession: vi.fn(),
+        deleteSessionsByUserId: vi.fn(),
+        recordLoginAttempt: vi.fn(),
+        countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+        transaction: vi.fn(),
+      }),
+    ),
   };
 }
 
 // Mock rate limiter
 function createMockRateLimiter(): RateLimiterPort {
   return {
-    check: vi.fn().mockResolvedValue({ allowed: true, remaining: 4, resetAt: new Date(), retryAfterMs: 0 }),
+    check: vi
+      .fn()
+      .mockResolvedValue({ allowed: true, remaining: 4, resetAt: new Date(), retryAfterMs: 0 }),
     consume: vi.fn().mockResolvedValue(undefined),
     reset: vi.fn().mockResolvedValue(undefined),
   };
@@ -104,9 +107,7 @@ describe('FortressAuth', () => {
     });
 
     it('should return EMAIL_EXISTS when email is taken', async () => {
-      vi.mocked(repository.findUserByEmail).mockResolvedValue(
-        User.create('test@example.com')
-      );
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(User.create('test@example.com'));
 
       const result = await fortress.signUp({
         email: 'test@example.com',

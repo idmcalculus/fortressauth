@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginAttempt } from '../../../domain/entities/login-attempt.js';
 
 describe('LoginAttempt entity', () => {
@@ -15,7 +15,9 @@ describe('LoginAttempt entity', () => {
     it('should create a successful login attempt', () => {
       const attempt = LoginAttempt.create('test@example.com', '192.168.1.1', true, 'user-123');
 
-      expect(attempt.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(attempt.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
       expect(attempt.email).toBe('test@example.com');
       expect(attempt.ipAddress).toBe('192.168.1.1');
       expect(attempt.success).toBe(true);

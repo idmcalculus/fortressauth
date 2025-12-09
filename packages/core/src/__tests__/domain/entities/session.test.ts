@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Session } from '../../../domain/entities/session.js';
 
 describe('Session entity', () => {
@@ -16,7 +16,9 @@ describe('Session entity', () => {
       const ttlMs = 7 * 24 * 60 * 60 * 1000; // 7 days
       const { session, rawToken } = Session.create('user-123', ttlMs);
 
-      expect(session.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+      expect(session.id).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
       expect(session.userId).toBe('user-123');
       expect(session.tokenHash).toHaveLength(64); // SHA-256 hex
       expect(session.createdAt).toEqual(new Date('2024-01-15T10:00:00.000Z'));
