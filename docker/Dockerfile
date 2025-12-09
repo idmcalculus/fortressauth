@@ -1,36 +1,50 @@
-# Stage 1: Dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Base (Setup pnpm and context)
+FROM node:20-alpine AS base
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+ENV CI=true
+RUN corepack enable && corepack prepare pnpm@10.24.0 --activate
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY packages/core/package.json ./packages/core/
-COPY packages/adapter-sql/package.json ./packages/adapter-sql/
-COPY packages/server/package.json ./packages/server/
+# Stage 2: Builder (Build the TypeScript source)
+FROM base AS builder
 
-# Install pnpm and dependencies
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+# Install build tools for native modules
+RUN apk add --no-cache python3 make g++ libc6-compat
+
+COPY . .
 RUN pnpm install --frozen-lockfile
-
-# Stage 2: Builder
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages ./packages
-
-# Copy source code
-COPY tsconfig.json turbo.json ./
-COPY packages ./packages
-
-# Build all packages
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 RUN pnpm build
 
-# Stage 3: Runner
+# Stage 3: Deployer (Prepare the production bundle)
+# This stage isolates the specific app and its production deps
+FROM base AS deployer
+
+WORKDIR /app
+COPY . .
+
+# --prod ensures only production deps are included
+# --legacy required for pnpm v10+ without injected workspace packages
+# /app/pruned is the destination folder
+RUN pnpm --filter=@fortressauth/server --prod deploy --legacy /app/pruned
+
+# Stage 4: Native Builder (Rebuild native modules in the pruned folder)
+FROM base AS native-builder
+
+WORKDIR /app/pruned
+
+# Copy the pruned lockfile/packages from the deployer stage
+COPY --from=deployer /app/pruned .
+
+# Install build tools specifically for the production build
+RUN apk add --no-cache python3 make g++
+
+# Force a rebuild of better-sqlite3 inside this final isolated structure
+RUN npm rebuild better-sqlite3
+
+# Stage 5: Runner (Final Image)
 FROM node:20-alpine AS runner
 
 WORKDIR /app
@@ -41,15 +55,16 @@ ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 fortress && \
     adduser --system --uid 1001 fortress
 
-# Copy built files
-COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./packages/core/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/core/package.json ./packages/core/
-COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./packages/adapter-sql/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/package.json ./packages/adapter-sql/
+# Install runtime libraries often needed by native modules on Alpine
+RUN apk add --no-cache libstdc++
+
+# Copy the fully built, isolated application from the native-builder stage
+COPY --from=native-builder --chown=fortress:fortress /app/pruned .
+
+# Copy the built dist files from the builder stage
 COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/server/package.json ./packages/server/
-COPY --from=builder --chown=fortress:fortress /app/node_modules ./node_modules
-COPY --from=builder --chown=fortress:fortress /app/package.json ./
+COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./packages/core/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./packages/adapter-sql/dist
 
 # Create data directory for SQLite
 RUN mkdir -p /data && chown fortress:fortress /data

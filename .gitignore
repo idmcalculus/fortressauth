@@ -150,3 +150,6 @@ dist/
 
 # OS files
 .DS_Store
+
+# Development/test files
+cookies.txt
