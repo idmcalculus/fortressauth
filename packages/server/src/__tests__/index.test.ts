@@ -1,10 +1,10 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
+import { type Database as DatabaseSchema, down, SqlAdapter, up } from '@fortressauth/adapter-sql';
+import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import Database from 'better-sqlite3';
-import { Kysely, SqliteDialect } from 'kysely';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
-import { type Database as DatabaseSchema, SqlAdapter, up, down } from '@fortressauth/adapter-sql';
-import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
+import { Kysely, SqliteDialect } from 'kysely';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // Create a test app similar to the main app
 function createTestApp() {
@@ -94,7 +94,7 @@ function createTestApp() {
           createdAt: user.createdAt.toISOString(),
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
     }
   });
@@ -134,7 +134,7 @@ function createTestApp() {
           createdAt: user.createdAt.toISOString(),
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
     }
   });
@@ -149,7 +149,7 @@ function createTestApp() {
 
       clearSessionCookie(c);
       return c.json({ success: true });
-    } catch (error) {
+    } catch (_error) {
       return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
     }
   });
@@ -179,7 +179,7 @@ function createTestApp() {
           createdAt: user.createdAt.toISOString(),
         },
       });
-    } catch (error) {
+    } catch (_error) {
       return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
     }
   });
