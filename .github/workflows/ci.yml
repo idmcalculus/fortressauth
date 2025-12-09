@@ -28,13 +28,15 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
       
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 make g++
+      
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
           CI: true
-      
-      - name: Rebuild native modules
-        run: pnpm -r rebuild better-sqlite3
       
       - name: Lint
         run: pnpm lint
