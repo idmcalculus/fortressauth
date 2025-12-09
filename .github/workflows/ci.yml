@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: |
           pnpm install --frozen-lockfile
-          pnpm rebuild better-sqlite3
+          npm rebuild better-sqlite3
         env:
           CI: true
       
