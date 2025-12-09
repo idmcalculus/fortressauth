@@ -1,0 +1,15 @@
+{
+  "name": "fortressauth-example",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@fortressauth/core": "workspace:*",
+    "@fortressauth/adapter-sql": "workspace:*",
+    "better-sqlite3": "^12.5.0",
+    "kysely": "^0.28.8"
+  }
+}
