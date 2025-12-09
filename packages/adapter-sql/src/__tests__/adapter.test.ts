@@ -1,10 +1,10 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { Account, LoginAttempt, Session, User } from '@fortressauth/core';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SqlAdapter } from '../adapter.js';
-import { up, down } from '../migrations/001_initial.js';
+import { down, up } from '../migrations/001_initial.js';
 import type { Database as DatabaseSchema } from '../schema.js';
-import { User, Account, Session, LoginAttempt } from '@fortressauth/core';
 
 describe('SqlAdapter', () => {
   let sqlite: Database.Database;

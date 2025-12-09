@@ -21,6 +21,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!coverage"]
+    "includes": ["**", "!!**/coverage"]
   }
 }
