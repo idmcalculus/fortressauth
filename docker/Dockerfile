@@ -1,5 +1,5 @@
 # Stage 1: Base (Setup pnpm and context)
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -42,10 +42,10 @@ COPY --from=deployer /app/pruned .
 RUN apk add --no-cache python3 make g++
 
 # Force a rebuild of better-sqlite3 inside this final isolated structure
-RUN npm rebuild better-sqlite3
+RUN pnpm rebuild better-sqlite3
 
 # Stage 5: Runner (Final Image)
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 
 WORKDIR /app
 
@@ -61,10 +61,13 @@ RUN apk add --no-cache libstdc++
 # Copy the fully built, isolated application from the native-builder stage
 COPY --from=native-builder --chown=fortress:fortress /app/pruned .
 
-# Copy the built dist files from the builder stage
+# pnpm deploy copies package.json/source but misses dist folders if they weren't built in that stage.
+# We manually copy them from the builder stage into the node_modules.
+COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./node_modules/@fortressauth/core/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./node_modules/@fortressauth/adapter-sql/dist
+
+# Copy the main server build
 COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./packages/core/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./packages/adapter-sql/dist
 
 # Create data directory for SQLite
 RUN mkdir -p /data && chown fortress:fortress /data

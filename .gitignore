@@ -153,3 +153,5 @@ dist/
 
 # Development/test files
 cookies.txt
+
+.orchids/
