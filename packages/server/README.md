@@ -78,7 +78,7 @@ OpenAPI 3.1 specification
 ```json
 {
   "status": "ok",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```
