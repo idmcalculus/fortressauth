@@ -12,7 +12,7 @@ WORKDIR /app
 FROM base AS builder
 
 # Install build tools for native modules
-RUN apk add --no-cache python3 make g++ libc6-compat
+RUN apk add --no-cache python3 make g++
 
 COPY . .
 RUN pnpm install --frozen-lockfile
