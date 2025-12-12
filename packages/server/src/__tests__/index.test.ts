@@ -6,6 +6,34 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+// Response types
+interface HealthResponse {
+  status: string;
+  version: string;
+  timestamp: string;
+}
+
+interface AuthSuccessResponse {
+  success: true;
+  user: {
+    id: string;
+    email: string;
+    emailVerified: boolean;
+    createdAt: string;
+  };
+}
+
+interface AuthErrorResponse {
+  success: false;
+  error: string;
+}
+
+type AuthResponse = AuthSuccessResponse | AuthErrorResponse;
+
+interface LogoutResponse {
+  success: boolean;
+}
+
 // Create a test app similar to the main app
 function createTestApp() {
   const sqlite = new Database(':memory:');
@@ -27,7 +55,7 @@ function createTestApp() {
   app.get('/health', (c) => {
     return c.json({
       status: 'ok',
-      version: '0.1.0',
+      version: '0.1.1',
       timestamp: new Date().toISOString(),
     });
   });
@@ -209,11 +237,11 @@ describe('Server API', () => {
   describe('GET /health', () => {
     it('should return health status', async () => {
       const res = await app.request('/health');
-      const body = await res.json();
+      const body = (await res.json()) as HealthResponse;
 
       expect(res.status).toBe(200);
       expect(body.status).toBe('ok');
-      expect(body.version).toBe('0.1.0');
+      expect(body.version).toBe('0.1.1');
       expect(body.timestamp).toBeDefined();
     });
   });
@@ -229,12 +257,14 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.user.email).toBe('newuser@example.com');
-      expect(body.user.emailVerified).toBe(false);
+      if (body.success) {
+        expect(body.user.email).toBe('newuser@example.com');
+        expect(body.user.emailVerified).toBe(false);
+      }
 
       // Check cookie is set
       const cookie = res.headers.get('set-cookie');
@@ -262,11 +292,13 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(400);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('EMAIL_EXISTS');
+      if (!body.success) {
+        expect(body.error).toBe('EMAIL_EXISTS');
+      }
     });
 
     it('should return error for weak password', async () => {
@@ -279,11 +311,13 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(400);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('PASSWORD_TOO_WEAK');
+      if (!body.success) {
+        expect(body.error).toBe('PASSWORD_TOO_WEAK');
+      }
     });
   });
 
@@ -310,11 +344,13 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.user.email).toBe('logintest@example.com');
+      if (body.success) {
+        expect(body.user.email).toBe('logintest@example.com');
+      }
 
       // Check cookie is set
       const cookie = res.headers.get('set-cookie');
@@ -331,11 +367,13 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('INVALID_CREDENTIALS');
+      if (!body.success) {
+        expect(body.error).toBe('INVALID_CREDENTIALS');
+      }
     });
 
     it('should return error for non-existent user', async () => {
@@ -348,11 +386,13 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('INVALID_CREDENTIALS');
+      if (!body.success) {
+        expect(body.error).toBe('INVALID_CREDENTIALS');
+      }
     });
   });
 
@@ -375,20 +415,24 @@ describe('Server API', () => {
         headers: { Cookie: cookie },
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
-      expect(body.user.email).toBe('logintest@example.com');
+      if (body.success) {
+        expect(body.user.email).toBe('logintest@example.com');
+      }
     });
 
     it('should return error without session', async () => {
       const res = await app.request('/auth/me');
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('SESSION_INVALID');
+      if (!body.success) {
+        expect(body.error).toBe('SESSION_INVALID');
+      }
     });
 
     it('should return error with invalid session', async () => {
@@ -396,11 +440,13 @@ describe('Server API', () => {
         headers: { Cookie: 'fortress_session=invalid-token' },
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
-      expect(body.error).toBe('SESSION_INVALID');
+      if (!body.success) {
+        expect(body.error).toBe('SESSION_INVALID');
+      }
     });
   });
 
@@ -424,7 +470,7 @@ describe('Server API', () => {
         headers: { Cookie: cookie },
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as LogoutResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
@@ -442,7 +488,7 @@ describe('Server API', () => {
         method: 'POST',
       });
 
-      const body = await res.json();
+      const body = (await res.json()) as LogoutResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
