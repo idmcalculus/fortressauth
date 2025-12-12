@@ -55,7 +55,7 @@ function createTestApp() {
   app.get('/health', (c) => {
     return c.json({
       status: 'ok',
-      version: '0.1.4',
+      version: '0.1.5',
       timestamp: new Date().toISOString(),
     });
   });
@@ -241,7 +241,7 @@ describe('Server API', () => {
 
       expect(res.status).toBe(200);
       expect(body.status).toBe('ok');
-      expect(body.version).toBe('0.1.4');
+      expect(body.version).toBe('0.1.5');
       expect(body.timestamp).toBeDefined();
     });
   });
