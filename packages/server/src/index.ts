@@ -10,7 +10,7 @@ import { Kysely, SqliteDialect } from 'kysely';
 import { env } from './env.js';
 import { generateOpenAPIDocument } from './openapi.js';
 
-const VERSION = '0.1.2';
+const VERSION = '0.1.3';
 
 // Initialize database with proper typing
 const sqlite = new Database_(env.DATABASE_URL);
