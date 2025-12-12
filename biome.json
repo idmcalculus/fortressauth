@@ -21,6 +21,6 @@
     }
   },
   "files": {
-    "includes": ["**", "!!**/coverage"]
+    "includes": ["**", "!!**/coverage", "!!**/dist", "!!**/node_modules"]
   }
 }

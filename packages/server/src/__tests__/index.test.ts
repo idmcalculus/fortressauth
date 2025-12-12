@@ -237,7 +237,7 @@ describe('Server API', () => {
   describe('GET /health', () => {
     it('should return health status', async () => {
       const res = await app.request('/health');
-      const body = await res.json() as HealthResponse;
+      const body = (await res.json()) as HealthResponse;
 
       expect(res.status).toBe(200);
       expect(body.status).toBe('ok');
@@ -257,7 +257,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
@@ -292,7 +292,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(400);
       expect(body.success).toBe(false);
@@ -311,7 +311,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(400);
       expect(body.success).toBe(false);
@@ -344,7 +344,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
@@ -367,7 +367,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
@@ -386,7 +386,7 @@ describe('Server API', () => {
         }),
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
@@ -415,7 +415,7 @@ describe('Server API', () => {
         headers: { Cookie: cookie },
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
@@ -426,7 +426,7 @@ describe('Server API', () => {
 
     it('should return error without session', async () => {
       const res = await app.request('/auth/me');
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
@@ -440,7 +440,7 @@ describe('Server API', () => {
         headers: { Cookie: 'fortress_session=invalid-token' },
       });
 
-      const body = await res.json() as AuthResponse;
+      const body = (await res.json()) as AuthResponse;
 
       expect(res.status).toBe(401);
       expect(body.success).toBe(false);
@@ -470,7 +470,7 @@ describe('Server API', () => {
         headers: { Cookie: cookie },
       });
 
-      const body = await res.json() as LogoutResponse;
+      const body = (await res.json()) as LogoutResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
@@ -488,7 +488,7 @@ describe('Server API', () => {
         method: 'POST',
       });
 
-      const body = await res.json() as LogoutResponse;
+      const body = (await res.json()) as LogoutResponse;
 
       expect(res.status).toBe(200);
       expect(body.success).toBe(true);
