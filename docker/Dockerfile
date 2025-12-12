@@ -72,6 +72,10 @@ COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packag
 # Create data directory for SQLite
 RUN mkdir -p /data && chown fortress:fortress /data
 
+ENV DATABASE_URL="/data/fortress.db"
+ENV PORT=3000
+ENV HOST=0.0.0.0
+
 USER fortress
 
 EXPOSE 3000
