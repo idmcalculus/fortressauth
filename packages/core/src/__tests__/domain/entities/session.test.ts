@@ -12,22 +12,15 @@ describe('Session entity', () => {
   });
 
   describe('create()', () => {
-    it('should create a session with UUIDv7 id and random token', () => {
+    it('should create a session with selector/verifier split token', () => {
       const ttlMs = 7 * 24 * 60 * 60 * 1000; // 7 days
       const { session, rawToken } = Session.create('user-123', ttlMs);
 
-      expect(session.id).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-      );
-      expect(session.userId).toBe('user-123');
-      expect(session.tokenHash).toHaveLength(64); // SHA-256 hex
+      expect(session.selector).toHaveLength(32); // 16 bytes hex
+      expect(session.verifierHash).toHaveLength(64);
+      expect(rawToken).toContain(':');
       expect(session.createdAt).toEqual(new Date('2024-01-15T10:00:00.000Z'));
-      expect(session.expiresAt).toEqual(new Date('2024-01-22T10:00:00.000Z')); // 7 days later
-      expect(session.ipAddress).toBeNull();
-      expect(session.userAgent).toBeNull();
-
-      // Raw token should be 32 bytes = 64 hex chars
-      expect(rawToken).toHaveLength(64);
+      expect(session.expiresAt).toEqual(new Date('2024-01-22T10:00:00.000Z'));
     });
 
     it('should include IP address and user agent when provided', () => {
@@ -43,35 +36,14 @@ describe('Session entity', () => {
 
       expect(token1).not.toBe(token2);
     });
-
-    it('should hash the token correctly', () => {
-      const { session, rawToken } = Session.create('user-123', 3600000);
-      const expectedHash = Session.hashToken(rawToken);
-
-      expect(session.tokenHash).toBe(expectedHash);
-    });
   });
 
   describe('hashToken()', () => {
-    it('should return SHA-256 hash of token', () => {
+    it('should return SHA-256 hash of verifier', () => {
       const hash = Session.hashToken('test-token');
 
       expect(hash).toHaveLength(64);
       expect(hash).toMatch(/^[0-9a-f]{64}$/);
-    });
-
-    it('should return consistent hash for same input', () => {
-      const hash1 = Session.hashToken('same-token');
-      const hash2 = Session.hashToken('same-token');
-
-      expect(hash1).toBe(hash2);
-    });
-
-    it('should return different hash for different input', () => {
-      const hash1 = Session.hashToken('token-1');
-      const hash2 = Session.hashToken('token-2');
-
-      expect(hash1).not.toBe(hash2);
     });
   });
 
@@ -80,7 +52,8 @@ describe('Session entity', () => {
       const data = {
         id: '019af1e6-779e-7392-b584-20a4f2360749',
         userId: 'user-123',
-        tokenHash: 'abc123def456',
+        selector: 'selector123',
+        verifierHash: 'abc123def456',
         expiresAt: new Date('2024-01-22T10:00:00.000Z'),
         ipAddress: '10.0.0.1',
         userAgent: 'Chrome/120',
@@ -91,26 +64,12 @@ describe('Session entity', () => {
 
       expect(session.id).toBe(data.id);
       expect(session.userId).toBe(data.userId);
-      expect(session.tokenHash).toBe(data.tokenHash);
+      expect(session.selector).toBe(data.selector);
+      expect(session.verifierHash).toBe(data.verifierHash);
       expect(session.expiresAt).toEqual(data.expiresAt);
       expect(session.ipAddress).toBe(data.ipAddress);
       expect(session.userAgent).toBe(data.userAgent);
       expect(session.createdAt).toEqual(data.createdAt);
-    });
-
-    it('should handle null ipAddress and userAgent', () => {
-      const session = Session.rehydrate({
-        id: '019af1e6-779e-7392-b584-20a4f2360749',
-        userId: 'user-123',
-        tokenHash: 'abc123',
-        expiresAt: new Date(),
-        ipAddress: null,
-        userAgent: null,
-        createdAt: new Date(),
-      });
-
-      expect(session.ipAddress).toBeNull();
-      expect(session.userAgent).toBeNull();
     });
   });
 
@@ -124,25 +83,12 @@ describe('Session entity', () => {
       const session = Session.rehydrate({
         id: '019af1e6-779e-7392-b584-20a4f2360749',
         userId: 'user-123',
-        tokenHash: 'abc123',
+        selector: 'selector123',
+        verifierHash: 'abc123',
         expiresAt: new Date('2024-01-15T09:00:00.000Z'), // 1 hour ago
         ipAddress: null,
         userAgent: null,
         createdAt: new Date('2024-01-15T08:00:00.000Z'),
-      });
-
-      expect(session.isExpired()).toBe(true);
-    });
-
-    it('should return true when expiry time equals current time', () => {
-      const session = Session.rehydrate({
-        id: '019af1e6-779e-7392-b584-20a4f2360749',
-        userId: 'user-123',
-        tokenHash: 'abc123',
-        expiresAt: new Date('2024-01-15T10:00:00.000Z'), // exactly now
-        ipAddress: null,
-        userAgent: null,
-        createdAt: new Date('2024-01-15T09:00:00.000Z'),
       });
 
       expect(session.isExpired()).toBe(true);

@@ -1,9 +1,16 @@
-import { Account, LoginAttempt, Session, User } from '@fortressauth/core';
+import {
+  Account,
+  EmailVerificationToken,
+  LoginAttempt,
+  PasswordResetToken,
+  Session,
+  User,
+} from '@fortressauth/core';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SqlAdapter } from '../adapter.js';
-import { down, up } from '../migrations/001_initial.js';
+import { down, up } from '../migrations/index.js';
 import type { Database as DatabaseSchema } from '../schema.js';
 
 describe('SqlAdapter', () => {
@@ -177,6 +184,17 @@ describe('SqlAdapter', () => {
         expect(found).toBeNull();
       });
     });
+
+    describe('updateEmailAccountPassword()', () => {
+      it('should update stored password hash', async () => {
+        const account = Account.createEmailAccount(user.id, 'test@example.com', 'hash');
+        await adapter.createAccount(account);
+
+        await adapter.updateEmailAccountPassword(user.id, 'new-hash');
+        const found = await adapter.findEmailAccountByUserId(user.id);
+        expect(found?.passwordHash).toBe('new-hash');
+      });
+    });
   });
 
   describe('Session operations', () => {
@@ -192,25 +210,25 @@ describe('SqlAdapter', () => {
         const { session } = Session.create(user.id, 3600000);
         await adapter.createSession(session);
 
-        const found = await adapter.findSessionByTokenHash(session.tokenHash);
+        const found = await adapter.findSessionBySelector(session.selector);
         expect(found).not.toBeNull();
         expect(found?.userId).toBe(user.id);
       });
     });
 
-    describe('findSessionByTokenHash()', () => {
-      it('should find session by token hash', async () => {
+    describe('findSessionBySelector()', () => {
+      it('should find session by selector', async () => {
         const { session } = Session.create(user.id, 3600000, '192.168.1.1', 'Mozilla/5.0');
         await adapter.createSession(session);
 
-        const found = await adapter.findSessionByTokenHash(session.tokenHash);
+        const found = await adapter.findSessionBySelector(session.selector);
         expect(found).not.toBeNull();
         expect(found?.ipAddress).toBe('192.168.1.1');
         expect(found?.userAgent).toBe('Mozilla/5.0');
       });
 
-      it('should return null for non-existent token', async () => {
-        const found = await adapter.findSessionByTokenHash('nonexistent');
+      it('should return null for non-existent selector', async () => {
+        const found = await adapter.findSessionBySelector('nonexistent');
         expect(found).toBeNull();
       });
     });
@@ -222,7 +240,7 @@ describe('SqlAdapter', () => {
 
         await adapter.deleteSession(session.id);
 
-        const found = await adapter.findSessionByTokenHash(session.tokenHash);
+        const found = await adapter.findSessionBySelector(session.selector);
         expect(found).toBeNull();
       });
     });
@@ -236,11 +254,59 @@ describe('SqlAdapter', () => {
 
         await adapter.deleteSessionsByUserId(user.id);
 
-        const found1 = await adapter.findSessionByTokenHash(session1.tokenHash);
-        const found2 = await adapter.findSessionByTokenHash(session2.tokenHash);
+        const found1 = await adapter.findSessionBySelector(session1.selector);
+        const found2 = await adapter.findSessionBySelector(session2.selector);
         expect(found1).toBeNull();
         expect(found2).toBeNull();
       });
+    });
+  });
+
+  describe('EmailVerification operations', () => {
+    let user: User;
+
+    beforeEach(async () => {
+      user = User.create('test@example.com');
+      await adapter.createUser(user);
+    });
+
+    it('should create and retrieve a verification token', async () => {
+      const { token } = EmailVerificationToken.create(user.id, 3600000);
+      await adapter.createEmailVerificationToken(token);
+
+      const found = await adapter.findEmailVerificationBySelector(token.selector);
+      expect(found).not.toBeNull();
+      expect(found?.userId).toBe(user.id);
+
+      if (found) {
+        await adapter.deleteEmailVerification(found.id);
+        const deleted = await adapter.findEmailVerificationBySelector(token.selector);
+        expect(deleted).toBeNull();
+      }
+    });
+  });
+
+  describe('PasswordReset operations', () => {
+    let user: User;
+
+    beforeEach(async () => {
+      user = User.create('test@example.com');
+      await adapter.createUser(user);
+    });
+
+    it('should create and retrieve a password reset token', async () => {
+      const { token } = PasswordResetToken.create(user.id, 3600000);
+      await adapter.createPasswordResetToken(token);
+
+      const found = await adapter.findPasswordResetBySelector(token.selector);
+      expect(found).not.toBeNull();
+      expect(found?.userId).toBe(user.id);
+
+      if (found) {
+        await adapter.deletePasswordReset(found.id);
+        const deleted = await adapter.findPasswordResetBySelector(token.selector);
+        expect(deleted).toBeNull();
+      }
     });
   });
 

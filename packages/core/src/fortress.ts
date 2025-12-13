@@ -1,8 +1,11 @@
 import { Account } from './domain/entities/account.js';
+import { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 import { LoginAttempt } from './domain/entities/login-attempt.js';
+import { PasswordResetToken } from './domain/entities/password-reset-token.js';
 import { Session } from './domain/entities/session.js';
 import { User } from './domain/entities/user.js';
 import type { AuthRepository } from './ports/auth-repository.js';
+import type { EmailProviderPort } from './ports/email-provider.js';
 import type { RateLimiterPort } from './ports/rate-limiter.js';
 import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
@@ -26,6 +29,11 @@ export interface SignInInput {
   userAgent?: string | undefined;
 }
 
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+}
+
 export interface AuthResult {
   user: User;
   token: string;
@@ -37,6 +45,7 @@ export class FortressAuth {
   constructor(
     private readonly repository: AuthRepository,
     private readonly rateLimiter: RateLimiterPort,
+    private readonly emailProvider: EmailProviderPort,
     config?: FortressConfigInput,
   ) {
     this.config = FortressConfigSchema.parse(config ?? {});
@@ -74,6 +83,16 @@ export class FortressAuth {
     const passwordHash = await hashPassword(input.password);
     const user = User.create(email);
     const account = Account.createEmailAccount(user.id, email, passwordHash);
+    const { session, rawToken } = Session.create(
+      user.id,
+      this.config.session.ttlMs,
+      input.ipAddress,
+      input.userAgent,
+    );
+    const { token: verificationToken, rawToken: rawVerificationToken } = EmailVerificationToken.create(
+      user.id,
+      this.config.emailVerification.ttlMs,
+    );
 
     const result = await this.repository.transaction(async (repo) => {
       const createUserResult = await repo.createUser(user);
@@ -82,20 +101,19 @@ export class FortressAuth {
       }
 
       await repo.createAccount(account);
-
-      const { session, rawToken } = Session.create(
-        user.id,
-        this.config.session.ttlMs,
-        input.ipAddress,
-        input.userAgent,
-      );
       await repo.createSession(session);
+      await repo.createEmailVerificationToken(verificationToken);
 
       return ok({ user, token: rawToken });
     });
 
     if (result.success && this.config.rateLimit.enabled) {
       await this.rateLimiter.consume(email, 'login');
+    }
+
+    if (result.success) {
+      const verificationLink = `${this.config.urls.baseUrl}/verify-email?token=${rawVerificationToken}`;
+      await this.emailProvider.sendVerificationEmail(email, verificationLink);
     }
 
     return result;
@@ -165,6 +183,11 @@ export class FortressAuth {
       return err('INVALID_CREDENTIALS');
     }
 
+    if (!user.emailVerified) {
+      await this.repository.recordLoginAttempt(LoginAttempt.create(email, ipAddress, false, user.id));
+      return err('EMAIL_NOT_VERIFIED');
+    }
+
     const { session, rawToken } = Session.create(
       user.id,
       this.config.session.ttlMs,
@@ -181,10 +204,14 @@ export class FortressAuth {
   async validateSession(
     rawToken: string,
   ): Promise<Result<{ user: User; session: Session }, AuthErrorCode>> {
-    const tokenHash = Session.hashToken(rawToken);
-    const session = await this.repository.findSessionByTokenHash(tokenHash);
+    const parsed = Session.parse(rawToken);
+    if (!parsed) {
+      return err('SESSION_INVALID');
+    }
 
-    if (!session) {
+    const session = await this.repository.findSessionBySelector(parsed.selector);
+
+    if (!session || !session.matchesVerifier(parsed.verifier)) {
       return err('SESSION_INVALID');
     }
 
@@ -203,14 +230,124 @@ export class FortressAuth {
   }
 
   async signOut(rawToken: string): Promise<Result<void, AuthErrorCode>> {
-    const tokenHash = Session.hashToken(rawToken);
-    const session = await this.repository.findSessionByTokenHash(tokenHash);
+    const parsed = Session.parse(rawToken);
+    if (!parsed) {
+      return err('SESSION_INVALID');
+    }
 
-    if (!session) {
+    const session = await this.repository.findSessionBySelector(parsed.selector);
+
+    if (!session || !session.matchesVerifier(parsed.verifier)) {
       return err('SESSION_INVALID');
     }
 
     await this.repository.deleteSession(session.id);
+    return ok(undefined);
+  }
+
+  async verifyEmail(token: string): Promise<Result<void, AuthErrorCode>> {
+    const parsed = EmailVerificationToken.parse(token);
+    if (!parsed) {
+      return err('EMAIL_VERIFICATION_INVALID');
+    }
+
+    const record = await this.repository.findEmailVerificationBySelector(parsed.selector);
+    if (!record) {
+      return err('EMAIL_VERIFICATION_INVALID');
+    }
+
+    if (record.isExpired()) {
+      await this.repository.deleteEmailVerification(record.id);
+      return err('EMAIL_VERIFICATION_EXPIRED');
+    }
+
+    if (!record.matchesVerifier(parsed.verifier)) {
+      await this.repository.deleteEmailVerification(record.id);
+      return err('EMAIL_VERIFICATION_INVALID');
+    }
+
+    const user = await this.repository.findUserById(record.userId);
+    if (!user) {
+      await this.repository.deleteEmailVerification(record.id);
+      return err('EMAIL_VERIFICATION_INVALID');
+    }
+
+    const verifiedUser = user.withEmailVerified();
+    await this.repository.updateUser(verifiedUser);
+    await this.repository.deleteEmailVerification(record.id);
+
+    return ok(undefined);
+  }
+
+  async requestPasswordReset(email: string): Promise<Result<void, AuthErrorCode>> {
+    const normalizedEmail = email.toLowerCase();
+    const user = await this.repository.findUserByEmail(normalizedEmail);
+
+    if (!user) {
+      // Do not reveal existence
+      return ok(undefined);
+    }
+
+    const { token, rawToken } = PasswordResetToken.create(
+      user.id,
+      this.config.passwordReset.ttlMs,
+    );
+
+    await this.repository.createPasswordResetToken(token);
+
+    const resetLink = `${this.config.urls.baseUrl}/reset-password?token=${rawToken}`;
+    await this.emailProvider.sendPasswordResetEmail(normalizedEmail, resetLink);
+
+    return ok(undefined);
+  }
+
+  async resetPassword(input: ResetPasswordInput): Promise<Result<void, AuthErrorCode>> {
+    const parsed = PasswordResetToken.parse(input.token);
+    if (!parsed) {
+      return err('PASSWORD_RESET_INVALID');
+    }
+
+    const record = await this.repository.findPasswordResetBySelector(parsed.selector);
+    if (!record) {
+      return err('PASSWORD_RESET_INVALID');
+    }
+
+    if (record.isExpired()) {
+      await this.repository.deletePasswordReset(record.id);
+      return err('PASSWORD_RESET_EXPIRED');
+    }
+
+    if (!record.matchesVerifier(parsed.verifier)) {
+      await this.repository.deletePasswordReset(record.id);
+      return err('PASSWORD_RESET_INVALID');
+    }
+
+    const user = await this.repository.findUserById(record.userId);
+    if (!user) {
+      await this.repository.deletePasswordReset(record.id);
+      return err('PASSWORD_RESET_INVALID');
+    }
+
+    const passwordValidation = validatePassword(input.newPassword, {
+      minLength: this.config.password.minLength,
+      maxLength: this.config.password.maxLength,
+    });
+
+    if (!passwordValidation.valid) {
+      return err('PASSWORD_TOO_WEAK');
+    }
+
+    const account = await this.repository.findEmailAccountByUserId(user.id);
+    if (!account) {
+      await this.repository.deletePasswordReset(record.id);
+      return err('PASSWORD_RESET_INVALID');
+    }
+
+    const newPasswordHash = await hashPassword(input.newPassword);
+    await this.repository.updateEmailAccountPassword(user.id, newPasswordHash);
+    await this.repository.deletePasswordReset(record.id);
+    await this.repository.deleteSessionsByUserId(user.id);
+
     return ok(undefined);
   }
 }

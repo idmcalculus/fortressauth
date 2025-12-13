@@ -16,14 +16,25 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((val) => val ?? './fortress.db'),
+  BASE_URL: z
+    .string()
+    .url()
+    .optional()
+    .transform((val) => val ?? 'http://localhost:3000'),
   COOKIE_SECURE: z
     .enum(['true', 'false'])
     .optional()
     .transform((val) => (val === undefined ? isProduction : val === 'true')),
+  COOKIE_DOMAIN: z.string().optional(),
+  COOKIE_SAMESITE: z
+    .enum(['strict', 'lax', 'none'])
+    .optional()
+    .transform((val) => val ?? 'strict'),
   LOG_LEVEL: z
     .enum(['debug', 'info', 'warn', 'error'])
     .optional()
     .transform((val) => val ?? 'info'),
+  REDIS_URL: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);
