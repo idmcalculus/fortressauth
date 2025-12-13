@@ -1,18 +1,5 @@
 import type { Kysely } from 'kysely';
-
-function isAlreadyExistsError(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
-}
-
-async function safeExecute(promise: Promise<unknown>): Promise<void> {
-  try {
-    await promise;
-  } catch (error) {
-    if (!isAlreadyExistsError(error)) {
-      throw error;
-    }
-  }
-}
+import { safeExecute } from './index.js';
 
 // Generic type parameter allows any database schema since migrations only use schema builder
 export async function up<T>(db: Kysely<T>): Promise<void> {
