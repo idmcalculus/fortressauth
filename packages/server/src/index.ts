@@ -110,6 +110,8 @@ const allowedOrigins = env.CORS_ORIGINS ?? [
   new URL(env.BASE_URL).origin,
   'http://localhost:5173',
   'http://localhost:5174',
+  'http://0.0.0.0:5173',
+  'http://0.0.0.0:5174',
 ];
 app.use(
   '*',
