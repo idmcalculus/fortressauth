@@ -106,10 +106,19 @@ const app = new Hono();
 // Middleware
 app.use('*', logger());
 app.use('*', secureHeaders());
+const allowedOrigins = env.CORS_ORIGINS ?? [
+  new URL(env.BASE_URL).origin,
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
 app.use(
   '*',
   cors({
-    origin: env.COOKIE_SECURE ? (origin) => origin : '*',
+    origin: (origin) => {
+      if (!origin) return allowedOrigins[0];
+      if (allowedOrigins.includes(origin)) return origin;
+      return allowedOrigins[0];
+    },
     credentials: true,
   }),
 );
