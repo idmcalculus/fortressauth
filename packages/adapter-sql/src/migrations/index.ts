@@ -4,6 +4,20 @@ import { down as down002, up as up002 } from './002_email_verification.js';
 import { down as down003, up as up003 } from './003_password_resets.js';
 import { down as down004, up as up004 } from './004_session_split_token.js';
 
+function isAlreadyExistsError(error: unknown): boolean {
+  return error instanceof Error && /already exists/i.test(error.message);
+}
+
+export async function safeExecute(promise: Promise<unknown>): Promise<void> {
+  try {
+    await promise;
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      throw error;
+    }
+  }
+}
+
 export async function up<T>(db: Kysely<T>): Promise<void> {
   await up001(db);
   await up002(db);
