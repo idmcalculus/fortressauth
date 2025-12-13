@@ -4,24 +4,24 @@ A secure-by-default, database-agnostic authentication library built with TypeScr
 
 ## Features
 
-- 🔒 **Secure by Default**: Argon2id password hashing, split session tokens (selector + hashed verifier), timing-attack prevention
-- 🏗️ **Hexagonal Architecture**: Clean separation between business logic and infrastructure
-- 🗄️ **Database Agnostic**: Works with PostgreSQL, MySQL, and SQLite via Kysely
-- 🚀 **Production Ready**: Email verification, password reset, rate limiting (memory/Redis), account lockout, session management
-- 📖 **OpenAPI Documentation**: Auto-generated API docs with Scalar UI
-- 🐳 **Docker Ready**: Multi-stage Dockerfile with security best practices
-- 🧩 **SDKs**: React and Vue SDKs with cookie-aware flows and example apps
+- Secure by Default: Argon2id password hashing, split session tokens (selector + hashed verifier), timing-attack prevention
+- Hexagonal Architecture: Clean separation between business logic and infrastructure
+- Database Agnostic: Works with PostgreSQL, MySQL, and SQLite via Kysely
+- Email Provider Agnostic: Pluggable email providers (console, Resend, or custom)
+- Production Ready: Email verification, password reset, rate limiting (memory/Redis), account lockout, session management
+- OpenAPI Documentation: Auto-generated API docs with Scalar UI
+- Docker Ready: Multi-stage Dockerfile with security best practices
+- SDKs: React and Vue SDKs with cookie-aware flows and example apps
 
-## Project Structure
+## Packages
 
-```
-fortressauth/
-├── packages/
-│   ├── core/              # Business logic, domain entities, ports
-│   ├── adapter-sql/       # SQL adapter implementation
-│   └── server/            # Standalone HTTP server
-└── docker/                # Docker configuration
-```
+| Package | Description |
+|---------|-------------|
+| [@fortressauth/core](./packages/core) | Business logic, domain entities, ports |
+| [@fortressauth/adapter-sql](./packages/adapter-sql) | SQL adapter for PostgreSQL, MySQL, SQLite |
+| [@fortressauth/server](./packages/server) | Standalone HTTP server |
+| [@fortressauth/react-sdk](./packages/react-sdk) | React hooks & context |
+| [@fortressauth/vue-sdk](./packages/vue-sdk) | Vue composables & provider |
 
 ## Quick Start
 
@@ -49,8 +49,7 @@ pnpm lint
 ### Development
 
 ```bash
-# Start development server
-cd packages/server
+# Start development server (with examples)
 pnpm dev
 ```
 
@@ -62,6 +61,44 @@ The server will start at `http://localhost:3000`. Visit `http://localhost:3000/d
 # Build and run with Docker Compose
 cd docker
 docker-compose up --build
+```
+
+## Environment Variables
+
+### Server
+
+```bash
+# Server
+PORT=3000
+HOST=0.0.0.0
+DATABASE_URL=./fortress.db
+BASE_URL=http://localhost:3000
+
+# Security
+COOKIE_SECURE=false
+COOKIE_SAMESITE=strict
+
+# Email Provider
+EMAIL_PROVIDER=console   # or 'resend'
+RESEND_API_KEY=          # required for resend
+EMAIL_FROM_ADDRESS=      # required for resend
+EMAIL_FROM_NAME=         # optional
+
+# Optional
+REDIS_URL=               # for distributed rate limiting
+CORS_ORIGINS=            # comma-separated origins
+LOG_LEVEL=info
+METRICS_ENABLED=true
+```
+
+### Client SDKs
+
+```bash
+# Vite projects
+VITE_API_BASE_URL=http://localhost:3000
+
+# Next.js projects
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 ```
 
 ## API Endpoints
@@ -87,20 +124,26 @@ docker-compose up --build
 - **Account Lockout**: Automatic lockout after failed login attempts
 - **Secure Cookies**: HttpOnly, SameSite, Secure flags
 
-## Configuration
+## Email Configuration
 
-Environment variables for the server:
+FortressAuth supports pluggable email providers:
 
-- `PORT` - Server port (default: 3000)
-- `HOST` - Server host (default: 0.0.0.0)
-- `DATABASE_URL` - Database connection string (default: ./fortress.db)
-- `BASE_URL` - Public base URL used in emailed links
-- `COOKIE_SECURE` - Enable secure cookies (default: true in production)
-- `COOKIE_SAMESITE` - Cookie SameSite mode (`strict` by default)
-- `COOKIE_DOMAIN` - Domain for session cookie (optional, for custom domains)
-- `LOG_LEVEL` - Logging level (default: info)
-- `REDIS_URL` - Redis URL for rate limiter (falls back to in-memory)
-- `METRICS_ENABLED` - Enable `/metrics` endpoint (default: true)
+### Console (Development)
+```bash
+EMAIL_PROVIDER=console
+```
+Logs verification links to terminal - perfect for development.
+
+### Resend (Production)
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+EMAIL_FROM_ADDRESS=noreply@yourdomain.com
+EMAIL_FROM_NAME=Your App
+```
+
+### Custom Provider
+Implement the `EmailProviderPort` interface from `@fortressauth/core`.
 
 ## Architecture
 
@@ -110,12 +153,12 @@ FortressAuth follows hexagonal architecture principles:
 - **Ports**: Interfaces that define contracts for external services
 - **Adapters**: Implementations of ports for specific technologies
 
+## Examples
+
+- `examples/web-react` - React + Vite example app
+- `examples/web-vue` - Vue + Vite example app
+- `examples/basic-usage` - Basic Node.js usage
+
 ## License
 
 MIT
-
-## SDKs & Examples
-
-- React SDK: `@fortressauth/react-sdk` (AuthProvider + hooks)
-- Vue SDK: `@fortressauth/vue-sdk` (AuthProvider + composables)
-- Examples: `examples/web-react` and `examples/web-vue` (Vite, ready for Vercel deploy via `vercel.json`)

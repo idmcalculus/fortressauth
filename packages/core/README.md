@@ -4,13 +4,14 @@ Secure-by-default, database-agnostic authentication library built with hexagonal
 
 ## Features
 
-- 🔒 **Secure by Default**: Argon2id password hashing, SHA-256 session tokens, timing-attack prevention
-- 🏗️ **Hexagonal Architecture**: Clean separation of business logic from infrastructure
-- 📦 **Database Agnostic**: Works with any database through adapter pattern
-- 🎯 **Type Safe**: Built with TypeScript 5.7+ in strict mode
-- ⚡ **Zero Dependencies**: Core logic has minimal dependencies
-- 🛡️ **Rate Limiting**: Built-in token bucket rate limiter
-- 🔐 **Account Lockout**: Automatic lockout after failed login attempts
+- Secure by Default: Argon2id password hashing, SHA-256 session tokens, timing-attack prevention
+- Hexagonal Architecture: Clean separation of business logic from infrastructure
+- Database Agnostic: Works with any database through adapter pattern
+- Email Provider Agnostic: Pluggable email providers (console, Resend, or custom)
+- Type Safe: Built with TypeScript 5.7+ in strict mode
+- Zero Dependencies: Core logic has minimal dependencies
+- Rate Limiting: Built-in token bucket rate limiter
+- Account Lockout: Automatic lockout after failed login attempts
 
 ## Installation
 
@@ -28,21 +29,18 @@ yarn add @fortressauth/core
 import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import { SqlAdapter } from '@fortressauth/adapter-sql';
 
-// Initialize with your database adapter
+// Initialize with your database adapter and email provider
 const adapter = new SqlAdapter(db);
 const rateLimiter = new MemoryRateLimiter();
+const emailProvider = { /* your email provider */ };
 
-const fortress = new FortressAuth({
-  repository: adapter,
-  rateLimiter,
-  config: {
-    session: {
-      ttlMs: 7 * 24 * 60 * 60 * 1000, // 7 days
-    },
-    password: {
-      minLength: 8,
-      maxLength: 128,
-    },
+const fortress = new FortressAuth(adapter, rateLimiter, emailProvider, {
+  session: {
+    ttlMs: 7 * 24 * 60 * 60 * 1000, // 7 days
+  },
+  password: {
+    minLength: 8,
+    maxLength: 128,
   },
 });
 
@@ -65,6 +63,45 @@ const signinResult = await fortress.signIn({
 
 // Validate session
 const sessionResult = await fortress.validateSession(token);
+```
+
+## Ports (Interfaces)
+
+FortressAuth uses ports to define contracts for external services:
+
+### AuthRepository Port
+
+Implement this for your database:
+
+```typescript
+interface AuthRepository {
+  createUser(user: User): Promise<void>;
+  findUserByEmail(email: string): Promise<User | null>;
+  createSession(session: Session): Promise<void>;
+  // ... more methods
+}
+```
+
+### EmailProvider Port
+
+Implement this for your email service:
+
+```typescript
+interface EmailProviderPort {
+  sendVerificationEmail(email: string, verificationLink: string): Promise<void>;
+  sendPasswordResetEmail(email: string, resetLink: string): Promise<void>;
+}
+```
+
+### RateLimiter Port
+
+Implement this for custom rate limiting:
+
+```typescript
+interface RateLimiterPort {
+  consume(key: string): Promise<boolean>;
+  reset(key: string): Promise<void>;
+}
 ```
 
 ## Security Features
@@ -95,7 +132,7 @@ Token bucket algorithm with configurable limits:
 FortressAuth follows hexagonal architecture principles:
 
 - **Domain Entities**: User, Account, Session, LoginAttempt
-- **Ports**: AuthRepository, RateLimiterPort (interfaces)
+- **Ports**: AuthRepository, RateLimiterPort, EmailProviderPort (interfaces)
 - **Use Cases**: FortressAuth class orchestrates business logic
 - **Adapters**: Implement ports for specific infrastructure (SQL, Redis, etc.)
 
