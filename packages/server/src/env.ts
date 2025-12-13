@@ -35,6 +35,10 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val ?? 'info'),
   REDIS_URL: z.string().optional(),
+  CORS_ORIGINS: z
+    .string()
+    .optional()
+    .transform((val) => (val ? val.split(',').map((v) => v.trim()).filter(Boolean) : null)),
   METRICS_ENABLED: z
     .enum(['true', 'false'])
     .optional()
