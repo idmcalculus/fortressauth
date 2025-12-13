@@ -43,6 +43,13 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((val) => (val === undefined ? true : val === 'true')),
+  EMAIL_PROVIDER: z
+    .enum(['console', 'resend'])
+    .optional()
+    .transform((val) => val ?? 'console'),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM_ADDRESS: z.string().email().optional(),
+  EMAIL_FROM_NAME: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

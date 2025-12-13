@@ -17,7 +17,7 @@ import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
 import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { env } from './env.js';
-import { ConsoleEmailProvider } from './email-provider.js';
+import { createEmailProvider } from './email-provider.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
@@ -95,7 +95,16 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
 
 // Initialize FortressAuth
 const repository = new SqlAdapter(db, { dialect });
-const emailProvider = new ConsoleEmailProvider();
+const emailProvider = createEmailProvider({
+  provider: env.EMAIL_PROVIDER,
+  resend: env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
+    ? {
+        apiKey: env.RESEND_API_KEY,
+        fromEmail: env.EMAIL_FROM_ADDRESS,
+        fromName: env.EMAIL_FROM_NAME,
+      }
+    : undefined,
+});
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
 
 const config = fortress.getConfig();

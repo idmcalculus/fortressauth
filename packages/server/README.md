@@ -9,6 +9,7 @@ Standalone HTTP server for FortressAuth with REST API and OpenAPI documentation.
 - 🔒 **Secure Defaults**: HTTPS, secure cookies, CORS configured
 - 🎯 **Type-Safe**: Built with Hono and Zod
 - 📊 **Health Checks**: Built-in health endpoint
+- 📧 **Pluggable Email**: Console (dev) or Resend (production)
 
 ## Quick Start
 
@@ -33,9 +34,65 @@ pnpm start
 ```bash
 PORT=3000                          # Server port
 HOST=0.0.0.0                       # Server host
-DATABASE_URL=./fortress.db         # SQLite database path
+DATABASE_URL=./fortress.db         # SQLite database path (or PostgreSQL URL)
+BASE_URL=http://localhost:3000     # Public URL for email links
 COOKIE_SECURE=false                # Use secure cookies (true in production)
+COOKIE_SAMESITE=strict             # Cookie SameSite attribute
 LOG_LEVEL=info                     # Logging level
+CORS_ORIGINS=                      # Comma-separated allowed origins
+
+# Email Provider Configuration
+EMAIL_PROVIDER=console             # 'console' (dev) or 'resend' (production)
+RESEND_API_KEY=                    # Required when EMAIL_PROVIDER=resend
+EMAIL_FROM_ADDRESS=                # Sender email (e.g., noreply@yourdomain.com)
+EMAIL_FROM_NAME=                   # Sender name (e.g., "My App")
+```
+
+## Email Providers
+
+FortressAuth supports pluggable email providers for maximum flexibility.
+
+### Console Provider (Default)
+
+Logs emails to console. Perfect for local development:
+
+```bash
+EMAIL_PROVIDER=console
+```
+
+### Resend Provider
+
+For production email delivery:
+
+```bash
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxx
+EMAIL_FROM_ADDRESS=noreply@yourdomain.com
+EMAIL_FROM_NAME="Your App Name"
+```
+
+**Setup steps:**
+1. Create account at [resend.com](https://resend.com)
+2. Add and verify your domain
+3. Create an API key
+4. Set the environment variables above
+
+### Custom Providers
+
+Implement the `EmailProviderPort` interface from `@fortressauth/core`:
+
+```typescript
+import type { EmailProviderPort } from '@fortressauth/core';
+
+class MyEmailProvider implements EmailProviderPort {
+  async sendVerificationEmail(email: string, verificationLink: string): Promise<void> {
+    // Your implementation
+  }
+
+  async sendPasswordResetEmail(email: string, resetLink: string): Promise<void> {
+    // Your implementation
+  }
+}
 ```
 
 ## API Endpoints
@@ -122,3 +179,4 @@ Default configuration:
 ## License
 
 MIT
+
