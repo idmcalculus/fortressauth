@@ -144,7 +144,7 @@ vite.config.ts.timestamp-*
 # Build output
 dist/
 
-# SQLite database files
+# SQLite databases
 *.db
 *.db-journal
 

@@ -14,6 +14,11 @@ services:
       - COOKIE_SECURE=false
       - LOG_LEVEL=info
       - NODE_ENV=production
+      # Email configuration (override for production)
+      - EMAIL_PROVIDER=console
+      # - RESEND_API_KEY=
+      # - EMAIL_FROM_ADDRESS=
+      # - EMAIL_FROM_NAME=
     volumes:
       - fortress-data:/data
     healthcheck:
