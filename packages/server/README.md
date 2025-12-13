@@ -4,12 +4,12 @@ Standalone HTTP server for FortressAuth with REST API and OpenAPI documentation.
 
 ## Features
 
-- 🚀 **Ready to Deploy**: Docker support included
-- 📚 **OpenAPI Documentation**: Interactive API docs with Scalar
-- 🔒 **Secure Defaults**: HTTPS, secure cookies, CORS configured
-- 🎯 **Type-Safe**: Built with Hono and Zod
-- 📊 **Health Checks**: Built-in health endpoint
-- 📧 **Pluggable Email**: Console (dev) or Resend (production)
+- Ready to Deploy: Docker support included
+- OpenAPI Documentation: Interactive API docs with Scalar
+- Secure Defaults: HTTPS, secure cookies, CORS configured
+- Type-Safe: Built with Hono and Zod
+- Health Checks: Built-in health endpoint
+- Pluggable Email: Console (dev) or Resend (production)
 
 ## Quick Start
 
@@ -179,4 +179,3 @@ Default configuration:
 ## License
 
 MIT
-

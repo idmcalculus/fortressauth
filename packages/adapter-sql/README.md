@@ -4,10 +4,10 @@ SQL database adapter for FortressAuth using Kysely query builder.
 
 ## Features
 
-- 🗄️ **Multi-Database Support**: PostgreSQL, MySQL, SQLite
-- 🔍 **Type-Safe Queries**: Powered by Kysely
-- 🔄 **Transactions**: Full transaction support
-- 📊 **Migrations**: Built-in migration system
+- Multi-Database Support: PostgreSQL, MySQL, SQLite
+- Type-Safe Queries: Powered by Kysely
+- Transactions: Full transaction support
+- Migrations: Built-in migration system
 
 ## Installation
 
@@ -30,6 +30,19 @@ npm install mysql2
 
 # For SQLite
 npm install better-sqlite3
+```
+
+## Environment Variables
+
+```bash
+# SQLite (default for development)
+DATABASE_URL=./fortress.db
+
+# PostgreSQL
+DATABASE_URL=postgresql://user:password@localhost:5432/fortressauth
+
+# MySQL
+DATABASE_URL=mysql://user:password@localhost:3306/fortressauth
 ```
 
 ## Quick Start
@@ -63,8 +76,7 @@ import { SqlAdapter, up } from '@fortressauth/adapter-sql';
 const db = new Kysely({
   dialect: new PostgresDialect({
     pool: new Pool({
-      host: 'localhost',
-      database: 'auth',
+      connectionString: process.env.DATABASE_URL,
     }),
   }),
 });
@@ -82,10 +94,7 @@ import { SqlAdapter, up } from '@fortressauth/adapter-sql';
 
 const db = new Kysely({
   dialect: new MysqlDialect({
-    pool: createPool({
-      host: 'localhost',
-      database: 'auth',
-    }),
+    pool: createPool(process.env.DATABASE_URL!),
   }),
 });
 
