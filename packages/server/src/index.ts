@@ -12,9 +12,9 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
-import IORedis from 'ioredis';
+import { default as IORedis, type Redis } from 'ioredis';
 import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
-import pg from 'pg';
+import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { env } from './env.js';
 import { ConsoleEmailProvider } from './email-provider.js';
@@ -28,14 +28,14 @@ if (env.METRICS_ENABLED) {
 }
 
 // Initialize database with proper typing and dialect
-type DatabaseContext = { db: Kysely<Database>; dialect: 'sqlite' | 'postgres'; close: () => Promise<void> | void };
+type DatabaseContext = { db: Kysely<Database>; dialect: 'sqlite' | 'postgres'; close: () => Promise<void> };
 
 function createDatabase(): DatabaseContext {
   const url = env.DATABASE_URL;
   const isPostgres = url.startsWith('postgres://') || url.startsWith('postgresql://');
 
   if (isPostgres) {
-    const pool = new pg.Pool({ connectionString: url });
+    const pool = new Pool({ connectionString: url });
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     return {
       db,
@@ -49,7 +49,9 @@ function createDatabase(): DatabaseContext {
   return {
     db,
     dialect: 'sqlite',
-    close: () => sqlite.close(),
+    close: async () => {
+      sqlite.close();
+    },
   };
 }
 
@@ -80,10 +82,10 @@ const fortressConfigInput: FortressConfigInput = {
 const resolvedConfig = FortressConfigSchema.parse(fortressConfigInput);
 
 // Initialize rate limiter
-let redisClient: IORedis | null = null;
+let redisClient: Redis | null = null;
 let rateLimiter: RateLimiterPort;
 if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
-  redisClient = new IORedis(env.REDIS_URL);
+  redisClient = new Redis(env.REDIS_URL);
   rateLimiter = new RedisRateLimiter(redisClient, {
     actions: { login: resolvedConfig.rateLimit.login },
   });
@@ -177,25 +179,44 @@ function getSameSite(): 'Strict' | 'Lax' | 'None' {
 
 // Helper to set session cookie
 function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): void {
-  setCookie(c, config.session.cookieName, token, {
+  const cookieOptions: {
+    httpOnly: true;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+    domain?: string;
+    path: string;
+    maxAge: number;
+  } = {
     httpOnly: true,
     secure: config.session.cookieSecure,
     sameSite: getSameSite(),
-    domain: config.session.cookieDomain,
     path: '/',
     maxAge: Math.floor(config.session.ttlMs / 1000),
-  });
+  };
+  if (config.session.cookieDomain) {
+    cookieOptions.domain = config.session.cookieDomain;
+  }
+  setCookie(c, config.session.cookieName, token, cookieOptions);
 }
 
 // Helper to clear session cookie
 function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
-  deleteCookie(c, config.session.cookieName, {
+  const cookieOptions: {
+    httpOnly: true;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+    domain?: string;
+    path: string;
+  } = {
     httpOnly: true,
     secure: config.session.cookieSecure,
     sameSite: getSameSite(),
-    domain: config.session.cookieDomain,
     path: '/',
-  });
+  };
+  if (config.session.cookieDomain) {
+    cookieOptions.domain = config.session.cookieDomain;
+  }
+  deleteCookie(c, config.session.cookieName, cookieOptions);
 }
 
 // Unified success response helper
@@ -399,9 +420,9 @@ export { app };
 // Graceful shutdown handler
 function gracefulShutdown(signal: string): void {
   console.log(`\n${signal} received. Shutting down gracefully...`);
-  close();
+  void close();
   if (redisClient) {
-    redisClient.quit().catch((error) => console.error('Error closing Redis', error));
+    redisClient.quit().catch((error: Error) => console.error('Error closing Redis', error));
   }
   console.log('Database connection closed.');
   process.exit(0);

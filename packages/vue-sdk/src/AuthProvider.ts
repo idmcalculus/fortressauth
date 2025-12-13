@@ -2,13 +2,11 @@ import { computed, defineComponent, h, inject, onMounted, provide, reactive, toR
 import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
 
 function resolveBaseUrl(explicit?: string): string {
-  // Prefer explicit prop, then env vars commonly exposed by Vite/Next, then localhost
   const envBaseUrl =
-    (typeof process !== 'undefined' ? process.env?.VITE_API_BASE_URL ?? process.env?.NEXT_PUBLIC_API_BASE_URL : undefined) ??
-    (typeof import.meta !== 'undefined' && typeof import.meta === 'object'
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ((import.meta as any).env?.VITE_API_BASE_URL ?? (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL)
-      : undefined);
+    typeof import.meta !== 'undefined' && typeof import.meta === 'object'
+      ? // @ts-expect-error - import.meta.env is runtime Vite feature
+        (import.meta.env?.VITE_API_BASE_URL ?? import.meta.env?.NEXT_PUBLIC_API_BASE_URL)
+      : undefined;
   return explicit ?? envBaseUrl ?? 'http://localhost:3000';
 }
 
@@ -94,14 +92,14 @@ export const AuthProvider = defineComponent<AuthProviderProps>({
       return response;
     };
 
-    const verifyEmail = async (token: string) =>
-      apiRequest(baseUrl.value, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
+    const verifyEmail = async (token: string): Promise<ApiResponse<{ verified: boolean }>> =>
+      apiRequest<{ verified: boolean }>(baseUrl.value, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
 
-    const requestPasswordReset = async (email: string) =>
-      apiRequest(baseUrl.value, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) });
+    const requestPasswordReset = async (email: string): Promise<ApiResponse<{ requested: boolean }>> =>
+      apiRequest<{ requested: boolean }>(baseUrl.value, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) });
 
-    const resetPassword = async (token: string, newPassword: string) =>
-      apiRequest(baseUrl.value, '/auth/reset-password', {
+    const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse<{ reset: boolean }>> =>
+      apiRequest<{ reset: boolean }>(baseUrl.value, '/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({ token, newPassword }),
       });

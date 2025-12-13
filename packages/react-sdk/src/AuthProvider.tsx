@@ -2,12 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
 
 function resolveBaseUrl(explicit?: string): string {
-  return (
-    explicit ??
-    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : undefined) ??
-    (typeof process !== 'undefined' ? process.env.VITE_API_BASE_URL : undefined) ??
-    'http://localhost:3000'
-  );
+  const envBaseUrl =
+    typeof import.meta !== 'undefined' && typeof import.meta === 'object'
+      ? // @ts-expect-error - import.meta.env is runtime Vite/Next feature
+        (import.meta.env?.VITE_API_BASE_URL ?? import.meta.env?.NEXT_PUBLIC_API_BASE_URL)
+      : undefined;
+  return explicit ?? envBaseUrl ?? 'http://localhost:3000';
 }
 
 async function apiRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<ApiResponse<T>> {
@@ -91,18 +91,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, baseUrl: e
   }, [baseUrl]);
 
   const verifyEmail = useCallback(
-    async (token: string) => apiRequest(baseUrl, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+    async (token: string): Promise<ApiResponse<{ verified: boolean }>> => apiRequest<{ verified: boolean }>(baseUrl, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
     [baseUrl],
   );
 
   const requestPasswordReset = useCallback(
-    async (email: string) => apiRequest(baseUrl, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+    async (email: string): Promise<ApiResponse<{ requested: boolean }>> => apiRequest<{ requested: boolean }>(baseUrl, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
     [baseUrl],
   );
 
   const resetPassword = useCallback(
-    async (token: string, newPassword: string) =>
-      apiRequest(baseUrl, '/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+    async (token: string, newPassword: string): Promise<ApiResponse<{ reset: boolean }>> =>
+      apiRequest<{ reset: boolean }>(baseUrl, '/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
     [baseUrl],
   );
 
