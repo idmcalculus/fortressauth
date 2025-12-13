@@ -12,7 +12,7 @@ export class EmailVerificationToken {
   ) {}
 
   static create(userId: string, ttlMs: number): { token: EmailVerificationToken; rawToken: string } {
-    const { selector, verifier, verifierHash, token } = generateSplitToken();
+    const { selector, verifierHash, token } = generateSplitToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMs);
 

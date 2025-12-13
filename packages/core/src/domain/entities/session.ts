@@ -19,7 +19,7 @@ export class Session {
     ipAddress?: string,
     userAgent?: string,
   ): { session: Session; rawToken: string } {
-    const { selector, verifier, verifierHash, token } = generateSplitToken();
+    const { selector, verifierHash, token } = generateSplitToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMs);
 

@@ -1,5 +1,5 @@
 import type { RateLimiterPort } from '@fortressauth/core';
-import IORedis from 'ioredis';
+import type { Redis } from 'ioredis';
 
 interface ActionConfig {
   maxTokens: number;
@@ -16,7 +16,7 @@ export class RedisRateLimiter implements RateLimiterPort {
   private readonly prefix: string;
   private readonly actions: Map<string, ActionConfig> = new Map();
 
-  constructor(private readonly redis: IORedis, options?: RedisRateLimiterOptions) {
+  constructor(private readonly redis: Redis, options?: RedisRateLimiterOptions) {
     this.prefix = options?.prefix ?? 'fortress:ratelimit';
     if (options?.actions) {
       for (const [action, config] of Object.entries(options.actions)) {
