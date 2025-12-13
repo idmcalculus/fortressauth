@@ -28,7 +28,7 @@ A secure-by-default, database-agnostic authentication library built with TypeScr
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 9+
+- pnpm 10+
 
 ### Installation
 
