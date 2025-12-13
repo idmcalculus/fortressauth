@@ -21,6 +21,31 @@ export const LoginRequestSchema = z
     description: 'Request body for user login',
   });
 
+export const VerifyEmailRequestSchema = z
+  .object({
+    token: z.string(),
+  })
+  .openapi('VerifyEmailRequest', {
+    description: 'Token delivered to user email for verification',
+  });
+
+export const RequestPasswordResetSchema = z
+  .object({
+    email: z.string().email().toLowerCase(),
+  })
+  .openapi('RequestPasswordReset', {
+    description: 'Request password reset via email',
+  });
+
+export const ResetPasswordRequestSchema = z
+  .object({
+    token: z.string(),
+    newPassword: z.string().min(8).max(128),
+  })
+  .openapi('ResetPasswordRequest', {
+    description: 'Reset password using emailed token',
+  });
+
 export const UserResponseSchema = z
   .object({
     id: z.string().uuid(),
@@ -32,13 +57,24 @@ export const UserResponseSchema = z
     description: 'User information returned in responses',
   });
 
+const UserDataSchema = z.object({ user: UserResponseSchema });
+
 export const AuthResponseSchema = z
   .object({
     success: z.literal(true),
-    user: UserResponseSchema,
+    data: UserDataSchema,
   })
   .openapi('AuthResponse', {
     description: 'Successful authentication response',
+  });
+
+export const SuccessResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z.any().optional(),
+  })
+  .openapi('SuccessResponse', {
+    description: 'Generic success response with optional data',
   });
 
 export const ErrorResponseSchema = z
@@ -52,6 +88,9 @@ export const ErrorResponseSchema = z
 
 export type SignupRequest = z.infer<typeof SignupRequestSchema>;
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
+export type VerifyEmailRequest = z.infer<typeof VerifyEmailRequestSchema>;
+export type RequestPasswordReset = z.infer<typeof RequestPasswordResetSchema>;
+export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>;
 export type UserResponse = z.infer<typeof UserResponseSchema>;
 export type AuthResponse = z.infer<typeof AuthResponseSchema>;
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;

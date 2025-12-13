@@ -3,20 +3,26 @@
 export type { OAuthProviderId, ProviderId } from './domain/entities/account.js';
 // Domain entities
 export { Account } from './domain/entities/account.js';
+export { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 export { LoginAttempt } from './domain/entities/login-attempt.js';
+export { PasswordResetToken } from './domain/entities/password-reset-token.js';
 export { Session } from './domain/entities/session.js';
 export { User } from './domain/entities/user.js';
-export type { AuthResult, SignInInput, SignUpInput } from './fortress.js';
+export type { AuthResult, ResetPasswordInput, SignInInput, SignUpInput } from './fortress.js';
 export { FortressAuth } from './fortress.js';
 
 // Ports
 export type { AuthRepository } from './ports/auth-repository.js';
+export type { EmailProviderPort } from './ports/email-provider.js';
 export type { RateLimiterPort } from './ports/rate-limiter.js';
 export type {
   AuthResponse,
   ErrorResponse,
   LoginRequest,
+  RequestPasswordReset,
+  ResetPasswordRequest,
   SignupRequest,
+  VerifyEmailRequest,
   UserResponse,
 } from './schemas/auth.js';
 // Schemas
@@ -24,7 +30,11 @@ export {
   AuthResponseSchema,
   ErrorResponseSchema,
   LoginRequestSchema,
+  RequestPasswordResetSchema,
+  ResetPasswordRequestSchema,
   SignupRequestSchema,
+  SuccessResponseSchema,
+  VerifyEmailRequestSchema,
   UserResponseSchema,
 } from './schemas/auth.js';
 export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
@@ -35,6 +45,12 @@ export { hashPassword, verifyPassword } from './security/password.js';
 export { MemoryRateLimiter } from './security/rate-limiter.js';
 export type { PasswordConfig } from './security/validation.js';
 export { validatePassword } from './security/validation.js';
+export {
+  constantTimeEqual,
+  generateSplitToken,
+  hashVerifier,
+  parseSplitToken,
+} from './security/tokens.js';
 
 // Types
 export type { AuthErrorCode } from './types/errors.js';

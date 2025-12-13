@@ -1,44 +1,24 @@
 import { uuidv7 } from 'uuidv7';
 import { constantTimeEqual, generateSplitToken, hashVerifier, parseSplitToken } from '../../security/tokens.js';
 
-export class Session {
+export class PasswordResetToken {
   private constructor(
     public readonly id: string,
     public readonly userId: string,
     public readonly selector: string,
     public readonly verifierHash: string,
     public readonly expiresAt: Date,
-    public readonly ipAddress: string | null,
-    public readonly userAgent: string | null,
     public readonly createdAt: Date,
   ) {}
 
-  static create(
-    userId: string,
-    ttlMs: number,
-    ipAddress?: string,
-    userAgent?: string,
-  ): { session: Session; rawToken: string } {
+  static create(userId: string, ttlMs: number): { token: PasswordResetToken; rawToken: string } {
     const { selector, verifier, verifierHash, token } = generateSplitToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMs);
 
-    const session = new Session(
-      uuidv7(),
-      userId,
-      selector,
-      verifierHash,
-      expiresAt,
-      ipAddress ?? null,
-      userAgent ?? null,
-      now,
-    );
+    const record = new PasswordResetToken(uuidv7(), userId, selector, verifierHash, expiresAt, now);
 
-    return { session, rawToken: token };
-  }
-
-  static hashToken(verifier: string): string {
-    return hashVerifier(verifier);
+    return { token: record, rawToken: token };
   }
 
   static rehydrate(data: {
@@ -47,18 +27,14 @@ export class Session {
     selector: string;
     verifierHash: string;
     expiresAt: Date;
-    ipAddress: string | null;
-    userAgent: string | null;
     createdAt: Date;
-  }): Session {
-    return new Session(
+  }): PasswordResetToken {
+    return new PasswordResetToken(
       data.id,
       data.userId,
       data.selector,
       data.verifierHash,
       data.expiresAt,
-      data.ipAddress,
-      data.userAgent,
       data.createdAt,
     );
   }

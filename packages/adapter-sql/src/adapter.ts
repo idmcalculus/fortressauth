@@ -1,9 +1,11 @@
 import {
   Account,
   type AuthRepository,
+  EmailVerificationToken,
   err,
   type LoginAttempt,
   ok,
+  PasswordResetToken,
   type Result,
   Session,
   User,
@@ -70,11 +72,7 @@ export class SqlAdapter implements AuthRepository {
   }
 
   async findUserById(id: string): Promise<User | null> {
-    const row = await this.db
-      .selectFrom('users')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst();
+    const row = await this.db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst();
 
     if (!row) {
       return null;
@@ -190,11 +188,20 @@ export class SqlAdapter implements AuthRepository {
       .execute();
   }
 
-  async findSessionByTokenHash(tokenHash: string): Promise<Session | null> {
+  async updateEmailAccountPassword(userId: string, passwordHash: string): Promise<void> {
+    await this.db
+      .updateTable('accounts')
+      .set({ password_hash: passwordHash })
+      .where('user_id', '=', userId)
+      .where('provider_id', '=', 'email')
+      .execute();
+  }
+
+  async findSessionBySelector(selector: string): Promise<Session | null> {
     const row = await this.db
       .selectFrom('sessions')
       .selectAll()
-      .where('token_hash', '=', tokenHash)
+      .where('selector', '=', selector)
       .executeTakeFirst();
 
     if (!row) {
@@ -204,7 +211,8 @@ export class SqlAdapter implements AuthRepository {
     return Session.rehydrate({
       id: row.id,
       userId: row.user_id,
-      tokenHash: row.token_hash,
+      selector: row.selector,
+      verifierHash: row.verifier_hash,
       expiresAt: this.parseDate(row.expires_at),
       ipAddress: row.ip_address,
       userAgent: row.user_agent,
@@ -218,7 +226,8 @@ export class SqlAdapter implements AuthRepository {
       .values({
         id: session.id,
         user_id: session.userId,
-        token_hash: session.tokenHash,
+        selector: session.selector,
+        verifier_hash: session.verifierHash,
         expires_at: this.serializeDate(session.expiresAt),
         ip_address: session.ipAddress,
         user_agent: session.userAgent,
@@ -233,6 +242,84 @@ export class SqlAdapter implements AuthRepository {
 
   async deleteSessionsByUserId(userId: string): Promise<void> {
     await this.db.deleteFrom('sessions').where('user_id', '=', userId).execute();
+  }
+
+  async createEmailVerificationToken(token: EmailVerificationToken): Promise<void> {
+    await this.db
+      .insertInto('email_verifications')
+      .values({
+        id: token.id,
+        user_id: token.userId,
+        selector: token.selector,
+        verifier_hash: token.verifierHash,
+        expires_at: this.serializeDate(token.expiresAt),
+        created_at: this.serializeDate(token.createdAt),
+      })
+      .execute();
+  }
+
+  async findEmailVerificationBySelector(selector: string): Promise<EmailVerificationToken | null> {
+    const row = await this.db
+      .selectFrom('email_verifications')
+      .selectAll()
+      .where('selector', '=', selector)
+      .executeTakeFirst();
+
+    if (!row) {
+      return null;
+    }
+
+    return EmailVerificationToken.rehydrate({
+      id: row.id,
+      userId: row.user_id,
+      selector: row.selector,
+      verifierHash: row.verifier_hash,
+      expiresAt: this.parseDate(row.expires_at),
+      createdAt: this.parseDate(row.created_at),
+    });
+  }
+
+  async deleteEmailVerification(id: string): Promise<void> {
+    await this.db.deleteFrom('email_verifications').where('id', '=', id).execute();
+  }
+
+  async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
+    await this.db
+      .insertInto('password_resets')
+      .values({
+        id: token.id,
+        user_id: token.userId,
+        selector: token.selector,
+        verifier_hash: token.verifierHash,
+        expires_at: this.serializeDate(token.expiresAt),
+        created_at: this.serializeDate(token.createdAt),
+      })
+      .execute();
+  }
+
+  async findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null> {
+    const row = await this.db
+      .selectFrom('password_resets')
+      .selectAll()
+      .where('selector', '=', selector)
+      .executeTakeFirst();
+
+    if (!row) {
+      return null;
+    }
+
+    return PasswordResetToken.rehydrate({
+      id: row.id,
+      userId: row.user_id,
+      selector: row.selector,
+      verifierHash: row.verifier_hash,
+      expiresAt: this.parseDate(row.expires_at),
+      createdAt: this.parseDate(row.created_at),
+    });
+  }
+
+  async deletePasswordReset(id: string): Promise<void> {
+    await this.db.deleteFrom('password_resets').where('id', '=', id).execute();
   }
 
   async recordLoginAttempt(attempt: LoginAttempt): Promise<void> {

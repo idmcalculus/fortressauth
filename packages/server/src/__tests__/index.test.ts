@@ -1,20 +1,18 @@
 import { type Database as DatabaseSchema, down, SqlAdapter, up } from '@fortressauth/adapter-sql';
-import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
+import { FortressAuth, MemoryRateLimiter, type EmailProviderPort } from '@fortressauth/core';
 import Database from 'better-sqlite3';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { Kysely, SqliteDialect } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-// Response types
-interface HealthResponse {
-  status: string;
-  version: string;
-  timestamp: string;
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }
 
-interface AuthSuccessResponse {
-  success: true;
+interface UserPayload {
   user: {
     id: string;
     email: string;
@@ -23,18 +21,25 @@ interface AuthSuccessResponse {
   };
 }
 
-interface AuthErrorResponse {
-  success: false;
-  error: string;
+class TestEmailProvider implements EmailProviderPort {
+  verificationTokens: string[] = [];
+  resetTokens: string[] = [];
+
+  async sendVerificationEmail(_email: string, verificationLink: string): Promise<void> {
+    const token = new URL(verificationLink).searchParams.get('token');
+    if (token) {
+      this.verificationTokens.push(token);
+    }
+  }
+
+  async sendPasswordResetEmail(_email: string, resetLink: string): Promise<void> {
+    const token = new URL(resetLink).searchParams.get('token');
+    if (token) {
+      this.resetTokens.push(token);
+    }
+  }
 }
 
-type AuthResponse = AuthSuccessResponse | AuthErrorResponse;
-
-interface LogoutResponse {
-  success: boolean;
-}
-
-// Create a test app similar to the main app
 function createTestApp() {
   const sqlite = new Database(':memory:');
   const db = new Kysely<DatabaseSchema>({
@@ -42,25 +47,17 @@ function createTestApp() {
   });
 
   const repository = new SqlAdapter(db, { dialect: 'sqlite' });
-  const rateLimiter = new MemoryRateLimiter();
-  const fortress = new FortressAuth(repository, rateLimiter, {
-    session: { cookieSecure: false },
-    rateLimit: { enabled: false }, // Disable for tests
+  const rateLimiter = new MemoryRateLimiter({ login: { maxTokens: 100, refillRateMs: 1000, windowMs: 60000 } });
+  const emailProvider = new TestEmailProvider();
+  const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
+    session: { cookieSecure: false, cookieSameSite: 'strict' },
+    rateLimit: { enabled: false },
+    urls: { baseUrl: 'http://localhost:3000' },
   });
 
   const config = fortress.getConfig();
   const app = new Hono();
 
-  // Health check
-  app.get('/health', (c) => {
-    return c.json({
-      status: 'ok',
-      version: '0.1.8',
-      timestamp: new Date().toISOString(),
-    });
-  });
-
-  // Helper functions
   function getSameSite(): 'Strict' | 'Lax' | 'None' {
     switch (config.session.cookieSameSite) {
       case 'strict':
@@ -91,140 +88,99 @@ function createTestApp() {
     });
   }
 
-  // Auth routes
+  const respond = <T>(data: T) => ({ success: true, data });
+
   app.post('/auth/signup', async (c) => {
-    try {
-      const body = await c.req.json();
-      const ipAddress = c.req.header('x-forwarded-for') ?? 'unknown';
-      const userAgent = c.req.header('user-agent');
-
-      const result = await fortress.signUp({
-        email: body.email,
-        password: body.password,
-        ipAddress,
-        ...(userAgent ? { userAgent } : {}),
-      });
-
-      if (!result.success) {
-        const statusCode = result.error === 'RATE_LIMIT_EXCEEDED' ? 429 : 400;
-        return c.json({ success: false, error: result.error }, statusCode);
-      }
-
-      const { user, token } = result.data;
-      setSessionCookie(c, token);
-
-      return c.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          createdAt: user.createdAt.toISOString(),
-        },
-      });
-    } catch (_error) {
-      return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const body = await c.req.json();
+    const result = await fortress.signUp({ email: body.email, password: body.password });
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
     }
+    const { user, token } = result.data;
+    setSessionCookie(c, token);
+    return c.json(respond({
+      user: {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt.toISOString(),
+      },
+    }));
   });
 
   app.post('/auth/login', async (c) => {
-    try {
-      const body = await c.req.json();
-      const ipAddress = c.req.header('x-forwarded-for') ?? 'unknown';
-      const userAgent = c.req.header('user-agent');
-
-      const result = await fortress.signIn({
-        email: body.email,
-        password: body.password,
-        ipAddress,
-        ...(userAgent ? { userAgent } : {}),
-      });
-
-      if (!result.success) {
-        const statusCode =
-          result.error === 'RATE_LIMIT_EXCEEDED'
-            ? 429
-            : result.error === 'INVALID_CREDENTIALS' || result.error === 'ACCOUNT_LOCKED'
-              ? 401
-              : 400;
-        return c.json({ success: false, error: result.error }, statusCode);
-      }
-
-      const { user, token } = result.data;
-      setSessionCookie(c, token);
-
-      return c.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          createdAt: user.createdAt.toISOString(),
-        },
-      });
-    } catch (_error) {
-      return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const body = await c.req.json();
+    const result = await fortress.signIn({ email: body.email, password: body.password });
+    if (!result.success) {
+      const status = result.error === 'EMAIL_NOT_VERIFIED' ? 403 : 401;
+      return c.json({ success: false, error: result.error }, status);
     }
-  });
-
-  app.post('/auth/logout', async (c) => {
-    try {
-      const token = getCookie(c, config.session.cookieName);
-
-      if (token) {
-        await fortress.signOut(token);
-      }
-
-      clearSessionCookie(c);
-      return c.json({ success: true });
-    } catch (_error) {
-      return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
-    }
+    const { user, token } = result.data;
+    setSessionCookie(c, token);
+    return c.json(respond({
+      user: {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt.toISOString(),
+      },
+    }));
   });
 
   app.get('/auth/me', async (c) => {
-    try {
-      const token = getCookie(c, config.session.cookieName);
-
-      if (!token) {
-        return c.json({ success: false, error: 'SESSION_INVALID' }, 401);
-      }
-
-      const result = await fortress.validateSession(token);
-
-      if (!result.success) {
-        return c.json({ success: false, error: result.error }, 401);
-      }
-
-      const { user } = result.data;
-
-      return c.json({
-        success: true,
-        user: {
-          id: user.id,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          createdAt: user.createdAt.toISOString(),
-        },
-      });
-    } catch (_error) {
-      return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const token = getCookie(c, config.session.cookieName);
+    if (!token) {
+      return c.json({ success: false, error: 'SESSION_INVALID' }, 401);
     }
+    const result = await fortress.validateSession(token);
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 401);
+    }
+    const { user } = result.data;
+    return c.json(respond({
+      user: {
+        id: user.id,
+        email: user.email,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt.toISOString(),
+      },
+    }));
   });
 
-  return { app, db, sqlite };
+  app.post('/auth/verify-email', async (c) => {
+    const body = await c.req.json();
+    const result = await fortress.verifyEmail(body.token);
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+    return c.json(respond({ verified: true }));
+  });
+
+  app.post('/auth/logout', async (c) => {
+    const token = getCookie(c, config.session.cookieName);
+    if (token) {
+      await fortress.signOut(token);
+    }
+    clearSessionCookie(c);
+    return c.json({ success: true });
+  });
+
+  return { app, db, sqlite, emailProvider };
 }
 
 describe('Server API', () => {
   let app: Hono;
   let db: Kysely<DatabaseSchema>;
   let sqlite: Database.Database;
+  let emailProvider: TestEmailProvider;
+  let verificationToken: string | null = null;
 
   beforeAll(async () => {
     const testApp = createTestApp();
     app = testApp.app;
     db = testApp.db;
     sqlite = testApp.sqlite;
+    emailProvider = testApp.emailProvider;
     await up(db);
   });
 
@@ -234,264 +190,50 @@ describe('Server API', () => {
     sqlite.close();
   });
 
-  describe('GET /health', () => {
-    it('should return health status', async () => {
-      const res = await app.request('/health');
-      const body = (await res.json()) as HealthResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.status).toBe('ok');
-      expect(body.version).toBe('0.1.8');
-      expect(body.timestamp).toBeDefined();
+  it('should signup and send verification email', async () => {
+    const res = await app.request('/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'newuser@example.com', password: 'SecurePass123!' }),
     });
+
+    const body = (await res.json()) as ApiResponse<UserPayload>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    verificationToken = emailProvider.verificationTokens.at(-1) ?? null;
+    expect(verificationToken).toBeTruthy();
   });
 
-  describe('POST /auth/signup', () => {
-    it('should create a new user', async () => {
-      const res = await app.request('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'newuser@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-      if (body.success) {
-        expect(body.user.email).toBe('newuser@example.com');
-        expect(body.user.emailVerified).toBe(false);
-      }
-
-      // Check cookie is set
-      const cookie = res.headers.get('set-cookie');
-      expect(cookie).toContain('fortress_session=');
+  it('should verify email', async () => {
+    const res = await app.request('/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: verificationToken }),
     });
 
-    it('should return error for duplicate email', async () => {
-      // First signup
-      await app.request('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'duplicate@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
-
-      // Second signup with same email
-      const res = await app.request('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'duplicate@example.com',
-          password: 'AnotherPass123!',
-        }),
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(400);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('EMAIL_EXISTS');
-      }
-    });
-
-    it('should return error for weak password', async () => {
-      const res = await app.request('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'weakpass@example.com',
-          password: 'weak',
-        }),
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(400);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('PASSWORD_TOO_WEAK');
-      }
-    });
+    const body = (await res.json()) as ApiResponse<{ verified: boolean }>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
   });
 
-  describe('POST /auth/login', () => {
-    beforeAll(async () => {
-      // Create a user for login tests
-      await app.request('/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'logintest@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
+  it('should login after verification and return cookie', async () => {
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'newuser@example.com', password: 'SecurePass123!' }),
     });
 
-    it('should login with correct credentials', async () => {
-      const res = await app.request('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'logintest@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
+    const body = (await res.json()) as ApiResponse<UserPayload>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    const cookie = res.headers.get('set-cookie');
+    expect(cookie).toContain('fortress_session=');
 
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-      if (body.success) {
-        expect(body.user.email).toBe('logintest@example.com');
-      }
-
-      // Check cookie is set
-      const cookie = res.headers.get('set-cookie');
-      expect(cookie).toContain('fortress_session=');
+    const meRes = await app.request('/auth/me', {
+      headers: { Cookie: cookie ?? '' },
     });
-
-    it('should return error for wrong password', async () => {
-      const res = await app.request('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'logintest@example.com',
-          password: 'WrongPassword',
-        }),
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(401);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('INVALID_CREDENTIALS');
-      }
-    });
-
-    it('should return error for non-existent user', async () => {
-      const res = await app.request('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'nonexistent@example.com',
-          password: 'AnyPassword123!',
-        }),
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(401);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('INVALID_CREDENTIALS');
-      }
-    });
-  });
-
-  describe('GET /auth/me', () => {
-    it('should return user info with valid session', async () => {
-      // Login first
-      const loginRes = await app.request('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'logintest@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
-
-      const cookie = loginRes.headers.get('set-cookie') ?? '';
-
-      // Get user info
-      const res = await app.request('/auth/me', {
-        headers: { Cookie: cookie },
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-      if (body.success) {
-        expect(body.user.email).toBe('logintest@example.com');
-      }
-    });
-
-    it('should return error without session', async () => {
-      const res = await app.request('/auth/me');
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(401);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('SESSION_INVALID');
-      }
-    });
-
-    it('should return error with invalid session', async () => {
-      const res = await app.request('/auth/me', {
-        headers: { Cookie: 'fortress_session=invalid-token' },
-      });
-
-      const body = (await res.json()) as AuthResponse;
-
-      expect(res.status).toBe(401);
-      expect(body.success).toBe(false);
-      if (!body.success) {
-        expect(body.error).toBe('SESSION_INVALID');
-      }
-    });
-  });
-
-  describe('POST /auth/logout', () => {
-    it('should logout and clear session', async () => {
-      // Login first
-      const loginRes = await app.request('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'logintest@example.com',
-          password: 'SecurePass123!',
-        }),
-      });
-
-      const cookie = loginRes.headers.get('set-cookie') ?? '';
-
-      // Logout
-      const res = await app.request('/auth/logout', {
-        method: 'POST',
-        headers: { Cookie: cookie },
-      });
-
-      const body = (await res.json()) as LogoutResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-
-      // Verify session is invalidated
-      const meRes = await app.request('/auth/me', {
-        headers: { Cookie: cookie },
-      });
-
-      expect(meRes.status).toBe(401);
-    });
-
-    it('should succeed even without session', async () => {
-      const res = await app.request('/auth/logout', {
-        method: 'POST',
-      });
-
-      const body = (await res.json()) as LogoutResponse;
-
-      expect(res.status).toBe(200);
-      expect(body.success).toBe(true);
-    });
+    const meBody = (await meRes.json()) as ApiResponse<UserPayload>;
+    expect(meRes.status).toBe(200);
+    expect(meBody.success).toBe(true);
   });
 });

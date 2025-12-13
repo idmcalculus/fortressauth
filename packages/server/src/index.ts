@@ -1,14 +1,23 @@
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
-import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
+import {
+  FortressAuth,
+  FortressConfigSchema,
+  MemoryRateLimiter,
+  type FortressConfigInput,
+  type RateLimiterPort,
+} from '@fortressauth/core';
 import Database_ from 'better-sqlite3';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
+import IORedis from 'ioredis';
 import { Kysely, SqliteDialect } from 'kysely';
 import { env } from './env.js';
+import { ConsoleEmailProvider } from './email-provider.js';
 import { generateOpenAPIDocument } from './openapi.js';
+import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
 const VERSION = '0.1.8';
 
@@ -28,14 +37,38 @@ try {
   process.exit(1);
 }
 
-// Initialize FortressAuth
-const repository = new SqlAdapter(db, { dialect: 'sqlite' });
-const rateLimiter = new MemoryRateLimiter();
-const fortress = new FortressAuth(repository, rateLimiter, {
+const fortressConfigInput: FortressConfigInput = {
   session: {
     cookieSecure: env.COOKIE_SECURE,
+    cookieSameSite: env.COOKIE_SAMESITE,
+    cookieDomain: env.COOKIE_DOMAIN,
   },
-});
+  rateLimit: {
+    backend: env.REDIS_URL ? 'redis' : 'memory',
+  },
+  urls: {
+    baseUrl: env.BASE_URL,
+  },
+};
+
+const resolvedConfig = FortressConfigSchema.parse(fortressConfigInput);
+
+// Initialize rate limiter
+let redisClient: IORedis | null = null;
+let rateLimiter: RateLimiterPort;
+if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
+  redisClient = new IORedis(env.REDIS_URL);
+  rateLimiter = new RedisRateLimiter(redisClient, {
+    actions: { login: resolvedConfig.rateLimit.login },
+  });
+} else {
+  rateLimiter = new MemoryRateLimiter({ login: resolvedConfig.rateLimit.login });
+}
+
+// Initialize FortressAuth
+const repository = new SqlAdapter(db, { dialect: 'sqlite' });
+const emailProvider = new ConsoleEmailProvider();
+const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
 
 const config = fortress.getConfig();
 
@@ -48,15 +81,23 @@ app.use('*', secureHeaders());
 app.use(
   '*',
   cors({
-    // When credentials are true, origin cannot be '*' per CORS spec
-    // In production, this should be configured via environment variable
     origin: env.COOKIE_SECURE ? (origin) => origin : '*',
-    credentials: env.COOKIE_SECURE,
+    credentials: true,
   }),
 );
 
 // Health check
-app.get('/health', (c) => {
+app.get('/health', async (c) => {
+  try {
+    await db.selectFrom('users').select(db.fn.countAll().as('count')).executeTakeFirst();
+    if (redisClient) {
+      await redisClient.ping();
+    }
+  } catch (error) {
+    console.error('Health check error', error);
+    return c.json({ status: 'degraded', version: VERSION, timestamp: new Date().toISOString() }, 500);
+  }
+
   return c.json({
     status: 'ok',
     version: VERSION,
@@ -104,6 +145,7 @@ function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): vo
     httpOnly: true,
     secure: config.session.cookieSecure,
     sameSite: getSameSite(),
+    domain: config.session.cookieDomain,
     path: '/',
     maxAge: Math.floor(config.session.ttlMs / 1000),
   });
@@ -115,8 +157,14 @@ function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
     httpOnly: true,
     secure: config.session.cookieSecure,
     sameSite: getSameSite(),
+    domain: config.session.cookieDomain,
     path: '/',
   });
+}
+
+// Unified success response helper
+function success<T>(data: T) {
+  return { success: true, data };
 }
 
 // Auth routes
@@ -141,15 +189,16 @@ app.post('/auth/signup', async (c) => {
     const { user, token } = result.data;
     setSessionCookie(c, token);
 
-    return c.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    });
+    return c.json(
+      success({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   } catch (error) {
     console.error('Signup error:', error);
     return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
@@ -175,22 +224,25 @@ app.post('/auth/login', async (c) => {
           ? 429
           : result.error === 'INVALID_CREDENTIALS' || result.error === 'ACCOUNT_LOCKED'
             ? 401
-            : 400;
+            : result.error === 'EMAIL_NOT_VERIFIED'
+              ? 403
+              : 400;
       return c.json({ success: false, error: result.error }, statusCode);
     }
 
     const { user, token } = result.data;
     setSessionCookie(c, token);
 
-    return c.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    });
+    return c.json(
+      success({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   } catch (error) {
     console.error('Login error:', error);
     return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
@@ -229,18 +281,78 @@ app.get('/auth/me', async (c) => {
 
     const { user } = result.data;
 
-    // Consistent response format with success wrapper
-    return c.json({
-      success: true,
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    });
+    return c.json(
+      success({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   } catch (error) {
     console.error('Me error:', error);
+    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+app.post('/auth/verify-email', async (c) => {
+  try {
+    const body = await c.req.json();
+    const result = await fortress.verifyEmail(body.token);
+
+    if (!result.success) {
+      const status =
+        result.error === 'EMAIL_VERIFICATION_EXPIRED'
+          ? 410
+          : result.error === 'EMAIL_VERIFICATION_INVALID'
+            ? 400
+            : 400;
+      return c.json({ success: false, error: result.error }, status);
+    }
+
+    return c.json(success({ verified: true }));
+  } catch (error) {
+    console.error('Verify email error:', error);
+    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+app.post('/auth/request-password-reset', async (c) => {
+  try {
+    const body = await c.req.json();
+    const result = await fortress.requestPasswordReset(body.email);
+
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+
+    return c.json(success({ requested: true }));
+  } catch (error) {
+    console.error('Request password reset error:', error);
+    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+  }
+});
+
+app.post('/auth/reset-password', async (c) => {
+  try {
+    const body = await c.req.json();
+    const result = await fortress.resetPassword({ token: body.token, newPassword: body.newPassword });
+
+    if (!result.success) {
+      const status =
+        result.error === 'PASSWORD_RESET_EXPIRED'
+          ? 410
+          : result.error === 'PASSWORD_TOO_WEAK'
+            ? 400
+            : 400;
+      return c.json({ success: false, error: result.error }, status);
+    }
+
+    return c.json(success({ reset: true }));
+  } catch (error) {
+    console.error('Reset password error:', error);
     return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
   }
 });
@@ -252,6 +364,9 @@ export { app };
 function gracefulShutdown(signal: string): void {
   console.log(`\n${signal} received. Shutting down gracefully...`);
   sqlite.close();
+  if (redisClient) {
+    redisClient.quit().catch((error) => console.error('Error closing Redis', error));
+  }
   console.log('Database connection closed.');
   process.exit(0);
 }

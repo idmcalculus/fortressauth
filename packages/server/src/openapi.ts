@@ -3,8 +3,12 @@ import {
   AuthResponseSchema,
   ErrorResponseSchema,
   LoginRequestSchema,
+  RequestPasswordResetSchema,
+  ResetPasswordRequestSchema,
   SignupRequestSchema,
+  SuccessResponseSchema,
   UserResponseSchema,
+  VerifyEmailRequestSchema,
 } from '@fortressauth/core';
 import type { OpenAPIObject } from 'openapi3-ts/oas31';
 import { z } from 'zod';
@@ -14,9 +18,13 @@ const registry = new OpenAPIRegistry();
 // Register component schemas
 registry.register('SignupRequest', SignupRequestSchema);
 registry.register('LoginRequest', LoginRequestSchema);
+registry.register('VerifyEmailRequest', VerifyEmailRequestSchema);
+registry.register('RequestPasswordReset', RequestPasswordResetSchema);
+registry.register('ResetPasswordRequest', ResetPasswordRequestSchema);
 registry.register('UserResponse', UserResponseSchema);
 registry.register('AuthResponse', AuthResponseSchema);
 registry.register('ErrorResponse', ErrorResponseSchema);
+registry.register('SuccessResponse', SuccessResponseSchema);
 
 // Health response schema
 const HealthResponseSchema = z
@@ -28,15 +36,6 @@ const HealthResponseSchema = z
   .openapi('HealthResponse');
 
 registry.register('HealthResponse', HealthResponseSchema);
-
-// Success response schema
-const SuccessResponseSchema = z
-  .object({
-    success: z.literal(true),
-  })
-  .openapi('SuccessResponse');
-
-registry.register('SuccessResponse', SuccessResponseSchema);
 
 // Register health endpoint
 registry.registerPath({
@@ -123,6 +122,14 @@ registry.registerPath({
         },
       },
     },
+    403: {
+      description: 'Email not verified',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
   },
 });
 
@@ -155,12 +162,109 @@ registry.registerPath({
       description: 'Current user information',
       content: {
         'application/json': {
-          schema: UserResponseSchema,
+          schema: AuthResponseSchema,
         },
       },
     },
     401: {
       description: 'Not authenticated or session expired',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register verify email endpoint
+registry.registerPath({
+  method: 'post',
+  path: '/auth/verify-email',
+  tags: ['Authentication'],
+  summary: 'Verify user email using emailed token',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: VerifyEmailRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Email verified',
+      content: {
+        'application/json': {
+          schema: SuccessResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid token',
+      content: {
+        'application/json': {
+          schema: ErrorResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register request password reset endpoint
+registry.registerPath({
+  method: 'post',
+  path: '/auth/request-password-reset',
+  tags: ['Authentication'],
+  summary: 'Request password reset email',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: RequestPasswordResetSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Password reset requested',
+      content: {
+        'application/json': {
+          schema: SuccessResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Register reset password endpoint
+registry.registerPath({
+  method: 'post',
+  path: '/auth/reset-password',
+  tags: ['Authentication'],
+  summary: 'Reset password using reset token',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: ResetPasswordRequestSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Password reset successfully',
+      content: {
+        'application/json': {
+          schema: SuccessResponseSchema,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid token or weak password',
       content: {
         'application/json': {
           schema: ErrorResponseSchema,

@@ -1,0 +1,136 @@
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
+
+function resolveBaseUrl(explicit?: string): string {
+  return (
+    explicit ??
+    (typeof process !== 'undefined' ? process.env.NEXT_PUBLIC_API_BASE_URL : undefined) ??
+    (typeof process !== 'undefined' ? process.env.VITE_API_BASE_URL : undefined) ??
+    'http://localhost:3000'
+  );
+}
+
+async function apiRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  });
+  const data = (await res.json()) as ApiResponse<T>;
+  return data;
+}
+
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children, baseUrl: explicitBaseUrl }) => {
+  const baseUrl = useMemo(() => resolveBaseUrl(explicitBaseUrl), [explicitBaseUrl]);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshUser = useCallback(async () => {
+    setLoading(true);
+    const response = await apiRequest<{ user: User }>(baseUrl, '/auth/me');
+    if (response.success && response.data) {
+      setUser(response.data.user);
+      setError(null);
+    } else {
+      setUser(null);
+      setError(response.error ?? null);
+    }
+    setLoading(false);
+  }, [baseUrl]);
+
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
+
+  const signUp = useCallback(
+    async (email: string, password: string) => {
+      const response = await apiRequest<{ user: User }>(baseUrl, '/auth/signup', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        setError(null);
+      } else {
+        setError(response.error ?? 'UNKNOWN_ERROR');
+      }
+      return response;
+    },
+    [baseUrl],
+  );
+
+  const signIn = useCallback(
+    async (email: string, password: string) => {
+      const response = await apiRequest<{ user: User }>(baseUrl, '/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        setError(null);
+      } else {
+        setError(response.error ?? 'UNKNOWN_ERROR');
+      }
+      return response;
+    },
+    [baseUrl],
+  );
+
+  const signOut = useCallback(async () => {
+    const response = await apiRequest(baseUrl, '/auth/logout', { method: 'POST' });
+    if (response.success) {
+      setUser(null);
+    }
+    return response;
+  }, [baseUrl]);
+
+  const verifyEmail = useCallback(
+    async (token: string) => apiRequest(baseUrl, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+    [baseUrl],
+  );
+
+  const requestPasswordReset = useCallback(
+    async (email: string) => apiRequest(baseUrl, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+    [baseUrl],
+  );
+
+  const resetPassword = useCallback(
+    async (token: string, newPassword: string) =>
+      apiRequest(baseUrl, '/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+    [baseUrl],
+  );
+
+  const value: AuthContextValue = {
+    user,
+    loading,
+    error,
+    signUp,
+    signIn,
+    signOut,
+    verifyEmail,
+    requestPasswordReset,
+    resetPassword,
+    refreshUser,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return ctx;
+}
+
+export function useUser(): { user: User | null; loading: boolean; error: string | null } {
+  const ctx = useAuth();
+  return { user: ctx.user, loading: ctx.loading, error: ctx.error };
+}

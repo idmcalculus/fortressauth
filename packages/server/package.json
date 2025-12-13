@@ -19,6 +19,7 @@
     "@fortressauth/adapter-sql": "workspace:*",
     "@fortressauth/core": "workspace:*",
     "@hono/node-server": "^1.19.6",
+    "ioredis": "^5.4.1",
     "better-sqlite3": "^12.5.0",
     "hono": "^4.10.7",
     "kysely": "^0.28.8",

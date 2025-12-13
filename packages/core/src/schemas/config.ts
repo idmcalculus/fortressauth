@@ -8,7 +8,8 @@ const SESSION_DEFAULTS = {
   ttlMs: 7 * 24 * 60 * 60 * 1000, // 7 days
   cookieName: 'fortress_session',
   cookieSecure: true,
-  cookieSameSite: 'lax' as const,
+  cookieSameSite: 'strict' as const,
+  cookieDomain: undefined as string | undefined,
 };
 
 const PASSWORD_DEFAULTS = {
@@ -24,6 +25,7 @@ const RATE_LIMIT_LOGIN_DEFAULTS = {
 
 const RATE_LIMIT_DEFAULTS = {
   enabled: true,
+  backend: 'memory' as const,
   login: RATE_LIMIT_LOGIN_DEFAULTS,
 };
 
@@ -33,18 +35,32 @@ const LOCKOUT_DEFAULTS = {
   lockoutDurationMs: 15 * 60 * 1000, // 15 minutes
 };
 
+const EMAIL_VERIFICATION_DEFAULTS = {
+  ttlMs: 24 * 60 * 60 * 1000, // 24 hours
+};
+
+const PASSWORD_RESET_DEFAULTS = {
+  ttlMs: 60 * 60 * 1000, // 1 hour
+};
+
+const URL_DEFAULTS = {
+  baseUrl: 'http://localhost:3000',
+};
+
 const SessionConfigSchema = z
   .object({
     ttlMs: z.number().positive().optional(),
     cookieName: z.string().optional(),
     cookieSecure: z.boolean().optional(),
     cookieSameSite: z.enum(['strict', 'lax', 'none']).optional(),
+    cookieDomain: z.string().optional(),
   })
   .transform((val) => ({
     ttlMs: val.ttlMs ?? SESSION_DEFAULTS.ttlMs,
     cookieName: val.cookieName ?? SESSION_DEFAULTS.cookieName,
     cookieSecure: val.cookieSecure ?? SESSION_DEFAULTS.cookieSecure,
     cookieSameSite: val.cookieSameSite ?? SESSION_DEFAULTS.cookieSameSite,
+    cookieDomain: val.cookieDomain ?? SESSION_DEFAULTS.cookieDomain,
   }))
   .openapi('SessionConfig');
 
@@ -75,10 +91,12 @@ const RateLimitLoginConfigSchema = z
 const RateLimitConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
+    backend: z.enum(['memory', 'redis']).optional(),
     login: RateLimitLoginConfigSchema.optional(),
   })
   .transform((val) => ({
     enabled: val.enabled ?? RATE_LIMIT_DEFAULTS.enabled,
+    backend: val.backend ?? RATE_LIMIT_DEFAULTS.backend,
     login: val.login ?? RATE_LIMIT_DEFAULTS.login,
   }))
   .openapi('RateLimitConfig');
@@ -96,18 +114,51 @@ const LockoutConfigSchema = z
   }))
   .openapi('LockoutConfig');
 
+const EmailVerificationConfigSchema = z
+  .object({
+    ttlMs: z.number().positive().optional(),
+  })
+  .transform((val) => ({
+    ttlMs: val.ttlMs ?? EMAIL_VERIFICATION_DEFAULTS.ttlMs,
+  }))
+  .openapi('EmailVerificationConfig');
+
+const PasswordResetConfigSchema = z
+  .object({
+    ttlMs: z.number().positive().optional(),
+  })
+  .transform((val) => ({
+    ttlMs: val.ttlMs ?? PASSWORD_RESET_DEFAULTS.ttlMs,
+  }))
+  .openapi('PasswordResetConfig');
+
+const UrlConfigSchema = z
+  .object({
+    baseUrl: z.string().url().optional(),
+  })
+  .transform((val) => ({
+    baseUrl: val.baseUrl ?? URL_DEFAULTS.baseUrl,
+  }))
+  .openapi('UrlConfig');
+
 export const FortressConfigSchema = z
   .object({
     session: SessionConfigSchema.optional(),
     password: PasswordConfigSchema.optional(),
     rateLimit: RateLimitConfigSchema.optional(),
     lockout: LockoutConfigSchema.optional(),
+    emailVerification: EmailVerificationConfigSchema.optional(),
+    passwordReset: PasswordResetConfigSchema.optional(),
+    urls: UrlConfigSchema.optional(),
   })
   .transform((val) => ({
     session: val.session ?? SESSION_DEFAULTS,
     password: val.password ?? PASSWORD_DEFAULTS,
     rateLimit: val.rateLimit ?? RATE_LIMIT_DEFAULTS,
     lockout: val.lockout ?? LOCKOUT_DEFAULTS,
+    emailVerification: val.emailVerification ?? EMAIL_VERIFICATION_DEFAULTS,
+    passwordReset: val.passwordReset ?? PASSWORD_RESET_DEFAULTS,
+    urls: val.urls ?? URL_DEFAULTS,
   }))
   .openapi('FortressConfig');
 

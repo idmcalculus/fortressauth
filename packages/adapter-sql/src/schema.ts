@@ -21,7 +21,8 @@ export interface AccountsTable {
 export interface SessionsTable {
   id: string;
   user_id: string;
-  token_hash: string;
+  selector: string;
+  verifier_hash: string;
   expires_at: ColumnType<Date, Date | string, Date | string>;
   ip_address: string | null;
   user_agent: string | null;
@@ -37,9 +38,29 @@ export interface LoginAttemptsTable {
   created_at: ColumnType<Date, Date | string, Date | string>;
 }
 
+export interface EmailVerificationsTable {
+  id: string;
+  user_id: string;
+  selector: string;
+  verifier_hash: string;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+  created_at: ColumnType<Date, Date | string, Date | string>;
+}
+
+export interface PasswordResetsTable {
+  id: string;
+  user_id: string;
+  selector: string;
+  verifier_hash: string;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+  created_at: ColumnType<Date, Date | string, Date | string>;
+}
+
 export interface Database {
   users: UsersTable;
   accounts: AccountsTable;
   sessions: SessionsTable;
   login_attempts: LoginAttemptsTable;
+  email_verifications: EmailVerificationsTable;
+  password_resets: PasswordResetsTable;
 }
