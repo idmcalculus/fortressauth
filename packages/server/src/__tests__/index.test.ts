@@ -156,6 +156,24 @@ function createTestApp() {
     return c.json(respond({ verified: true }));
   });
 
+  app.post('/auth/request-password-reset', async (c) => {
+    const body = await c.req.json();
+    const result = await fortress.requestPasswordReset(body.email);
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+    return c.json(respond({ requested: true }));
+  });
+
+  app.post('/auth/reset-password', async (c) => {
+    const body = await c.req.json();
+    const result = await fortress.resetPassword({ token: body.token, newPassword: body.newPassword });
+    if (!result.success) {
+      return c.json({ success: false, error: result.error }, 400);
+    }
+    return c.json(respond({ reset: true }));
+  });
+
   app.post('/auth/logout', async (c) => {
     const token = getCookie(c, config.session.cookieName);
     if (token) {
@@ -174,6 +192,7 @@ describe('Server API', () => {
   let sqlite: Database.Database;
   let emailProvider: TestEmailProvider;
   let verificationToken: string | null = null;
+  let resetToken: string | null = null;
 
   beforeAll(async () => {
     const testApp = createTestApp();
@@ -235,5 +254,41 @@ describe('Server API', () => {
     const meBody = (await meRes.json()) as ApiResponse<UserPayload>;
     expect(meRes.status).toBe(200);
     expect(meBody.success).toBe(true);
+  });
+
+  it('should request password reset and capture token', async () => {
+    const res = await app.request('/auth/request-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'newuser@example.com' }),
+    });
+
+    const body = (await res.json()) as ApiResponse<{ requested: boolean }>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    resetToken = emailProvider.resetTokens.at(-1) ?? null;
+    expect(resetToken).toBeTruthy();
+  });
+
+  it('should reset password and allow login with new password', async () => {
+    const res = await app.request('/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, newPassword: 'NewStrongPass!234' }),
+    });
+
+    const body = (await res.json()) as ApiResponse<{ reset: boolean }>;
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+
+    const loginRes = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'newuser@example.com', password: 'NewStrongPass!234' }),
+    });
+
+    const loginBody = (await loginRes.json()) as ApiResponse<UserPayload>;
+    expect(loginRes.status).toBe(200);
+    expect(loginBody.success).toBe(true);
   });
 });

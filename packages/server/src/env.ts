@@ -35,6 +35,10 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val ?? 'info'),
   REDIS_URL: z.string().optional(),
+  METRICS_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => (val === undefined ? true : val === 'true')),
 });
 
 export const env = envSchema.parse(process.env);

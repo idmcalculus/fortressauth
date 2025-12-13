@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "allowImportingTsExtensions": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}

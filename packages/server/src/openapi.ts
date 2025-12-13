@@ -55,6 +55,23 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: 'get',
+  path: '/metrics',
+  tags: ['System'],
+  summary: 'Prometheus metrics',
+  responses: {
+    200: {
+      description: 'Prometheus metrics in text format',
+      content: {
+        'text/plain': {
+          schema: z.string(),
+        },
+      },
+    },
+  },
+});
+
 // Register signup endpoint
 registry.registerPath({
   method: 'post',

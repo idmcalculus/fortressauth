@@ -52,6 +52,16 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Publish @fortressauth/react-sdk
+        run: cd packages/react-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/vue-sdk
+        run: cd packages/vue-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
   # Build Docker images per architecture on native runners.  A matrix strategy assigns
   # each build to a runner that matches the target architecture: amd64 runs on `ubuntu-latest`,
   # arm64 runs on `ubuntu-24.04-arm`.
