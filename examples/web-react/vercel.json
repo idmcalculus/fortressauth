@@ -1,0 +1,8 @@
+{
+  "framework": "vite",
+  "buildCommand": "pnpm install --frozen-lockfile && pnpm run build",
+  "outputDirectory": "dist",
+  "environmentVariables": {
+    "VITE_API_BASE_URL": "https://your-api.example.com"
+  }
+}

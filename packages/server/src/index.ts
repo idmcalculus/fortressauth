@@ -13,7 +13,9 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import IORedis from 'ioredis';
-import { Kysely, SqliteDialect } from 'kysely';
+import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
+import pg from 'pg';
+import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { env } from './env.js';
 import { ConsoleEmailProvider } from './email-provider.js';
 import { generateOpenAPIDocument } from './openapi.js';
@@ -21,13 +23,37 @@ import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
 const VERSION = '0.1.8';
 
-// Initialize database with proper typing
-const sqlite = new Database_(env.DATABASE_URL);
-const db = new Kysely<Database>({
-  dialect: new SqliteDialect({
-    database: sqlite,
-  }),
-});
+if (env.METRICS_ENABLED) {
+  collectDefaultMetrics({ register: metricsRegistry, prefix: 'fortress_' });
+}
+
+// Initialize database with proper typing and dialect
+type DatabaseContext = { db: Kysely<Database>; dialect: 'sqlite' | 'postgres'; close: () => Promise<void> | void };
+
+function createDatabase(): DatabaseContext {
+  const url = env.DATABASE_URL;
+  const isPostgres = url.startsWith('postgres://') || url.startsWith('postgresql://');
+
+  if (isPostgres) {
+    const pool = new pg.Pool({ connectionString: url });
+    const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
+    return {
+      db,
+      dialect: 'postgres',
+      close: () => pool.end(),
+    };
+  }
+
+  const sqlite = new Database_(url);
+  const db = new Kysely<Database>({ dialect: new SqliteDialect({ database: sqlite }) });
+  return {
+    db,
+    dialect: 'sqlite',
+    close: () => sqlite.close(),
+  };
+}
+
+const { db, dialect, close } = createDatabase();
 
 // Run migrations with error handling
 try {
@@ -66,7 +92,7 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
 }
 
 // Initialize FortressAuth
-const repository = new SqlAdapter(db, { dialect: 'sqlite' });
+const repository = new SqlAdapter(db, { dialect });
 const emailProvider = new ConsoleEmailProvider();
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
 
@@ -104,6 +130,16 @@ app.get('/health', async (c) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// Prometheus metrics
+if (env.METRICS_ENABLED) {
+  app.get('/metrics', async (c) => {
+    const body = await metricsRegistry.metrics();
+    return c.body(body, 200, {
+      'Content-Type': metricsRegistry.contentType,
+    });
+  });
+}
 
 // OpenAPI spec
 app.get('/openapi.json', (c) => {
@@ -363,7 +399,7 @@ export { app };
 // Graceful shutdown handler
 function gracefulShutdown(signal: string): void {
   console.log(`\n${signal} received. Shutting down gracefully...`);
-  sqlite.close();
+  close();
   if (redisClient) {
     redisClient.quit().catch((error) => console.error('Error closing Redis', error));
   }

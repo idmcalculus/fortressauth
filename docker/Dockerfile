@@ -73,6 +73,10 @@ COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packag
 RUN mkdir -p /data && chown fortress:fortress /data
 
 ENV DATABASE_URL="/data/fortress.db"
+ENV REDIS_URL=""
+ENV BASE_URL="http://localhost:3000"
+ENV COOKIE_SECURE=false
+ENV COOKIE_SAMESITE=strict
 ENV PORT=3000
 ENV HOST=0.0.0.0
 
