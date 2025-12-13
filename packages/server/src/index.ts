@@ -12,7 +12,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
-import { default as IORedis, type Redis } from 'ioredis';
+import { Redis } from 'ioredis';
 import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
 import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
