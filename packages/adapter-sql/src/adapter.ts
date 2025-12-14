@@ -72,7 +72,11 @@ export class SqlAdapter implements AuthRepository {
   }
 
   async findUserById(id: string): Promise<User | null> {
-    const row = await this.db.selectFrom('users').selectAll().where('id', '=', id).executeTakeFirst();
+    const row = await this.db
+      .selectFrom('users')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
 
     if (!row) {
       return null;

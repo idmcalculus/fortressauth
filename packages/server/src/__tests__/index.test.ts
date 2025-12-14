@@ -1,5 +1,5 @@
 import { type Database as DatabaseSchema, down, SqlAdapter, up } from '@fortressauth/adapter-sql';
-import { FortressAuth, MemoryRateLimiter, type EmailProviderPort } from '@fortressauth/core';
+import { type EmailProviderPort, FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import Database from 'better-sqlite3';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -47,7 +47,9 @@ function createTestApp() {
   });
 
   const repository = new SqlAdapter(db, { dialect: 'sqlite' });
-  const rateLimiter = new MemoryRateLimiter({ login: { maxTokens: 100, refillRateMs: 1000, windowMs: 60000 } });
+  const rateLimiter = new MemoryRateLimiter({
+    login: { maxTokens: 100, refillRateMs: 1000, windowMs: 60000 },
+  });
   const emailProvider = new TestEmailProvider();
   const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
     session: { cookieSecure: false, cookieSameSite: 'strict' },
@@ -98,14 +100,16 @@ function createTestApp() {
     }
     const { user, token } = result.data;
     setSessionCookie(c, token);
-    return c.json(respond({
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    }));
+    return c.json(
+      respond({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   });
 
   app.post('/auth/login', async (c) => {
@@ -117,14 +121,16 @@ function createTestApp() {
     }
     const { user, token } = result.data;
     setSessionCookie(c, token);
-    return c.json(respond({
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    }));
+    return c.json(
+      respond({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   });
 
   app.get('/auth/me', async (c) => {
@@ -137,14 +143,16 @@ function createTestApp() {
       return c.json({ success: false, error: result.error }, 401);
     }
     const { user } = result.data;
-    return c.json(respond({
-      user: {
-        id: user.id,
-        email: user.email,
-        emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-      },
-    }));
+    return c.json(
+      respond({
+        user: {
+          id: user.id,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          createdAt: user.createdAt.toISOString(),
+        },
+      }),
+    );
   });
 
   app.post('/auth/verify-email', async (c) => {
@@ -167,7 +175,10 @@ function createTestApp() {
 
   app.post('/auth/reset-password', async (c) => {
     const body = await c.req.json();
-    const result = await fortress.resetPassword({ token: body.token, newPassword: body.newPassword });
+    const result = await fortress.resetPassword({
+      token: body.token,
+      newPassword: body.newPassword,
+    });
     if (!result.success) {
       return c.json({ success: false, error: result.error }, 400);
     }

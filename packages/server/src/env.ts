@@ -38,7 +38,14 @@ const envSchema = z.object({
   CORS_ORIGINS: z
     .string()
     .optional()
-    .transform((val) => (val ? val.split(',').map((v) => v.trim()).filter(Boolean) : null)),
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : null,
+    ),
   METRICS_ENABLED: z
     .enum(['true', 'false'])
     .optional()

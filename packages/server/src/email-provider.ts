@@ -83,7 +83,7 @@ export function createEmailProvider(config: EmailProviderConfig): EmailProviderP
         throw new Error('Resend configuration is required when using resend provider');
       }
       return new ResendEmailProvider(config.resend);
-    case 'console':
+
     default:
       return new ConsoleEmailProvider();
   }

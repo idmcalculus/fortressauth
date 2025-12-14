@@ -10,7 +10,11 @@ function resolveBaseUrl(explicit?: string): string {
   return explicit ?? envBaseUrl ?? 'http://localhost:3000';
 }
 
-async function apiRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+async function apiRequest<T>(
+  baseUrl: string,
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResponse<T>> {
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
     credentials: 'include',
@@ -35,9 +39,11 @@ export const AuthProvider = defineComponent<AuthProviderProps>({
   },
   setup(props, { slots }) {
     const baseUrl = computed(() => resolveBaseUrl(props.baseUrl));
-    const state = reactive<{ user: User | null; loading: boolean; error: string | null }>(
-      { user: null, loading: true, error: null },
-    );
+    const state = reactive<{ user: User | null; loading: boolean; error: string | null }>({
+      user: null,
+      loading: true,
+      error: null,
+    });
 
     const refreshUser = async () => {
       state.loading = true;
@@ -93,12 +99,23 @@ export const AuthProvider = defineComponent<AuthProviderProps>({
     };
 
     const verifyEmail = async (token: string): Promise<ApiResponse<{ verified: boolean }>> =>
-      apiRequest<{ verified: boolean }>(baseUrl.value, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) });
+      apiRequest<{ verified: boolean }>(baseUrl.value, '/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      });
 
-    const requestPasswordReset = async (email: string): Promise<ApiResponse<{ requested: boolean }>> =>
-      apiRequest<{ requested: boolean }>(baseUrl.value, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) });
+    const requestPasswordReset = async (
+      email: string,
+    ): Promise<ApiResponse<{ requested: boolean }>> =>
+      apiRequest<{ requested: boolean }>(baseUrl.value, '/auth/request-password-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      });
 
-    const resetPassword = async (token: string, newPassword: string): Promise<ApiResponse<{ reset: boolean }>> =>
+    const resetPassword = async (
+      token: string,
+      newPassword: string,
+    ): Promise<ApiResponse<{ reset: boolean }>> =>
       apiRequest<{ reset: boolean }>(baseUrl.value, '/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({ token, newPassword }),
@@ -131,7 +148,11 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
-export function useUser(): { user: AuthContextValue['user']; loading: AuthContextValue['loading']; error: AuthContextValue['error'] } {
+export function useUser(): {
+  user: AuthContextValue['user'];
+  loading: AuthContextValue['loading'];
+  error: AuthContextValue['error'];
+} {
   const ctx = useAuth();
   return {
     user: ctx.user,

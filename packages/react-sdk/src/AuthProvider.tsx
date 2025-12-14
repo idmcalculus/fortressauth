@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import type React from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
 
 function resolveBaseUrl(explicit?: string): string {
@@ -10,7 +11,11 @@ function resolveBaseUrl(explicit?: string): string {
   return explicit ?? envBaseUrl ?? 'http://localhost:3000';
 }
 
-async function apiRequest<T>(baseUrl: string, path: string, init?: RequestInit): Promise<ApiResponse<T>> {
+async function apiRequest<T>(
+  baseUrl: string,
+  path: string,
+  init?: RequestInit,
+): Promise<ApiResponse<T>> {
   const res = await fetch(`${baseUrl}${path}`, {
     ...init,
     credentials: 'include',
@@ -25,7 +30,10 @@ async function apiRequest<T>(baseUrl: string, path: string, init?: RequestInit):
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children, baseUrl: explicitBaseUrl }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({
+  children,
+  baseUrl: explicitBaseUrl,
+}) => {
   const baseUrl = useMemo(() => resolveBaseUrl(explicitBaseUrl), [explicitBaseUrl]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,18 +99,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children, baseUrl: e
   }, [baseUrl]);
 
   const verifyEmail = useCallback(
-    async (token: string): Promise<ApiResponse<{ verified: boolean }>> => apiRequest<{ verified: boolean }>(baseUrl, '/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) }),
+    async (token: string): Promise<ApiResponse<{ verified: boolean }>> =>
+      apiRequest<{ verified: boolean }>(baseUrl, '/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
     [baseUrl],
   );
 
   const requestPasswordReset = useCallback(
-    async (email: string): Promise<ApiResponse<{ requested: boolean }>> => apiRequest<{ requested: boolean }>(baseUrl, '/auth/request-password-reset', { method: 'POST', body: JSON.stringify({ email }) }),
+    async (email: string): Promise<ApiResponse<{ requested: boolean }>> =>
+      apiRequest<{ requested: boolean }>(baseUrl, '/auth/request-password-reset', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
     [baseUrl],
   );
 
   const resetPassword = useCallback(
     async (token: string, newPassword: string): Promise<ApiResponse<{ reset: boolean }>> =>
-      apiRequest<{ reset: boolean }>(baseUrl, '/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, newPassword }) }),
+      apiRequest<{ reset: boolean }>(baseUrl, '/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ token, newPassword }),
+      }),
     [baseUrl],
   );
 

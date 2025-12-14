@@ -23,7 +23,9 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .createTable('accounts')
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.notNull().references('users.id').onDelete('cascade'))
+      .addColumn('user_id', 'text', (col) =>
+        col.notNull().references('users.id').onDelete('cascade'),
+      )
       .addColumn('provider_id', 'text', (col) => col.notNull())
       .addColumn('provider_user_id', 'text', (col) => col.notNull())
       .addColumn('password_hash', 'text')
@@ -42,7 +44,8 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
   );
 
   await safeExecute(
-    db.schema.createIndex('accounts_user_id_idx')
+    db.schema
+      .createIndex('accounts_user_id_idx')
       .ifNotExists()
       .on('accounts')
       .column('user_id')
@@ -54,7 +57,9 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .createTable('sessions')
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.notNull().references('users.id').onDelete('cascade'))
+      .addColumn('user_id', 'text', (col) =>
+        col.notNull().references('users.id').onDelete('cascade'),
+      )
       .addColumn('token_hash', 'text', (col) => col.notNull().unique())
       .addColumn('expires_at', 'timestamp', (col) => col.notNull())
       .addColumn('ip_address', 'text')
@@ -66,7 +71,8 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
   // Note: token_hash already has a unique constraint which creates an implicit index
 
   await safeExecute(
-    db.schema.createIndex('sessions_user_id_idx')
+    db.schema
+      .createIndex('sessions_user_id_idx')
       .ifNotExists()
       .on('sessions')
       .column('user_id')

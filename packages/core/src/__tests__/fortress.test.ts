@@ -145,7 +145,10 @@ describe('FortressAuth', () => {
       vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
       vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
 
-      const result = await fortress.signIn({ email: 'test@example.com', password: 'SecurePass123!' });
+      const result = await fortress.signIn({
+        email: 'test@example.com',
+        password: 'SecurePass123!',
+      });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -161,7 +164,10 @@ describe('FortressAuth', () => {
       vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
       vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
 
-      const result = await fortress.signIn({ email: 'test@example.com', password: 'SecurePass123!' });
+      const result = await fortress.signIn({
+        email: 'test@example.com',
+        password: 'SecurePass123!',
+      });
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -238,7 +244,10 @@ describe('FortressAuth', () => {
       vi.mocked(repository.findUserById).mockResolvedValue(user);
       vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
 
-      const result = await fortress.resetPassword({ token: rawToken, newPassword: 'NewPassword123!' });
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+      });
 
       expect(result.success).toBe(true);
       expect(repository.updateEmailAccountPassword).toHaveBeenCalled();
