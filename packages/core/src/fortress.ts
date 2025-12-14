@@ -89,10 +89,8 @@ export class FortressAuth {
       input.ipAddress,
       input.userAgent,
     );
-    const { token: verificationToken, rawToken: rawVerificationToken } = EmailVerificationToken.create(
-      user.id,
-      this.config.emailVerification.ttlMs,
-    );
+    const { token: verificationToken, rawToken: rawVerificationToken } =
+      EmailVerificationToken.create(user.id, this.config.emailVerification.ttlMs);
 
     const result = await this.repository.transaction(async (repo) => {
       const createUserResult = await repo.createUser(user);
@@ -184,7 +182,9 @@ export class FortressAuth {
     }
 
     if (!user.emailVerified) {
-      await this.repository.recordLoginAttempt(LoginAttempt.create(email, ipAddress, false, user.id));
+      await this.repository.recordLoginAttempt(
+        LoginAttempt.create(email, ipAddress, false, user.id),
+      );
       return err('EMAIL_NOT_VERIFIED');
     }
 
@@ -288,10 +288,7 @@ export class FortressAuth {
       return ok(undefined);
     }
 
-    const { token, rawToken } = PasswordResetToken.create(
-      user.id,
-      this.config.passwordReset.ttlMs,
-    );
+    const { token, rawToken } = PasswordResetToken.create(user.id, this.config.passwordReset.ttlMs);
 
     await this.repository.createPasswordResetToken(token);
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import { SqlAdapter, up } from '@fortressauth/adapter-sql';
+import { FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import Database from 'better-sqlite3';
 import { Kysely, SqliteDialect } from 'kysely';
 
@@ -41,7 +41,7 @@ async function main() {
     email: user.email,
     emailVerified: user.emailVerified,
   });
-  console.log('🔑 Session token:', token.substring(0, 20) + '...');
+  console.log('🔑 Session token:', `${token.substring(0, 20)}...`);
 
   // Example 2: Validate session
   console.log('\n🔍 Validating session...');
@@ -67,7 +67,7 @@ async function main() {
   }
 
   console.log('✅ Signed in successfully');
-  console.log('🔑 New session token:', signinResult.data.token.substring(0, 20) + '...');
+  console.log('🔑 New session token:', `${signinResult.data.token.substring(0, 20)}...`);
 
   // Example 4: Failed login attempt
   console.log('\n❌ Attempting login with wrong password...');

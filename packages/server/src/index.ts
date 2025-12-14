@@ -1,9 +1,9 @@
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import {
   FortressAuth,
+  type FortressConfigInput,
   FortressConfigSchema,
   MemoryRateLimiter,
-  type FortressConfigInput,
   type RateLimiterPort,
 } from '@fortressauth/core';
 import Database_ from 'better-sqlite3';
@@ -16,8 +16,8 @@ import { Redis } from 'ioredis';
 import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
 import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
-import { env } from './env.js';
 import { createEmailProvider } from './email-provider.js';
+import { env } from './env.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
@@ -28,7 +28,11 @@ if (env.METRICS_ENABLED) {
 }
 
 // Initialize database with proper typing and dialect
-type DatabaseContext = { db: Kysely<Database>; dialect: 'sqlite' | 'postgres'; close: () => Promise<void> };
+type DatabaseContext = {
+  db: Kysely<Database>;
+  dialect: 'sqlite' | 'postgres';
+  close: () => Promise<void>;
+};
 
 function createDatabase(): DatabaseContext {
   const url = env.DATABASE_URL;
@@ -97,13 +101,14 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
 const repository = new SqlAdapter(db, { dialect });
 const emailProvider = createEmailProvider({
   provider: env.EMAIL_PROVIDER,
-  resend: env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
-    ? {
-        apiKey: env.RESEND_API_KEY,
-        fromEmail: env.EMAIL_FROM_ADDRESS,
-        fromName: env.EMAIL_FROM_NAME,
-      }
-    : undefined,
+  resend:
+    env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
+      ? {
+          apiKey: env.RESEND_API_KEY,
+          fromEmail: env.EMAIL_FROM_ADDRESS,
+          fromName: env.EMAIL_FROM_NAME,
+        }
+      : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
 
@@ -143,7 +148,10 @@ app.get('/health', async (c) => {
     }
   } catch (error) {
     console.error('Health check error', error);
-    return c.json({ status: 'degraded', version: VERSION, timestamp: new Date().toISOString() }, 500);
+    return c.json(
+      { status: 'degraded', version: VERSION, timestamp: new Date().toISOString() },
+      500,
+    );
   }
 
   return c.json({
@@ -415,7 +423,10 @@ app.post('/auth/request-password-reset', async (c) => {
 app.post('/auth/reset-password', async (c) => {
   try {
     const body = await c.req.json();
-    const result = await fortress.resetPassword({ token: body.token, newPassword: body.newPassword });
+    const result = await fortress.resetPassword({
+      token: body.token,
+      newPassword: body.newPassword,
+    });
 
     if (!result.success) {
       const status =

@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
 import { useAuth, useUser } from '@fortressauth/react-sdk';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 type Credentials = { email: string; password: string };
 
@@ -22,39 +23,51 @@ export default function App() {
     const token = params.get('token');
     if (token) {
       setVerifyToken(token);
-      void handleVerify(token);
+      void verifyEmail(token).then((res) => {
+        setMessage(
+          res.success
+            ? 'Email verified. You can now sign in.'
+            : (res.error ?? 'Verification failed'),
+        );
+      });
     }
-  }, []);
+  }, [verifyEmail]);
 
   const handleVerify = async (tokenValue?: string) => {
     const token = tokenValue ?? verifyToken;
     if (!token) return;
     const res = await verifyEmail(token);
-    setMessage(res.success ? 'Email verified. You can now sign in.' : res.error ?? 'Verification failed');
+    setMessage(
+      res.success ? 'Email verified. You can now sign in.' : (res.error ?? 'Verification failed'),
+    );
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await signUp(signup.email, signup.password);
-    setMessage(res.success ? 'Signed up. Check your email for verification.' : res.error ?? 'Sign up failed');
+    setMessage(
+      res.success
+        ? 'Signed up. Check your email for verification.'
+        : (res.error ?? 'Sign up failed'),
+    );
   };
 
   const handleSignin = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await signIn(signin.email, signin.password);
-    setMessage(res.success ? 'Signed in.' : res.error ?? 'Sign in failed');
+    setMessage(res.success ? 'Signed in.' : (res.error ?? 'Sign in failed'));
   };
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await requestPasswordReset(resetEmail);
-    setMessage(res.success ? 'Password reset email sent.' : res.error ?? 'Request failed');
+    setMessage(res.success ? 'Password reset email sent.' : (res.error ?? 'Request failed'));
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     const res = await resetPassword(resetToken, newPassword);
-    setMessage(res.success ? 'Password reset. You can sign in.' : res.error ?? 'Reset failed');
+    setMessage(res.success ? 'Password reset. You can sign in.' : (res.error ?? 'Reset failed'));
   };
 
   return (
@@ -72,10 +85,16 @@ export default function App() {
         ) : user ? (
           <div>
             <p>
-              Signed in as <strong>{user.email}</strong> ({user.emailVerified ? 'verified' : 'unverified'})
+              Signed in as <strong>{user.email}</strong> (
+              {user.emailVerified ? 'verified' : 'unverified'})
             </p>
             <p className="muted">User ID: {user.id}</p>
-            <button onClick={() => void signOut().then(() => setMessage('Signed out.'))}>Sign out</button>
+            <button
+              type="button"
+              onClick={() => void signOut().then(() => setMessage('Signed out.'))}
+            >
+              Sign out
+            </button>
           </div>
         ) : (
           <p className="muted">Not signed in.</p>

@@ -16,7 +16,10 @@ export class RedisRateLimiter implements RateLimiterPort {
   private readonly prefix: string;
   private readonly actions: Map<string, ActionConfig> = new Map();
 
-  constructor(private readonly redis: Redis, options?: RedisRateLimiterOptions) {
+  constructor(
+    private readonly redis: Redis,
+    options?: RedisRateLimiterOptions,
+  ) {
     this.prefix = options?.prefix ?? 'fortress:ratelimit';
     if (options?.actions) {
       for (const [action, config] of Object.entries(options.actions)) {
@@ -35,7 +38,10 @@ export class RedisRateLimiter implements RateLimiterPort {
     return `${this.prefix}:${action}:${identifier}`;
   }
 
-  private async refill(key: string, config: ActionConfig): Promise<{ tokens: number; lastRefill: number }> {
+  private async refill(
+    key: string,
+    config: ActionConfig,
+  ): Promise<{ tokens: number; lastRefill: number }> {
     const now = Date.now();
     const [tokensStr, lastRefillStr] = await this.redis.hmget(key, 'tokens', 'lastRefill');
     let tokens = tokensStr ? Number(tokensStr) : config.maxTokens;

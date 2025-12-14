@@ -1,6 +1,6 @@
+import { AuthProvider } from '@fortressauth/react-sdk';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { AuthProvider } from '@fortressauth/react-sdk';
 import App from './App.js';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
 import { useAuth, useUser } from '@fortressauth/vue-sdk';
+import { onMounted, reactive, ref } from 'vue';
 
 type Credentials = { email: string; password: string };
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const { user, loading, error } = useUser();
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
 
 const signup = reactive<Credentials>({ email: '', password: '' });
@@ -28,27 +30,35 @@ async function handleVerify(tokenValue?: string) {
   const token = tokenValue ?? verifyToken.value;
   if (!token) return;
   const res = await verifyEmail(token);
-  message.value = res.success ? 'Email verified. You can now sign in.' : res.error ?? 'Verification failed';
+  message.value = res.success
+    ? 'Email verified. You can now sign in.'
+    : (res.error ?? 'Verification failed');
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleSignup() {
   const res = await signUp(signup.email, signup.password);
-  message.value = res.success ? 'Signed up. Check your email for verification.' : res.error ?? 'Sign up failed';
+  message.value = res.success
+    ? 'Signed up. Check your email for verification.'
+    : (res.error ?? 'Sign up failed');
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleSignin() {
   const res = await signIn(signin.email, signin.password);
-  message.value = res.success ? 'Signed in.' : res.error ?? 'Sign in failed';
+  message.value = res.success ? 'Signed in.' : (res.error ?? 'Sign in failed');
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleRequestReset() {
   const res = await requestPasswordReset(resetEmail.value);
-  message.value = res.success ? 'Password reset email sent.' : res.error ?? 'Request failed';
+  message.value = res.success ? 'Password reset email sent.' : (res.error ?? 'Request failed');
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleResetPassword() {
   const res = await resetPassword(resetToken.value, newPassword.value);
-  message.value = res.success ? 'Password reset. You can sign in.' : res.error ?? 'Reset failed';
+  message.value = res.success ? 'Password reset. You can sign in.' : (res.error ?? 'Reset failed');
 }
 </script>
 

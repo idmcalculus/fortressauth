@@ -1,5 +1,10 @@
 import { uuidv7 } from 'uuidv7';
-import { constantTimeEqual, generateSplitToken, hashVerifier, parseSplitToken } from '../../security/tokens.js';
+import {
+  constantTimeEqual,
+  generateSplitToken,
+  hashVerifier,
+  parseSplitToken,
+} from '../../security/tokens.js';
 
 export class PasswordResetToken {
   private constructor(

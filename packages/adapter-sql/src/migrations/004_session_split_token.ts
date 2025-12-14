@@ -10,7 +10,9 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .createTable('sessions')
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.notNull().references('users.id').onDelete('cascade'))
+      .addColumn('user_id', 'text', (col) =>
+        col.notNull().references('users.id').onDelete('cascade'),
+      )
       .addColumn('selector', 'text', (col) => col.notNull().unique())
       .addColumn('verifier_hash', 'text', (col) => col.notNull())
       .addColumn('expires_at', 'timestamp', (col) => col.notNull())

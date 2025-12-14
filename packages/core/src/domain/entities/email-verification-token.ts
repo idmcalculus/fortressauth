@@ -1,5 +1,10 @@
 import { uuidv7 } from 'uuidv7';
-import { constantTimeEqual, generateSplitToken, hashVerifier, parseSplitToken } from '../../security/tokens.js';
+import {
+  constantTimeEqual,
+  generateSplitToken,
+  hashVerifier,
+  parseSplitToken,
+} from '../../security/tokens.js';
 
 export class EmailVerificationToken {
   private constructor(
@@ -11,12 +16,22 @@ export class EmailVerificationToken {
     public readonly createdAt: Date,
   ) {}
 
-  static create(userId: string, ttlMs: number): { token: EmailVerificationToken; rawToken: string } {
+  static create(
+    userId: string,
+    ttlMs: number,
+  ): { token: EmailVerificationToken; rawToken: string } {
     const { selector, verifierHash, token } = generateSplitToken();
     const now = new Date();
     const expiresAt = new Date(now.getTime() + ttlMs);
 
-    const record = new EmailVerificationToken(uuidv7(), userId, selector, verifierHash, expiresAt, now);
+    const record = new EmailVerificationToken(
+      uuidv7(),
+      userId,
+      selector,
+      verifierHash,
+      expiresAt,
+      now,
+    );
 
     return { token: record, rawToken: token };
   }

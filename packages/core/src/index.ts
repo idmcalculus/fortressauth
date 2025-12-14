@@ -22,8 +22,8 @@ export type {
   RequestPasswordReset,
   ResetPasswordRequest,
   SignupRequest,
-  VerifyEmailRequest,
   UserResponse,
+  VerifyEmailRequest,
 } from './schemas/auth.js';
 // Schemas
 export {
@@ -34,8 +34,8 @@ export {
   ResetPasswordRequestSchema,
   SignupRequestSchema,
   SuccessResponseSchema,
-  VerifyEmailRequestSchema,
   UserResponseSchema,
+  VerifyEmailRequestSchema,
 } from './schemas/auth.js';
 export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 export { FortressConfigSchema } from './schemas/config.js';
@@ -43,14 +43,14 @@ export { FortressConfigSchema } from './schemas/config.js';
 // Security utilities
 export { hashPassword, verifyPassword } from './security/password.js';
 export { MemoryRateLimiter } from './security/rate-limiter.js';
-export type { PasswordConfig } from './security/validation.js';
-export { validatePassword } from './security/validation.js';
 export {
   constantTimeEqual,
   generateSplitToken,
   hashVerifier,
   parseSplitToken,
 } from './security/tokens.js';
+export type { PasswordConfig } from './security/validation.js';
+export { validatePassword } from './security/validation.js';
 
 // Types
 export type { AuthErrorCode } from './types/errors.js';
