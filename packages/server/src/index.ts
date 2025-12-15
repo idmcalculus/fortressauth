@@ -21,7 +21,7 @@ import { env } from './env.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
-const VERSION = '0.1.8';
+const VERSION = '0.1.9';
 
 if (env.METRICS_ENABLED) {
   collectDefaultMetrics({ register: metricsRegistry, prefix: 'fortress_' });
@@ -104,10 +104,10 @@ const emailProvider = createEmailProvider({
   resend:
     env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
       ? {
-          apiKey: env.RESEND_API_KEY,
-          fromEmail: env.EMAIL_FROM_ADDRESS,
-          fromName: env.EMAIL_FROM_NAME,
-        }
+        apiKey: env.RESEND_API_KEY,
+        fromEmail: env.EMAIL_FROM_ADDRESS,
+        fromName: env.EMAIL_FROM_NAME,
+      }
       : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);

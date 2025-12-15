@@ -159,11 +159,13 @@ describe('Auth schemas', () => {
     it('should validate valid auth response', () => {
       const result = AuthResponseSchema.safeParse({
         success: true,
-        user: {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          email: 'test@example.com',
-          emailVerified: false,
-          createdAt: '2024-01-15T10:00:00.000Z',
+        data: {
+          user: {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            email: 'test@example.com',
+            emailVerified: false,
+            createdAt: '2024-01-15T10:00:00.000Z',
+          },
         },
       });
 
@@ -173,11 +175,13 @@ describe('Auth schemas', () => {
     it('should reject success: false', () => {
       const result = AuthResponseSchema.safeParse({
         success: false,
-        user: {
-          id: '550e8400-e29b-41d4-a716-446655440000',
-          email: 'test@example.com',
-          emailVerified: false,
-          createdAt: '2024-01-15T10:00:00.000Z',
+        data: {
+          user: {
+            id: '550e8400-e29b-41d4-a716-446655440000',
+            email: 'test@example.com',
+            emailVerified: false,
+            createdAt: '2024-01-15T10:00:00.000Z',
+          },
         },
       });
 
