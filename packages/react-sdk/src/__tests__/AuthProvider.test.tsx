@@ -9,7 +9,7 @@ global.fetch = mockFetch;
 
 function createWrapper(baseUrl?: string) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <AuthProvider baseUrl={baseUrl}>{children}</AuthProvider>;
+    return <AuthProvider {...(baseUrl ? { baseUrl } : {})}>{children}</AuthProvider>;
   };
 }
 
