@@ -9,7 +9,7 @@ describe('FortressConfigSchema', () => {
       expect(config.session.ttlMs).toBe(7 * 24 * 60 * 60 * 1000);
       expect(config.session.cookieName).toBe('fortress_session');
       expect(config.session.cookieSecure).toBe(true);
-      expect(config.session.cookieSameSite).toBe('lax');
+      expect(config.session.cookieSameSite).toBe('strict');
 
       expect(config.password.minLength).toBe(8);
       expect(config.password.maxLength).toBe(128);

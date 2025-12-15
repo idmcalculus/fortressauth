@@ -6,6 +6,8 @@ describe('Environment configuration', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    // Set required BASE_URL for all tests
+    process.env.BASE_URL = 'http://localhost:3000';
   });
 
   afterEach(() => {

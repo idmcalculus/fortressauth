@@ -127,6 +127,17 @@ describe('FortressAuth', () => {
         expect(result.error).toBe('EMAIL_EXISTS');
       }
     });
+
+    it('should fail if password is too weak', async () => {
+      const result = await fortress.signUp({
+        email: 'test@example.com',
+        password: 'weak',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_TOO_WEAK');
+      }
+    });
   });
 
   describe('signIn()', () => {
@@ -174,6 +185,41 @@ describe('FortressAuth', () => {
         expect(result.error).toBe('EMAIL_NOT_VERIFIED');
       }
     });
+
+    it('should fail if account not found for user', async () => {
+      const user = User.create('test@example.com');
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
+      vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(null);
+
+      const result = await fortress.signIn({
+        email: 'test@example.com',
+        password: 'SecurePass123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('INVALID_CREDENTIALS');
+      }
+    });
+
+    it('should fail if rate limit exceeded', async () => {
+      vi.mocked(rateLimiter.check).mockResolvedValue({
+        allowed: false,
+        remaining: 0,
+        resetAt: new Date(),
+        retryAfterMs: 1000
+      });
+
+      const result = await fortress.signIn({
+        email: 'test@example.com',
+        password: 'password',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('RATE_LIMIT_EXCEEDED');
+      }
+    });
   });
 
   describe('validateSession()', () => {
@@ -191,6 +237,45 @@ describe('FortressAuth', () => {
     it('should reject invalid token format', async () => {
       const result = await fortress.validateSession('invalid');
       expect(result.success).toBe(false);
+    });
+
+    it('should return session invalid if user not found', async () => {
+      const user = User.create('test@example.com');
+      const { session, rawToken } = Session.create(user.id, 3600000);
+      vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);
+      vi.mocked(repository.findUserById).mockResolvedValue(null);
+
+      const result = await fortress.validateSession(rawToken);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_INVALID');
+      }
+    });
+
+    it('should return session expired if expired', async () => {
+      const user = User.create('test@example.com');
+      const { session, rawToken } = Session.create(user.id, -1000); // Expired
+      vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);
+
+      const result = await fortress.validateSession(rawToken);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_EXPIRED');
+      }
+    });
+
+    it('should return session invalid if verifier mismatch', async () => {
+      const user = User.create('test@example.com');
+      const { session, rawToken } = Session.create(user.id, 3600000);
+      const wrongToken = `${session.selector}:wrongVerifier`;
+
+      vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);
+
+      const result = await fortress.validateSession(wrongToken);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_INVALID');
+      }
     });
   });
 
@@ -217,7 +302,74 @@ describe('FortressAuth', () => {
 
       expect(result.success).toBe(true);
       expect(repository.updateUser).toHaveBeenCalled();
+      expect(repository.updateUser).toHaveBeenCalled();
       expect(repository.deleteEmailVerification).toHaveBeenCalled();
+    });
+
+    it('should fail if email token is expired', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = EmailVerificationToken.create(user.id, -1000); // Expired
+
+      vi.mocked(repository.findEmailVerificationBySelector).mockResolvedValue(token);
+
+      const result = await fortress.verifyEmail(rawToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('EMAIL_VERIFICATION_EXPIRED');
+      }
+    });
+
+    it('should fail if email token verifier mismatch', async () => {
+      const user = User.create('test@example.com');
+      const { token } = EmailVerificationToken.create(user.id, 3600000);
+      const wrongToken = `${token.selector}:wrongVerifier`;
+
+      vi.mocked(repository.findEmailVerificationBySelector).mockResolvedValue(token);
+
+      const result = await fortress.verifyEmail(wrongToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('EMAIL_VERIFICATION_INVALID');
+      }
+    });
+
+    it('should fail if token format is invalid', async () => {
+      const result = await fortress.verifyEmail('invalid-format');
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('EMAIL_VERIFICATION_INVALID');
+      }
+    });
+
+    it('should fail if token not found', async () => {
+      const user = User.create('test@example.com');
+      const { rawToken } = EmailVerificationToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findEmailVerificationBySelector).mockResolvedValue(null);
+
+      const result = await fortress.verifyEmail(rawToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('EMAIL_VERIFICATION_INVALID');
+      }
+    });
+
+    it('should fail if user not found during verification', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = EmailVerificationToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findEmailVerificationBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(null);
+
+      const result = await fortress.verifyEmail(rawToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('EMAIL_VERIFICATION_INVALID');
+      }
     });
   });
 
@@ -232,9 +384,46 @@ describe('FortressAuth', () => {
       expect(repository.createPasswordResetToken).toHaveBeenCalled();
       expect(emailProvider.sendPasswordResetEmail).toHaveBeenCalled();
     });
+
+    it('should return success but do nothing if user does not exist', async () => {
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(null);
+
+      const result = await fortress.requestPasswordReset('nonexistent@example.com');
+
+      expect(result.success).toBe(true);
+      expect(repository.createPasswordResetToken).not.toHaveBeenCalled();
+      expect(emailProvider.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
   });
 
   describe('resetPassword()', () => {
+    it('should reject invalid token format', async () => {
+      const result = await fortress.resetPassword({
+        token: 'invalid-format',
+        newPassword: 'NewPassword123!',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_INVALID');
+      }
+    });
+
+    it('should fail if token not found', async () => {
+      const user = User.create('test@example.com');
+      const { rawToken } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(null); // Not found
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_INVALID');
+      }
+    });
     it('resets password with valid token', async () => {
       const user = User.create('test@example.com');
       const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
@@ -252,6 +441,106 @@ describe('FortressAuth', () => {
       expect(result.success).toBe(true);
       expect(repository.updateEmailAccountPassword).toHaveBeenCalled();
       expect(repository.deleteSessionsByUserId).toHaveBeenCalledWith(user.id);
+    });
+
+    it('should fail if account not found', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+      vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(null);
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_INVALID');
+      }
+    });
+
+    it('should fail if user not found during reset', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(null);
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_INVALID');
+      }
+    });
+
+    it('should fail if new password is too weak', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'weak',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_TOO_WEAK');
+      }
+    });
+
+    it('should fail if token is expired', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, -1000); // Expired
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_EXPIRED');
+      }
+    });
+
+    it('should fail if token verifier does not match', async () => {
+      const user = User.create('test@example.com');
+      const { token } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+
+      // Construct a token with the SAME selector but DIFFERENT verifier
+      const wrongVerifier = 'wrong-verifier';
+      const wrongToken = `${token.selector}:${wrongVerifier}`;
+
+      const result = await fortress.resetPassword({
+        token: wrongToken,
+        newPassword: 'NewPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_RESET_INVALID');
+      }
+    });
+  });
+
+  describe('getConfig()', () => {
+    it('should return configuration', () => {
+      const config = fortress.getConfig();
+      expect(config.urls.baseUrl).toBe('http://localhost:3000');
     });
   });
 });
