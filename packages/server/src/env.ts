@@ -41,9 +41,9 @@ const envSchema = z.object({
     .transform((val) =>
       val
         ? val
-            .split(',')
-            .map((v) => v.trim())
-            .filter(Boolean)
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean)
         : null,
     ),
   METRICS_ENABLED: z
@@ -54,9 +54,9 @@ const envSchema = z.object({
     .enum(['console', 'resend'])
     .optional()
     .transform((val) => val ?? 'console'),
-  RESEND_API_KEY: z.string().optional(),
-  EMAIL_FROM_ADDRESS: z.string().email().optional(),
-  EMAIL_FROM_NAME: z.string().optional(),
+  RESEND_API_KEY: z.string().optional().transform((val) => val || undefined),
+  EMAIL_FROM_ADDRESS: z.email().optional().or(z.literal('')).transform((val) => val || undefined),
+  EMAIL_FROM_NAME: z.string().optional().transform((val) => val || undefined),
 });
 
 export const env = envSchema.parse(process.env);

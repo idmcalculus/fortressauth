@@ -81,9 +81,7 @@ ENV PORT=3000
 ENV HOST=0.0.0.0
 # Email provider defaults (console for dev, override with resend for prod)
 ENV EMAIL_PROVIDER="console"
-ENV RESEND_API_KEY=""
-ENV EMAIL_FROM_ADDRESS=""
-ENV EMAIL_FROM_NAME=""
+# Note: RESEND_API_KEY, EMAIL_FROM_ADDRESS, EMAIL_FROM_NAME should be provided at runtime
 
 USER fortress
 
