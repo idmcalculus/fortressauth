@@ -207,7 +207,7 @@ describe('FortressAuth', () => {
         allowed: false,
         remaining: 0,
         resetAt: new Date(),
-        retryAfterMs: 1000
+        retryAfterMs: 1000,
       });
 
       const result = await fortress.signIn({
@@ -266,7 +266,7 @@ describe('FortressAuth', () => {
 
     it('should return session invalid if verifier mismatch', async () => {
       const user = User.create('test@example.com');
-      const { session, rawToken } = Session.create(user.id, 3600000);
+      const { session } = Session.create(user.id, 3600000);
       const wrongToken = `${session.selector}:wrongVerifier`;
 
       vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);

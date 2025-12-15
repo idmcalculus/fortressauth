@@ -104,10 +104,10 @@ const emailProvider = createEmailProvider({
   resend:
     env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
       ? {
-        apiKey: env.RESEND_API_KEY,
-        fromEmail: env.EMAIL_FROM_ADDRESS,
-        fromName: env.EMAIL_FROM_NAME,
-      }
+          apiKey: env.RESEND_API_KEY,
+          fromEmail: env.EMAIL_FROM_ADDRESS,
+          fromName: env.EMAIL_FROM_NAME,
+        }
       : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
