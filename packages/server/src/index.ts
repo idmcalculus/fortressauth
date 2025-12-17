@@ -104,10 +104,10 @@ const emailProvider = createEmailProvider({
   resend:
     env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
       ? {
-          apiKey: env.RESEND_API_KEY,
-          fromEmail: env.EMAIL_FROM_ADDRESS,
-          fromName: env.EMAIL_FROM_NAME,
-        }
+        apiKey: env.RESEND_API_KEY,
+        fromEmail: env.EMAIL_FROM_ADDRESS,
+        fromName: env.EMAIL_FROM_NAME,
+      }
       : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
@@ -119,9 +119,17 @@ const app = new Hono();
 
 // Middleware
 app.use('*', logger());
-app.use('*', secureHeaders());
+// Configure security headers - allow iframe embedding for docs from localhost
+app.use('*', secureHeaders({
+  xFrameOptions: false, // Disable X-Frame-Options to allow embedding in iframe
+  contentSecurityPolicy: {
+    frameAncestors: ["'self'", 'http://localhost:*', 'http://0.0.0.0:*'],
+  },
+}));
 const allowedOrigins = env.CORS_ORIGINS ?? [
   new URL(env.BASE_URL).origin,
+  'http://localhost:3000',
+  'http://localhost:3001',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://0.0.0.0:5173',
@@ -459,6 +467,37 @@ function gracefulShutdown(signal: string): void {
   process.exit(0);
 }
 
+// Utility to check if a port is available
+async function isPortAvailable(port: number, hostname: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    import('node:net').then(({ createServer }) => {
+      const server = createServer();
+      server.once('error', () => resolve(false));
+      server.once('listening', () => {
+        server.close();
+        resolve(true);
+      });
+      server.listen(port, hostname);
+    });
+  });
+}
+
+// Find an available port starting from the given port
+async function findAvailablePort(startPort: number, hostname: string): Promise<number> {
+  let port = startPort;
+  const maxAttempts = 10;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    if (await isPortAvailable(port, hostname)) {
+      return port;
+    }
+    console.log(`⚠ Port ${port} is in use, trying ${port + 1}...`);
+    port++;
+  }
+
+  throw new Error(`Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`);
+}
+
 // Start server if running as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Register shutdown handlers
@@ -467,17 +506,26 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`🚀 FortressAuth server v${VERSION} starting...`);
   console.log(`📊 Database: ${env.DATABASE_URL}`);
-  console.log(`🌐 Server: http://${env.HOST}:${env.PORT}`);
-  console.log(`📖 API Docs: http://${env.HOST}:${env.PORT}/docs`);
 
-  const server = { port: env.PORT, hostname: env.HOST } as const;
+  // Find available port
+  findAvailablePort(env.PORT, env.HOST).then((availablePort) => {
+    if (availablePort !== env.PORT) {
+      console.log(`⚠ Port ${env.PORT} is in use by another process, using available port ${availablePort} instead.`);
+    }
 
-  // Use @hono/node-server for Node.js runtime
-  import('@hono/node-server').then(({ serve }) => {
-    serve({
-      fetch: app.fetch,
-      port: server.port,
-      hostname: server.hostname,
+    console.log(`🌐 Server: http://${env.HOST}:${availablePort}`);
+    console.log(`📖 API Docs: http://${env.HOST}:${availablePort}/docs`);
+
+    // Use @hono/node-server for Node.js runtime
+    import('@hono/node-server').then(({ serve }) => {
+      serve({
+        fetch: app.fetch,
+        port: availablePort,
+        hostname: env.HOST,
+      });
     });
+  }).catch((error) => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
   });
 }

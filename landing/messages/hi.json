@@ -1,0 +1,98 @@
+{
+  "nav": {
+    "features": "Features",
+    "docs": "Documentation",
+    "examples": "Examples",
+    "pricing": "Pricing",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "Secure-by-Default Authentication",
+    "description": "A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.",
+    "getStarted": "Get Started",
+    "viewDocs": "View Documentation",
+    "tryDemo": "Try Demo"
+  },
+  "features": {
+    "title": "Built for Security & Flexibility",
+    "secureByDefault": {
+      "title": "Secure by Default",
+      "description": "Argon2id password hashing with OWASP-recommended parameters, split session tokens, and timing-attack prevention"
+    },
+    "databaseAgnostic": {
+      "title": "Database Agnostic",
+      "description": "Works seamlessly with PostgreSQL, MySQL, and SQLite via Kysely query builder"
+    },
+    "emailAgnostic": {
+      "title": "Email Provider Agnostic",
+      "description": "Pluggable email providers - console for development, Resend for production, or bring your own"
+    },
+    "productionReady": {
+      "title": "Production Ready",
+      "description": "Email verification, password reset, rate limiting (memory/Redis), account lockout, and session management"
+    },
+    "openApiDocs": {
+      "title": "OpenAPI Documentation",
+      "description": "Auto-generated API documentation with interactive Scalar UI for easy integration"
+    },
+    "dockerReady": {
+      "title": "Docker Ready",
+      "description": "Multi-stage Dockerfile with security best practices and Docker Compose configuration"
+    },
+    "sdks": {
+      "title": "React & Vue SDKs",
+      "description": "Cookie-aware authentication flows with React hooks and Vue composables for seamless integration"
+    },
+    "hexagonal": {
+      "title": "Hexagonal Architecture",
+      "description": "Clean separation between business logic and infrastructure with zero dependencies in core"
+    }
+  },
+  "code": {
+    "title": "Simple Integration",
+    "description": "Get started with just a few lines of code",
+    "installation": "Installation",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "Copy",
+    "copied": "Copied!"
+  },
+  "demo": {
+    "title": "Try It Live",
+    "description": "Experience FortressAuth in action with our interactive demo",
+    "tryNow": "Try Demo Now"
+  },
+  "resources": {
+    "title": "Resources & Documentation",
+    "apiDocs": {
+      "title": "API Documentation",
+      "description": "Complete API reference with interactive examples"
+    },
+    "quickStart": {
+      "title": "Quick Start Guide",
+      "description": "Get up and running in minutes"
+    },
+    "examples": {
+      "title": "Code Examples",
+      "description": "React, Vue, and Node.js integration examples"
+    },
+    "contributing": {
+      "title": "Contributing",
+      "description": "Help us improve FortressAuth"
+    }
+  },
+  "footer": {
+    "tagline": "Built with hexagonal architecture • Zero infrastructure dependencies in core",
+    "copyright": "© 2024 FortressAuth. MIT License.",
+    "links": {
+      "documentation": "Documentation",
+      "apiReference": "API Reference",
+      "examples": "Examples",
+      "contributing": "Contributing",
+      "github": "GitHub",
+      "license": "License"
+    }
+  }
+}
