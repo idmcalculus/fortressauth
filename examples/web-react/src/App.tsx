@@ -10,7 +10,11 @@ export default function App() {
   const { user, loading, error } = useUser();
   const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
 
-  const [signup, setSignup] = useState<Credentials>({ email: '', password: '', confirmPassword: '' });
+  const [signup, setSignup] = useState<Credentials>({
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [signin, setSignin] = useState<Credentials>(emptyCreds);
   const [verifyToken, setVerifyToken] = useState('');
   const [resetEmail, setResetEmail] = useState('');

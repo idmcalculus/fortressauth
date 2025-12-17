@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { get } from 'svelte/store';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAuthStore, getAuthStore } from './auth.js';
 
 // Mock fetch globally
@@ -7,265 +7,292 @@ const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
 describe('createAuthStore', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		mockFetch.mockReset();
-	});
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFetch.mockReset();
+  });
 
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-	describe('initialization', () => {
-		it('should create a store with initial loading state', () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
-			const state = get(store);
-			expect(state.loading).toBe(true);
-			expect(state.user).toBeNull();
-		});
+  describe('initialization', () => {
+    it('should create a store with initial loading state', () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
+      const state = get(store);
+      expect(state.loading).toBe(true);
+      expect(state.user).toBeNull();
+    });
 
-		it('should accept custom baseUrl config', () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore({ baseUrl: 'https://custom.api.com' });
-			expect(store).toBeDefined();
-		});
+    it('should accept custom baseUrl config', () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore({ baseUrl: 'https://custom.api.com' });
+      expect(store).toBeDefined();
+    });
 
-		it('should call refreshUser on creation', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () =>
-					Promise.resolve({
-						success: true,
-						data: { user: { id: '1', email: 'test@test.com', emailVerified: true, createdAt: '2024-01-01' } },
-					}),
-			});
-			createAuthStore();
-			await new Promise((r) => setTimeout(r, 10));
-			expect(mockFetch).toHaveBeenCalledWith(
-				'http://localhost:3000/auth/me',
-				expect.objectContaining({ credentials: 'include' }),
-			);
-		});
-	});
+    it('should call refreshUser on creation', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () =>
+          Promise.resolve({
+            success: true,
+            data: {
+              user: {
+                id: '1',
+                email: 'test@test.com',
+                emailVerified: true,
+                createdAt: '2024-01-01',
+              },
+            },
+          }),
+      });
+      createAuthStore();
+      await new Promise((r) => setTimeout(r, 10));
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/me',
+        expect.objectContaining({ credentials: 'include' }),
+      );
+    });
+  });
 
-	describe('signUp', () => {
-		it('should sign up successfully and update user', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('signUp', () => {
+    it('should sign up successfully and update user', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			const mockUser = { id: '1', email: 'test@test.com', emailVerified: false, createdAt: '2024-01-01' };
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
-			});
+      const mockUser = {
+        id: '1',
+        email: 'test@test.com',
+        emailVerified: false,
+        createdAt: '2024-01-01',
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
+      });
 
-			const result = await store.signUp('test@test.com', 'password123');
+      const result = await store.signUp('test@test.com', 'password123');
 
-			expect(result.success).toBe(true);
-			expect(get(store.user)).toEqual(mockUser);
-		});
+      expect(result.success).toBe(true);
+      expect(get(store.user)).toEqual(mockUser);
+    });
 
-		it('should handle signup failure', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+    it('should handle signup failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'Email already exists' }),
-			});
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Email already exists' }),
+      });
 
-			const result = await store.signUp('test@test.com', 'password123');
+      const result = await store.signUp('test@test.com', 'password123');
 
-			expect(result.success).toBe(false);
-			expect(get(store.error)).toBe('Email already exists');
-		});
-	});
+      expect(result.success).toBe(false);
+      expect(get(store.error)).toBe('Email already exists');
+    });
+  });
 
-	describe('signIn', () => {
-		it('should sign in successfully', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('signIn', () => {
+    it('should sign in successfully', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			const mockUser = { id: '1', email: 'test@test.com', emailVerified: true, createdAt: '2024-01-01' };
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
-			});
+      const mockUser = {
+        id: '1',
+        email: 'test@test.com',
+        emailVerified: true,
+        createdAt: '2024-01-01',
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
+      });
 
-			const result = await store.signIn('test@test.com', 'password123');
+      const result = await store.signIn('test@test.com', 'password123');
 
-			expect(result.success).toBe(true);
-			expect(get(store.user)).toEqual(mockUser);
-		});
+      expect(result.success).toBe(true);
+      expect(get(store.user)).toEqual(mockUser);
+    });
 
-		it('should handle signin failure', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+    it('should handle signin failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'Invalid credentials' }),
-			});
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'Invalid credentials' }),
+      });
 
-			const result = await store.signIn('test@test.com', 'wrong');
+      const result = await store.signIn('test@test.com', 'wrong');
 
-			expect(result.success).toBe(false);
-			expect(result.error).toBe('Invalid credentials');
-		});
-	});
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid credentials');
+    });
+  });
 
-	describe('signOut', () => {
-		it('should sign out and clear user', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('signOut', () => {
+    it('should sign out and clear user', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			// Sign in first
-			const mockUser = { id: '1', email: 'test@test.com', emailVerified: true, createdAt: '2024-01-01' };
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
-			});
-			await store.signIn('test@test.com', 'password123');
+      // Sign in first
+      const mockUser = {
+        id: '1',
+        email: 'test@test.com',
+        emailVerified: true,
+        createdAt: '2024-01-01',
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
+      });
+      await store.signIn('test@test.com', 'password123');
 
-			// Sign out
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true }),
-			});
-			const result = await store.signOut();
+      // Sign out
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true }),
+      });
+      const result = await store.signOut();
 
-			expect(result.success).toBe(true);
-			expect(get(store.user)).toBeNull();
-		});
-	});
+      expect(result.success).toBe(true);
+      expect(get(store.user)).toBeNull();
+    });
+  });
 
-	describe('verifyEmail', () => {
-		it('should verify email', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('verifyEmail', () => {
+    it('should verify email', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { verified: true } }),
-			});
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { verified: true } }),
+      });
 
-			const result = await store.verifyEmail('valid-token');
+      const result = await store.verifyEmail('valid-token');
 
-			expect(result.success).toBe(true);
-		});
-	});
+      expect(result.success).toBe(true);
+    });
+  });
 
-	describe('requestPasswordReset', () => {
-		it('should request password reset', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('requestPasswordReset', () => {
+    it('should request password reset', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { requested: true } }),
-			});
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { requested: true } }),
+      });
 
-			const result = await store.requestPasswordReset('test@test.com');
+      const result = await store.requestPasswordReset('test@test.com');
 
-			expect(result.success).toBe(true);
-		});
-	});
+      expect(result.success).toBe(true);
+    });
+  });
 
-	describe('resetPassword', () => {
-		it('should reset password', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('resetPassword', () => {
+    it('should reset password', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { reset: true } }),
-			});
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { reset: true } }),
+      });
 
-			const result = await store.resetPassword('valid-token', 'newPassword123');
+      const result = await store.resetPassword('valid-token', 'newPassword123');
 
-			expect(result.success).toBe(true);
-		});
-	});
+      expect(result.success).toBe(true);
+    });
+  });
 
-	describe('derived stores', () => {
-		it('should have working user derived store', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('derived stores', () => {
+    it('should have working user derived store', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			const users: (object | null)[] = [];
-			store.user.subscribe((u) => users.push(u));
+      const users: (object | null)[] = [];
+      store.user.subscribe((u) => users.push(u));
 
-			const mockUser = { id: '1', email: 'test@test.com', emailVerified: true, createdAt: '2024-01-01' };
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
-			});
-			await store.signIn('test@test.com', 'password123');
+      const mockUser = {
+        id: '1',
+        email: 'test@test.com',
+        emailVerified: true,
+        createdAt: '2024-01-01',
+      };
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: true, data: { user: mockUser } }),
+      });
+      await store.signIn('test@test.com', 'password123');
 
-			expect(users).toContainEqual(mockUser);
-		});
+      expect(users).toContainEqual(mockUser);
+    });
 
-		it('should have working loading derived store', () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+    it('should have working loading derived store', () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			let loading: boolean | undefined;
-			store.loading.subscribe((l) => (loading = l));
+      let loading: boolean | undefined;
+      store.loading.subscribe((l) => (loading = l));
 
-			expect(typeof loading).toBe('boolean');
-		});
+      expect(typeof loading).toBe('boolean');
+    });
 
-		it('should have working error derived store', () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+    it('should have working error derived store', () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			let error: string | null | undefined;
-			store.error.subscribe((e) => (error = e));
+      let error: string | null | undefined;
+      store.error.subscribe((e) => (error = e));
 
-			expect(error === null || typeof error === 'string').toBe(true);
-		});
-	});
+      expect(error === null || typeof error === 'string').toBe(true);
+    });
+  });
 
-	describe('error handling', () => {
-		it('should handle network errors', async () => {
-			mockFetch.mockResolvedValueOnce({
-				json: () => Promise.resolve({ success: false, error: 'No session' }),
-			});
-			const store = createAuthStore();
+  describe('error handling', () => {
+    it('should handle network errors', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
 
-			mockFetch.mockRejectedValueOnce(new Error('Network error'));
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-			const result = await store.signIn('test@test.com', 'password123');
+      const result = await store.signIn('test@test.com', 'password123');
 
-			expect(result.success).toBe(false);
-			expect(result.error).toBe('Network error');
-		});
-	});
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error');
+    });
+  });
 });
 
 describe('getAuthStore', () => {
-	it('should return singleton store', () => {
-		mockFetch.mockResolvedValue({
-			json: () => Promise.resolve({ success: false, error: 'No session' }),
-		});
-		const store1 = getAuthStore();
-		const store2 = getAuthStore();
-		expect(store1).toBe(store2);
-	});
+  it('should return singleton store', () => {
+    mockFetch.mockResolvedValue({
+      json: () => Promise.resolve({ success: false, error: 'No session' }),
+    });
+    const store1 = getAuthStore();
+    const store2 = getAuthStore();
+    expect(store1).toBe(store2);
+  });
 });

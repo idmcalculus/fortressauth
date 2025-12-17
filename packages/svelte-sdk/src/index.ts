@@ -1,2 +1,2 @@
 export { createAuthStore, getAuthStore } from './auth.js';
-export type { User, ApiResponse, AuthState, AuthConfig } from './types.js';
+export type { ApiResponse, AuthConfig, AuthState, User } from './types.js';

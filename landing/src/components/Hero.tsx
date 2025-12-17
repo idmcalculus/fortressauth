@@ -1,8 +1,8 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { ArrowRight, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
 import styles from './Hero.module.css';
 
 export function Hero() {
@@ -37,9 +37,7 @@ export function Hero() {
           <div className={styles.actions}>
             <a href="#docs" className={styles.primaryButton}>
               {t('getStarted')}
-              <ArrowRight
-                style={{ width: '20px', height: '20px', color: 'inherit' }}
-              />
+              <ArrowRight style={{ width: '20px', height: '20px', color: 'inherit' }} />
             </a>
 
             <a href="#examples" className={styles.secondaryButton}>
@@ -53,9 +51,7 @@ export function Hero() {
               className={styles.tertiaryButton}
             >
               {t('tryDemo')}
-              <ExternalLink
-                style={{ width: '18px', height: '18px', color: 'inherit' }}
-              />
+              <ExternalLink style={{ width: '18px', height: '18px', color: 'inherit' }} />
             </a>
           </div>
 

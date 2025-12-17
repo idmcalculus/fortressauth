@@ -1,32 +1,32 @@
 <script lang="ts">
-  import { createAuthStore } from "@fortressauth/svelte-sdk";
+import { createAuthStore } from '@fortressauth/svelte-sdk';
 
-  const auth = createAuthStore({ baseUrl: "http://localhost:3001" });
-  const { user, loading, error } = auth;
+const auth = createAuthStore({ baseUrl: 'http://localhost:3001' });
+const { user, loading, error } = auth;
 
-  let mode: "signin" | "signup" = "signin";
-  let email = "";
-  let password = "";
-  let confirmPassword = "";
-  let formError = "";
+const mode: 'signin' | 'signup' = 'signin';
+const email = '';
+const password = '';
+const confirmPassword = '';
+let formError = '';
 
-  async function handleSubmit() {
-    formError = "";
+async function handleSubmit() {
+  formError = '';
 
-    if (mode === "signup") {
-      if (password !== confirmPassword) {
-        formError = "Passwords do not match";
-        return;
-      }
-      await auth.signUp(email, password);
-    } else {
-      await auth.signIn(email, password);
+  if (mode === 'signup') {
+    if (password !== confirmPassword) {
+      formError = 'Passwords do not match';
+      return;
     }
+    await auth.signUp(email, password);
+  } else {
+    await auth.signIn(email, password);
   }
+}
 
-  async function handleSignOut() {
-    await auth.signOut();
-  }
+async function handleSignOut() {
+  await auth.signOut();
+}
 </script>
 
 <div class="container">

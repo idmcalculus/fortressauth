@@ -1,12 +1,12 @@
 // Expo-specific exports
-export { AuthProvider, useAuth, useUser } from './AuthProvider.js';
-export { createSecureStorage, getExpoStorage } from './storage.js';
 
 // Re-export types from react-native-sdk
 export type {
-	ApiResponse,
-	AuthContextValue,
-	AuthProviderProps,
-	User,
-	AuthStorage,
+  ApiResponse,
+  AuthContextValue,
+  AuthProviderProps,
+  AuthStorage,
+  User,
 } from '@fortressauth/react-native-sdk';
+export { AuthProvider, useAuth, useUser } from './AuthProvider.js';
+export { createSecureStorage, getExpoStorage } from './storage.js';

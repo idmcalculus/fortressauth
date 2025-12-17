@@ -1,10 +1,10 @@
-export { FortressAuth, createAuth } from './auth.js';
+export { createAuth, FortressAuth } from './auth.js';
 export { createElectronStorage, getDefaultStorage } from './storage.js';
 export type {
-	User,
-	ApiResponse,
-	AuthState,
-	AuthConfig,
-	AuthStorage,
-	AuthStateListener,
+  ApiResponse,
+  AuthConfig,
+  AuthState,
+  AuthStateListener,
+  AuthStorage,
+  User,
 } from './types.js';

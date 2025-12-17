@@ -39,17 +39,13 @@
 }
 
 .card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(
-    90deg,
-    var(--color-accent),
-    var(--color-accent-dark)
-  );
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-dark));
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--transition-base);
@@ -72,11 +68,7 @@
   width: 64px;
   height: 64px;
   margin-bottom: var(--spacing-lg);
-  background: linear-gradient(
-    135deg,
-    rgba(78, 205, 196, 0.1),
-    rgba(68, 160, 141, 0.1)
-  );
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.1));
   border-radius: var(--radius-lg);
 }
 
