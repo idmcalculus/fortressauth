@@ -1,40 +1,40 @@
 {
-	"name": "@fortressauth/angular-sdk",
-	"version": "0.1.9",
-	"type": "module",
-	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"files": [
-		"dist"
-	],
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		}
-	},
-	"scripts": {
-		"build": "tsc",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:coverage": "vitest run --coverage",
-		"lint": "biome check .",
-		"typecheck": "tsc --noEmit"
-	},
-	"peerDependencies": {
-		"@angular/core": ">=21.0.5",
-		"@angular/common": ">=21.0.5",
-		"rxjs": ">=7.8.2"
-	},
-	"devDependencies": {
-		"@angular/core": "^21.0.5",
-		"@angular/common": "^21.0.5",
-		"@biomejs/biome": "^2.3.10",
-		"@types/node": "^25.0.3",
-		"rxjs": "^7.8.2",
-		"typescript": "^5.9.3",
-		"vitest": "^4.0.16",
-		"@vitest/coverage-v8": "^4.0.16",
-		"zone.js": "^0.16.0"
-	}
+  "name": "@fortressauth/angular-sdk",
+  "version": "0.1.9",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@angular/core": ">=21.0.5",
+    "@angular/common": ">=21.0.5",
+    "rxjs": ">=7.8.2"
+  },
+  "devDependencies": {
+    "@angular/core": "^21.0.5",
+    "@angular/common": "^21.0.5",
+    "@biomejs/biome": "^2.3.10",
+    "@types/node": "^25.0.3",
+    "rxjs": "^7.8.2",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.16",
+    "zone.js": "^0.16.0"
+  }
 }

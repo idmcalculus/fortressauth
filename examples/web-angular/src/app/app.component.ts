@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '@fortressauth/angular-sdk';
 
@@ -87,7 +87,7 @@ import { AuthService } from '@fortressauth/angular-sdk';
         }
       }
     </div>
-  `
+  `,
 })
 export class AppComponent {
   auth = inject(AuthService);

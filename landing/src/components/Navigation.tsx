@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { Menu, X, Sun, Moon } from 'lucide-react';
-import { SiGithub } from 'react-icons/si';
-import { useTheme } from './ThemeProvider';
+import { Menu, Moon, Sun, X } from 'lucide-react';
 import Image from 'next/image';
+import { useTranslations } from 'next-intl';
+import { useState } from 'react';
+import { SiGithub } from 'react-icons/si';
 import styles from './Navigation.module.css';
+import { useTheme } from './ThemeProvider';
 
 export function Navigation() {
   const t = useTranslations('nav');
@@ -46,11 +46,7 @@ export function Navigation() {
 
           {/* Actions */}
           <div className={styles.actions}>
-            <button
-              onClick={toggleTheme}
-              className={styles.themeToggle}
-              aria-label="Toggle theme"
-            >
+            <button onClick={toggleTheme} className={styles.themeToggle} aria-label="Toggle theme">
               {theme === 'light' ? (
                 <Moon style={{ width: '20px', height: '20px' }} />
               ) : (

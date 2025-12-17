@@ -1,6 +1,6 @@
-import { Injectable, InjectionToken, Inject, Optional } from '@angular/core';
+import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import type { ApiResponse, AuthState, User, AuthConfig } from './types.js';
+import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
 
 export const AUTH_CONFIG = new InjectionToken<AuthConfig>('AUTH_CONFIG');
 

@@ -104,10 +104,10 @@ const emailProvider = createEmailProvider({
   resend:
     env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
       ? {
-        apiKey: env.RESEND_API_KEY,
-        fromEmail: env.EMAIL_FROM_ADDRESS,
-        fromName: env.EMAIL_FROM_NAME,
-      }
+          apiKey: env.RESEND_API_KEY,
+          fromEmail: env.EMAIL_FROM_ADDRESS,
+          fromName: env.EMAIL_FROM_NAME,
+        }
       : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
@@ -120,12 +120,15 @@ const app = new Hono();
 // Middleware
 app.use('*', logger());
 // Configure security headers - allow iframe embedding for docs from localhost
-app.use('*', secureHeaders({
-  xFrameOptions: false, // Disable X-Frame-Options to allow embedding in iframe
-  contentSecurityPolicy: {
-    frameAncestors: ["'self'", 'http://localhost:*', 'http://0.0.0.0:*'],
-  },
-}));
+app.use(
+  '*',
+  secureHeaders({
+    xFrameOptions: false, // Disable X-Frame-Options to allow embedding in iframe
+    contentSecurityPolicy: {
+      frameAncestors: ["'self'", 'http://localhost:*', 'http://0.0.0.0:*'],
+    },
+  }),
+);
 const allowedOrigins = env.CORS_ORIGINS ?? [
   new URL(env.BASE_URL).origin,
   'http://localhost:3000',
@@ -495,7 +498,9 @@ async function findAvailablePort(startPort: number, hostname: string): Promise<n
     port++;
   }
 
-  throw new Error(`Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`);
+  throw new Error(
+    `Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`,
+  );
 }
 
 // Start server if running as main module
@@ -508,24 +513,28 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`📊 Database: ${env.DATABASE_URL}`);
 
   // Find available port
-  findAvailablePort(env.PORT, env.HOST).then((availablePort) => {
-    if (availablePort !== env.PORT) {
-      console.log(`⚠ Port ${env.PORT} is in use by another process, using available port ${availablePort} instead.`);
-    }
+  findAvailablePort(env.PORT, env.HOST)
+    .then((availablePort) => {
+      if (availablePort !== env.PORT) {
+        console.log(
+          `⚠ Port ${env.PORT} is in use by another process, using available port ${availablePort} instead.`,
+        );
+      }
 
-    console.log(`🌐 Server: http://${env.HOST}:${availablePort}`);
-    console.log(`📖 API Docs: http://${env.HOST}:${availablePort}/docs`);
+      console.log(`🌐 Server: http://${env.HOST}:${availablePort}`);
+      console.log(`📖 API Docs: http://${env.HOST}:${availablePort}/docs`);
 
-    // Use @hono/node-server for Node.js runtime
-    import('@hono/node-server').then(({ serve }) => {
-      serve({
-        fetch: app.fetch,
-        port: availablePort,
-        hostname: env.HOST,
+      // Use @hono/node-server for Node.js runtime
+      import('@hono/node-server').then(({ serve }) => {
+        serve({
+          fetch: app.fetch,
+          port: availablePort,
+          hostname: env.HOST,
+        });
       });
+    })
+    .catch((error) => {
+      console.error('Failed to start server:', error);
+      process.exit(1);
     });
-  }).catch((error) => {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  });
 }

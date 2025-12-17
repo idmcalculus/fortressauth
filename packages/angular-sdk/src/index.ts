@@ -1,2 +1,2 @@
-export { AuthService, AUTH_CONFIG } from './auth.service.js';
-export type { User, ApiResponse, AuthState, AuthConfig } from './types.js';
+export { AUTH_CONFIG, AuthService } from './auth.service.js';
+export type { ApiResponse, AuthConfig, AuthState, User } from './types.js';

@@ -1,16 +1,7 @@
 'use client';
 
+import { BadgeCheck, Code, Database, FileText, Layers, Mail, Package, Shield } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import {
-  Shield,
-  Database,
-  Mail,
-  BadgeCheck,
-  FileText,
-  Package,
-  Code,
-  Layers,
-} from 'lucide-react';
 import styles from './Features.module.css';
 
 const features = [
@@ -47,9 +38,7 @@ export function Features() {
                 />
               </div>
               <h3 className={styles.cardTitle}>{t(`${key}.title`)}</h3>
-              <p className={styles.cardDescription}>
-                {t(`${key}.description`)}
-              </p>
+              <p className={styles.cardDescription}>{t(`${key}.description`)}</p>
             </div>
           ))}
         </div>

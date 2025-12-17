@@ -16,11 +16,8 @@
 .gridPattern {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(
-      to right,
-      var(--color-border) 1px,
-      transparent 1px
-    ),
+  background-image:
+    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
     linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
   background-size: 40px 40px;
   opacity: 0.3;
@@ -29,11 +26,7 @@
 .gradient {
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(78, 205, 196, 0.1) 0%,
-    transparent 50%
-  );
+  background: radial-gradient(circle at 50% 50%, rgba(78, 205, 196, 0.1) 0%, transparent 50%);
   animation: pulse 8s ease-in-out infinite;
 }
 
@@ -129,11 +122,7 @@
 }
 
 .primaryButton {
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    var(--color-accent-dark)
-  );
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   color: var(--color-primary-dark);
   border: none;
   box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
