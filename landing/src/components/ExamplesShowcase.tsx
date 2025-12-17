@@ -9,21 +9,21 @@ const examples = [
 		id: 'basic-usage',
 		icon: SiNodedotjs,
 		techStack: ['Node.js', 'TypeScript', 'SQLite'],
-		repoUrl: 'https://github.com/AaronFortressAgData/fortressauth/tree/main/examples/basic-usage',
+		repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/basic-usage',
 		demoUrl: null, // No live demo for CLI example
 	},
 	{
 		id: 'web-react',
 		icon: SiReact,
 		techStack: ['React', 'TypeScript', 'Vite'],
-		repoUrl: 'https://github.com/AaronFortressAgData/fortressauth/tree/main/examples/web-react',
+		repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-react',
 		demoUrl: 'http://localhost:5173',
 	},
 	{
 		id: 'web-vue',
 		icon: SiVuedotjs,
 		techStack: ['Vue 3', 'TypeScript', 'Vite'],
-		repoUrl: 'https://github.com/AaronFortressAgData/fortressauth/tree/main/examples/web-vue',
+		repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-vue',
 		demoUrl: 'http://localhost:5174',
 	},
 ];
@@ -86,4 +86,3 @@ export function ExamplesShowcase() {
 		</section>
 	);
 }
-

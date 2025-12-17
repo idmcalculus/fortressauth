@@ -47,7 +47,7 @@ export function Hero() {
             </a>
 
             <a
-              href="https://github.com/fortressauth"
+              href="https://github.com/idmcalculus/fortressauth"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.tertiaryButton}

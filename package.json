@@ -12,7 +12,7 @@
     "dev": "turbo run dev"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.3.8",
+    "@biomejs/biome": "^2.3.10",
     "turbo": "^2.6.3",
     "typescript": "^5.9.3"
   }
