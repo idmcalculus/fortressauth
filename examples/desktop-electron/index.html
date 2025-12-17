@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FortressAuth Electron</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #f8f9fa;
+      -webkit-app-region: drag;
+    }
+    .container {
+      max-width: 380px;
+      width: 100%;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      -webkit-app-region: no-drag;
+    }
+    .title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center; }
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #a0aec0; }
+    input {
+      width: 100%; padding: 0.7rem 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #f8f9fa; font-size: 0.95rem;
+    }
+    input:focus { outline: none; border-color: #4ecdc4; }
+    .btn {
+      width: 100%; padding: 0.7rem 1rem;
+      border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 500;
+      cursor: pointer; transition: transform 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #4ecdc4, #44a08d);
+      color: white;
+    }
+    .btn-primary:hover { transform: translateY(-2px); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f8f9fa;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 0.5rem;
+    }
+    .error { color: #fc8181; font-size: 0.875rem; margin-top: 1rem; text-align: center; }
+    .success { text-align: center; }
+    .user-email { color: #4ecdc4; font-weight: 500; }
+    .loading { text-align: center; padding: 2rem; }
+    .tabs { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+    .tab { flex: 1; padding: 0.75rem; background: transparent; border: none; color: #a0aec0; font-size: 0.875rem; cursor: pointer; }
+    .tab:hover { color: #f8f9fa; }
+    .tab.active { color: #4ecdc4; border-bottom: 2px solid #4ecdc4; }
+    .hidden { display: none; }
+    .verify-text { color: #a0aec0; margin: 1rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">🏰 FortressAuth Electron</h1>
+    
+    <div id="loading" class="loading">Loading...</div>
+    
+    <div id="auth-form" class="hidden">
+      <div class="tabs">
+        <button class="tab active" id="signin-tab">Sign In</button>
+        <button class="tab" id="signup-tab">Sign Up</button>
+      </div>
+
+      <form id="form">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="your@email.com" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+
+        <div class="form-group hidden" id="confirm-group">
+          <label for="confirm-password">Confirm Password</label>
+          <input type="password" id="confirm-password" placeholder="••••••••">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submit-btn">Sign In</button>
+      </form>
+
+      <p id="error" class="error hidden"></p>
+    </div>
+
+    <div id="user-info" class="success hidden">
+      <p>Welcome, <span class="user-email" id="user-email"></span>!</p>
+      <p class="verify-text" id="verify-status"></p>
+      <button class="btn btn-secondary" id="signout-btn">Sign Out</button>
+    </div>
+  </div>
+
+  <script>
+    const { createAuth } = require('@fortressauth/electron-sdk');
+    
+    const auth = createAuth({ baseUrl: 'http://localhost:3001' });
+    
+    let mode = 'signin';
+    
+    // DOM elements
+    const loading = document.getElementById('loading');
+    const authForm = document.getElementById('auth-form');
+    const userInfo = document.getElementById('user-info');
+    const form = document.getElementById('form');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const confirmPassword = document.getElementById('confirm-password');
+    const confirmGroup = document.getElementById('confirm-group');
+    const submitBtn = document.getElementById('submit-btn');
+    const errorEl = document.getElementById('error');
+    const signinTab = document.getElementById('signin-tab');
+    const signupTab = document.getElementById('signup-tab');
+    const userEmail = document.getElementById('user-email');
+    const verifyStatus = document.getElementById('verify-status');
+    const signoutBtn = document.getElementById('signout-btn');
+
+    // Subscribe to state changes
+    auth.subscribe((state) => {
+      loading.classList.toggle('hidden', !state.loading);
+      
+      if (!state.loading) {
+        if (state.user) {
+          authForm.classList.add('hidden');
+          userInfo.classList.remove('hidden');
+          userEmail.textContent = state.user.email;
+          verifyStatus.textContent = `Email verified: ${state.user.emailVerified ? '✅ Yes' : '❌ No'}`;
+        } else {
+          authForm.classList.remove('hidden');
+          userInfo.classList.add('hidden');
+        }
+      }
+      
+      if (state.error) {
+        errorEl.textContent = state.error;
+        errorEl.classList.remove('hidden');
+      } else {
+        errorEl.classList.add('hidden');
+      }
+    });
+
+    // Tab switching
+    signinTab.addEventListener('click', () => {
+      mode = 'signin';
+      signinTab.classList.add('active');
+      signupTab.classList.remove('active');
+      confirmGroup.classList.add('hidden');
+      submitBtn.textContent = 'Sign In';
+    });
+
+    signupTab.addEventListener('click', () => {
+      mode = 'signup';
+      signupTab.classList.add('active');
+      signinTab.classList.remove('active');
+      confirmGroup.classList.remove('hidden');
+      submitBtn.textContent = 'Sign Up';
+    });
+
+    // Form submission
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (mode === 'signup') {
+        if (password.value !== confirmPassword.value) {
+          errorEl.textContent = 'Passwords do not match';
+          errorEl.classList.remove('hidden');
+          return;
+        }
+        await auth.signUp(email.value, password.value);
+      } else {
+        await auth.signIn(email.value, password.value);
+      }
+    });
+
+    // Sign out
+    signoutBtn.addEventListener('click', async () => {
+      await auth.signOut();
+    });
+  </script>
+</body>
+</html>

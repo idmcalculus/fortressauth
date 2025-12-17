@@ -1,0 +1,55 @@
+{
+  "hash": "02302c95",
+  "configHash": "24bced6d",
+  "lockfileHash": "3fb43fa8",
+  "browserHash": "37f07af9",
+  "optimized": {
+    "@angular/common": {
+      "src": "../../../../../../../../node_modules/.pnpm/@angular+common@21.0.5_@angular+core@21.0.5_@angular+compiler@21.0.5_rxjs@7.8.2_zone.js@0.16.0__rxjs@7.8.2/node_modules/@angular/common/fesm2022/common.mjs",
+      "file": "@angular_common.js",
+      "fileHash": "0b30d742",
+      "needsInterop": false
+    },
+    "@angular/core": {
+      "src": "../../../../../../../../node_modules/.pnpm/@angular+core@21.0.5_@angular+compiler@21.0.5_rxjs@7.8.2_zone.js@0.16.0/node_modules/@angular/core/fesm2022/core.mjs",
+      "file": "@angular_core.js",
+      "fileHash": "e880e22e",
+      "needsInterop": false
+    },
+    "@angular/forms": {
+      "src": "../../../../../../../../node_modules/.pnpm/@angular+forms@21.0.5_@angular+common@21.0.5_@angular+core@21.0.5_@angular+compiler@21._55b152ce13b05af99e6af0f35b903e2f/node_modules/@angular/forms/fesm2022/forms.mjs",
+      "file": "@angular_forms.js",
+      "fileHash": "4cdaabfc",
+      "needsInterop": false
+    },
+    "@angular/platform-browser": {
+      "src": "../../../../../../../../node_modules/.pnpm/@angular+platform-browser@21.0.5_@angular+common@21.0.5_@angular+core@21.0.5_@angular+c_c29ec60bd5cedc52fecf43b7b9e5e72c/node_modules/@angular/platform-browser/fesm2022/platform-browser.mjs",
+      "file": "@angular_platform-browser.js",
+      "fileHash": "2048ad6e",
+      "needsInterop": false
+    },
+    "@fortressauth/angular-sdk": {
+      "src": "../../../../../../../../packages/angular-sdk/dist/index.js",
+      "file": "@fortressauth_angular-sdk.js",
+      "fileHash": "a72ebc5b",
+      "needsInterop": false
+    },
+    "zone.js": {
+      "src": "../../../../../../../../node_modules/.pnpm/zone.js@0.16.0/node_modules/zone.js/fesm2015/zone.js",
+      "file": "zone__js.js",
+      "fileHash": "a69df16d",
+      "needsInterop": true
+    }
+  },
+  "chunks": {
+    "chunk-QUN7ZOPQ": {
+      "file": "chunk-QUN7ZOPQ.js"
+    },
+    "chunk-ARPUQG7D": {
+      "file": "chunk-ARPUQG7D.js"
+    },
+    "chunk-AWBSFIDB": {
+      "file": "chunk-AWBSFIDB.js"
+    }
+  }
+}

@@ -59,7 +59,7 @@ export function Navigation() {
             </button>
 
             <a
-              href="https://github.com/fortressauth"
+              href="https://github.com/idmcalculus/fortressauth"
               target="_blank"
               rel="noopener noreferrer"
               className={styles.githubLink}

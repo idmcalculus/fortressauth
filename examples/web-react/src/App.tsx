@@ -2,7 +2,7 @@ import { useAuth, useUser } from '@fortressauth/react-sdk';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 
-type Credentials = { email: string; password: string };
+type Credentials = { email: string; password: string; confirmPassword?: string };
 
 const emptyCreds: Credentials = { email: '', password: '' };
 
@@ -10,12 +10,13 @@ export default function App() {
   const { user, loading, error } = useUser();
   const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
 
-  const [signup, setSignup] = useState<Credentials>(emptyCreds);
+  const [signup, setSignup] = useState<Credentials>({ email: '', password: '', confirmPassword: '' });
   const [signin, setSignin] = useState<Credentials>(emptyCreds);
   const [verifyToken, setVerifyToken] = useState('');
   const [resetEmail, setResetEmail] = useState('');
   const [resetToken, setResetToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +45,10 @@ export default function App() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signup.password !== signup.confirmPassword) {
+      setMessage('Passwords do not match');
+      return;
+    }
     const res = await signUp(signup.email, signup.password);
     setMessage(
       res.success
@@ -66,6 +71,10 @@ export default function App() {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newPassword !== confirmNewPassword) {
+      setMessage('Passwords do not match');
+      return;
+    }
     const res = await resetPassword(resetToken, newPassword);
     setMessage(res.success ? 'Password reset. You can sign in.' : (res.error ?? 'Reset failed'));
   };
@@ -117,6 +126,13 @@ export default function App() {
               type="password"
               value={signup.password}
               onChange={(e) => setSignup({ ...signup, password: e.target.value })}
+              required
+            />
+            <input
+              placeholder="Confirm Password"
+              type="password"
+              value={signup.confirmPassword}
+              onChange={(e) => setSignup({ ...signup, confirmPassword: e.target.value })}
               required
             />
             <button type="submit">Create account</button>
@@ -188,6 +204,13 @@ export default function App() {
               type="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <input
+              placeholder="Confirm new password"
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
               required
             />
             <button type="submit">Set new password</button>

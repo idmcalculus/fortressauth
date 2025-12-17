@@ -2,19 +2,20 @@
 import { useAuth, useUser } from '@fortressauth/vue-sdk';
 import { onMounted, reactive, ref } from 'vue';
 
-type Credentials = { email: string; password: string };
+type Credentials = { email: string; password: string; confirmPassword?: string };
 
 // biome-ignore lint/correctness/noUnusedVariables: Used in template
 const { user, loading, error } = useUser();
 // biome-ignore lint/correctness/noUnusedVariables: Used in template
 const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
 
-const signup = reactive<Credentials>({ email: '', password: '' });
+const signup = reactive<Credentials>({ email: '', password: '', confirmPassword: '' });
 const signin = reactive<Credentials>({ email: '', password: '' });
 const verifyToken = ref('');
 const resetEmail = ref('');
 const resetToken = ref('');
 const newPassword = ref('');
+const confirmNewPassword = ref('');
 const message = ref<string | null>(null);
 
 onMounted(() => {
@@ -37,6 +38,10 @@ async function handleVerify(tokenValue?: string) {
 
 // biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleSignup() {
+  if (signup.password !== signup.confirmPassword) {
+    message.value = 'Passwords do not match';
+    return;
+  }
   const res = await signUp(signup.email, signup.password);
   message.value = res.success
     ? 'Signed up. Check your email for verification.'
@@ -57,6 +62,10 @@ async function handleRequestReset() {
 
 // biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleResetPassword() {
+  if (newPassword.value !== confirmNewPassword.value) {
+    message.value = 'Passwords do not match';
+    return;
+  }
   const res = await resetPassword(resetToken.value, newPassword.value);
   message.value = res.success ? 'Password reset. You can sign in.' : (res.error ?? 'Reset failed');
 }
@@ -89,6 +98,7 @@ async function handleResetPassword() {
         <form @submit.prevent="handleSignup">
           <input v-model="signup.email" placeholder="Email" type="email" required />
           <input v-model="signup.password" placeholder="Password" type="password" required />
+          <input v-model="signup.confirmPassword" placeholder="Confirm Password" type="password" required />
           <button type="submit">Create account</button>
           <p class="muted">A verification email will be sent.</p>
         </form>
@@ -122,6 +132,7 @@ async function handleResetPassword() {
         <form @submit.prevent="handleResetPassword">
           <input v-model="resetToken" placeholder="Reset token" required />
           <input v-model="newPassword" placeholder="New password" type="password" required />
+          <input v-model="confirmNewPassword" placeholder="Confirm new password" type="password" required />
           <button type="submit">Set new password</button>
         </form>
       </div>
