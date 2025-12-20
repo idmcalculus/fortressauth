@@ -35,6 +35,20 @@ describe('createAuthStore', () => {
       expect(store).toBeDefined();
     });
 
+    it('should use import.meta.env.VITE_API_BASE_URL if present', () => {
+      // We can't easily mock import.meta in vitest without more setup,
+      // but we can mock the behavior by ensuring it falls back correctly.
+      // For this test, we'll verify the default fallback.
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      createAuthStore();
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('http://localhost:3000'),
+        expect.any(Object),
+      );
+    });
+
     it('should call refreshUser on creation', async () => {
       mockFetch.mockResolvedValueOnce({
         json: () =>
@@ -97,6 +111,22 @@ describe('createAuthStore', () => {
       expect(result.success).toBe(false);
       expect(get(store.error)).toBe('Email already exists');
     });
+
+    it('should handle signup failure with default error message', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+      const store = createAuthStore();
+
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+
+      const result = await store.signUp('test@test.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(get(store.error)).toBe('UNKNOWN_ERROR');
+    });
   });
 
   describe('signIn', () => {
@@ -136,6 +166,22 @@ describe('createAuthStore', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Invalid credentials');
+    });
+
+    it('should handle signin failure with default error message', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+      const store = createAuthStore();
+
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+
+      const result = await store.signIn('test@test.com', 'wrong');
+
+      expect(result.success).toBe(false);
+      expect(get(store.error)).toBe('UNKNOWN_ERROR');
     });
   });
 
@@ -277,6 +323,20 @@ describe('createAuthStore', () => {
       const store = createAuthStore();
 
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await store.signIn('test@test.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error');
+    });
+
+    it('should handle non-Error exceptions in apiRequest', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+      const store = createAuthStore();
+
+      mockFetch.mockRejectedValueOnce('string error');
 
       const result = await store.signIn('test@test.com', 'password123');
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_CONFIG, AuthService } from './auth.service.js';
+import { AuthService } from './auth.service.js';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -32,6 +32,23 @@ describe('AuthService', () => {
       });
       service = new AuthService({ baseUrl: 'https://custom.api.com' });
       expect(service).toBeDefined();
+    });
+
+    it('should use window.__FORTRESS_API_URL__ if present', () => {
+      vi.stubGlobal('window', { __FORTRESS_API_URL__: 'https://env.api.com' });
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false, error: 'No session' }),
+      });
+
+      service = new AuthService();
+      // Wait for async initialization
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          expect(mockFetch).toHaveBeenCalledWith('https://env.api.com/auth/me', expect.any(Object));
+          vi.unstubAllGlobals();
+          resolve();
+        }, 10);
+      });
     });
 
     it('should call refreshUser on initialization', async () => {
@@ -96,6 +113,17 @@ describe('AuthService', () => {
       expect(result.error).toBe('Email already exists');
       expect(service.currentError).toBe('Email already exists');
     });
+
+    it('should handle signup failure with default error message', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+
+      const result = await service.signUp('test@example.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(service.currentError).toBe('UNKNOWN_ERROR');
+    });
   });
 
   describe('signIn', () => {
@@ -132,6 +160,17 @@ describe('AuthService', () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toBe('Invalid credentials');
+    });
+
+    it('should handle signin failure with default error message', async () => {
+      mockFetch.mockResolvedValueOnce({
+        json: () => Promise.resolve({ success: false }),
+      });
+
+      const result = await service.signIn('test@example.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(service.currentError).toBe('UNKNOWN_ERROR');
     });
   });
 
@@ -275,6 +314,15 @@ describe('AuthService', () => {
 
     it('should handle network errors', async () => {
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
+
+      const result = await service.signIn('test@example.com', 'password123');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Network error');
+    });
+
+    it('should handle non-Error exceptions in apiRequest', async () => {
+      mockFetch.mockRejectedValueOnce('string error');
 
       const result = await service.signIn('test@example.com', 'password123');
 

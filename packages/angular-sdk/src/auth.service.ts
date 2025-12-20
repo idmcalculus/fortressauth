@@ -4,10 +4,15 @@ import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
 
 export const AUTH_CONFIG = new InjectionToken<AuthConfig>('AUTH_CONFIG');
 
+declare global {
+	interface Window {
+		__FORTRESS_API_URL__?: string;
+	}
+}
+
 function resolveBaseUrl(explicit?: string): string {
 	// Check for environment variable in browser context
 	if (typeof window !== 'undefined') {
-		// @ts-expect-error - env is injected at build time
 		const envUrl = window.__FORTRESS_API_URL__;
 		if (envUrl) return envUrl;
 	}
