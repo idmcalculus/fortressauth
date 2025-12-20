@@ -5,8 +5,8 @@ import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './t
 function resolveBaseUrl(explicit?: string): string {
   const envBaseUrl =
     typeof import.meta !== 'undefined' && typeof import.meta === 'object'
-      ? // @ts-expect-error - import.meta.env is runtime Vite/Next feature
-        (import.meta.env?.VITE_API_BASE_URL ?? import.meta.env?.NEXT_PUBLIC_API_BASE_URL)
+      ? ((import.meta as any).env?.VITE_API_BASE_URL ??
+        (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL)
       : undefined;
   return explicit ?? envBaseUrl ?? 'http://localhost:3000';
 }

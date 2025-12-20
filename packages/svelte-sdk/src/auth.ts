@@ -3,8 +3,7 @@ import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
 
 function resolveBaseUrl(explicit?: string): string {
   if (typeof window !== 'undefined') {
-    // @ts-expect-error - env is injected at build time
-    const envUrl = import.meta?.env?.VITE_API_BASE_URL;
+    const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
     if (envUrl) return envUrl;
   }
   return explicit ?? 'http://localhost:3000';
