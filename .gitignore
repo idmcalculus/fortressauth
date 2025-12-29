@@ -69,6 +69,10 @@ web_modules/
 .env
 .env.*
 !.env.example
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -154,4 +158,4 @@ dist/
 # Development/test files
 cookies.txt
 .orchids/
-repo_dump.txt
+.kiro/
