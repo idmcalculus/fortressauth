@@ -2,6 +2,7 @@
 import { createAuthStore } from '@fortressauth/svelte-sdk';
 
 const auth = createAuthStore({ baseUrl: 'http://localhost:3001' });
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const { user, loading, error } = auth;
 
 const mode: 'signin' | 'signup' = 'signin';

@@ -3,6 +3,7 @@ import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
 
 function resolveBaseUrl(explicit?: string): string {
   if (typeof window !== 'undefined') {
+    // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed in all environments
     const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
     if (envUrl) return envUrl;
   }

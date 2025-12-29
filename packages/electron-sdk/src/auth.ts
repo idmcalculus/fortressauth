@@ -27,7 +27,7 @@ async function apiRequest<T>(
     };
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const res = await fetch(`${baseUrl}${path}`, {

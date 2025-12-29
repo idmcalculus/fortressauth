@@ -20,7 +20,6 @@ const inMemoryStorage: AuthStorage = {
 export function createAsyncStorage(): AuthStorage {
   try {
     // Dynamic import to avoid bundling issues
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic import at runtime
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     return {
       getItem: async (key) => AsyncStorage.getItem(key),

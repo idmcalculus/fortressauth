@@ -20,7 +20,6 @@ const inMemoryStorage: AuthStorage = {
 export function createElectronStorage(prefix = 'fortress'): AuthStorage {
   try {
     // Dynamic import to handle bundling
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic require at runtime
     const Store = require('electron-store');
     const store = new Store({
       name: `${prefix}-auth`,

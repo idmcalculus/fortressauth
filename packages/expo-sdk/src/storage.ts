@@ -7,7 +7,6 @@ import type { AuthStorage } from '@fortressauth/react-native-sdk';
 export function createSecureStorage(): AuthStorage {
   try {
     // Dynamic import to avoid bundling issues
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic import at runtime
     const SecureStore = require('expo-secure-store');
     return {
       getItem: async (key) => {
