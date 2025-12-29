@@ -4,7 +4,9 @@ import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './t
 function resolveBaseUrl(explicit?: string): string {
   const envBaseUrl =
     typeof import.meta !== 'undefined' && typeof import.meta === 'object'
-      ? ((import.meta as any).env?.VITE_API_BASE_URL ??
+      ? // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed
+        ((import.meta as any).env?.VITE_API_BASE_URL ??
+        // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed
         (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL)
       : undefined;
   return explicit ?? envBaseUrl ?? 'http://localhost:3000';

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "electron .",
     "start": "electron .",
+    "lint": "biome check .",
     "build": "electron-builder"
   },
   "dependencies": {

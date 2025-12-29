@@ -293,13 +293,17 @@ describe('AuthService', () => {
 
     it('should expose loading$ observable', () => {
       let loading: boolean | undefined;
-      service.loading$.subscribe((l) => (loading = l));
+      service.loading$.subscribe((l) => {
+        loading = l;
+      });
       expect(typeof loading).toBe('boolean');
     });
 
     it('should expose error$ observable', () => {
       let error: string | null | undefined;
-      service.error$.subscribe((e) => (error = e));
+      service.error$.subscribe((e) => {
+        error = e;
+      });
       expect(error === null || typeof error === 'string').toBe(true);
     });
   });

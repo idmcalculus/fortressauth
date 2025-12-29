@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node index.js"
+    "dev": "tsx index.ts",
+    "lint": "biome check ."
   },
   "dependencies": {
     "@fortressauth/core": "workspace:*",

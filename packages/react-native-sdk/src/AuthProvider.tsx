@@ -29,7 +29,7 @@ async function apiRequest<T>(
 
     // Add auth token if available (for React Native, we use token-based auth instead of cookies)
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`;
     }
 
     const res = await fetch(`${baseUrl}${path}`, {

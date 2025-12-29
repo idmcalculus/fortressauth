@@ -274,7 +274,9 @@ describe('createAuthStore', () => {
       const store = createAuthStore();
 
       const users: (object | null)[] = [];
-      store.user.subscribe((u) => users.push(u));
+      store.user.subscribe((u) => {
+        users.push(u);
+      });
 
       const mockUser = {
         id: '1',
@@ -297,7 +299,9 @@ describe('createAuthStore', () => {
       const store = createAuthStore();
 
       let loading: boolean | undefined;
-      store.loading.subscribe((l) => (loading = l));
+      store.loading.subscribe((l) => {
+        loading = l;
+      });
 
       expect(typeof loading).toBe('boolean');
     });
@@ -309,7 +313,9 @@ describe('createAuthStore', () => {
       const store = createAuthStore();
 
       let error: string | null | undefined;
-      store.error.subscribe((e) => (error = e));
+      store.error.subscribe((e) => {
+        error = e;
+      });
 
       expect(error === null || typeof error === 'string').toBe(true);
     });
