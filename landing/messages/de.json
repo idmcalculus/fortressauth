@@ -1,98 +1,151 @@
 {
   "nav": {
-    "features": "Features",
-    "docs": "Documentation",
-    "examples": "Examples",
-    "pricing": "Pricing",
+    "features": "Funktionen",
+    "docs": "Dokumentation",
+    "examples": "Beispiele",
+    "pricing": "Preise",
     "github": "GitHub"
   },
   "hero": {
     "title": "FortressAuth",
-    "subtitle": "Secure-by-Default Authentication",
-    "description": "A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.",
-    "getStarted": "Get Started",
-    "viewDocs": "View Documentation",
-    "tryDemo": "Try Demo"
+    "subtitle": "Sicher-durch-Standard Authentifizierung",
+    "description": "Eine produktionsbereite Authentifizierungsbibliothek, entwickelt mit TypeScript und hexagonaler Architektur. Datenbank-agnostisch, E-Mail-Provider-agnostisch und standardmäßig sicher.",
+    "getStarted": "Erste Schritte",
+    "viewDocs": "Dokumentation ansehen",
+    "tryDemo": "Demo testen"
   },
   "features": {
-    "title": "Built for Security & Flexibility",
+    "title": "Gebaut für Sicherheit & Flexibilität",
     "secureByDefault": {
-      "title": "Secure by Default",
-      "description": "Argon2id password hashing with OWASP-recommended parameters, split session tokens, and timing-attack prevention"
+      "title": "Standardmäßig sicher",
+      "description": "Argon2id Passwort-Hashing mit OWASP-empfohlenen Parametern, geteilten Sitzungs-Token und Schutz vor Timing-Angriffen"
     },
     "databaseAgnostic": {
-      "title": "Database Agnostic",
-      "description": "Works seamlessly with PostgreSQL, MySQL, and SQLite via Kysely query builder"
+      "title": "Datenbank-agnostisch",
+      "description": "Funktioniert nahtlos mit PostgreSQL, MySQL und SQLite über den Kysely Query Builder"
     },
     "emailAgnostic": {
-      "title": "Email Provider Agnostic",
-      "description": "Pluggable email providers - console for development, Resend for production, or bring your own"
+      "title": "E-Mail-Provider-agnostisch",
+      "description": "Ansteckbare E-Mail-Provider – Konsole für die Entwicklung, Resend für die Produktion oder bringen Sie Ihren eigenen mit"
     },
     "productionReady": {
-      "title": "Production Ready",
-      "description": "Email verification, password reset, rate limiting (memory/Redis), account lockout, and session management"
+      "title": "Produktionsbereit",
+      "description": "E-Mail-Verifizierung, Passwort-Reset, Rate-Limiting (Memory/Redis), Kontosperrung und Sitzungsverwaltung"
     },
     "openApiDocs": {
-      "title": "OpenAPI Documentation",
-      "description": "Auto-generated API documentation with interactive Scalar UI for easy integration"
+      "title": "OpenAPI-Dokumentation",
+      "description": "Automatisch generierte API-Dokumentation mit interaktiver Scalar-UI für einfache Integration"
     },
     "dockerReady": {
-      "title": "Docker Ready",
-      "description": "Multi-stage Dockerfile with security best practices and Docker Compose configuration"
+      "title": "Docker-bereit",
+      "description": "Mehrstufiges Dockerfile mit Sicherheits-Best-Practices und Docker Compose-Konfiguration"
     },
     "sdks": {
       "title": "React & Vue SDKs",
-      "description": "Cookie-aware authentication flows with React hooks and Vue composables for seamless integration"
+      "description": "Cookie-bewusste Authentifizierungsabläufe mit React Hooks und Vue Composables für nahtlose Integration"
     },
     "hexagonal": {
-      "title": "Hexagonal Architecture",
-      "description": "Clean separation between business logic and infrastructure with zero dependencies in core"
+      "title": "Hexagonale Architektur",
+      "description": "Saubere Trennung zwischen Geschäftslogik und Infrastruktur mit null Abhängigkeiten im Kern"
     }
   },
   "code": {
-    "title": "Simple Integration",
-    "description": "Get started with just a few lines of code",
+    "title": "Einfache Integration",
+    "description": "Starten Sie mit nur wenigen Zeilen Code",
     "installation": "Installation",
     "react": "React",
     "vue": "Vue",
     "node": "Node.js",
-    "copy": "Copy",
-    "copied": "Copied!"
+    "copy": "Kopieren",
+    "copied": "Kopiert!"
   },
   "demo": {
-    "title": "Try It Live",
-    "description": "Experience FortressAuth in action with our interactive demo",
-    "tryNow": "Try Demo Now"
+    "title": "Live testen",
+    "description": "Erleben Sie FortressAuth in Aktion mit unserer interaktiven Demo",
+    "tryNow": "Demo jetzt testen"
   },
   "resources": {
-    "title": "Resources & Documentation",
+    "title": "Ressourcen & Dokumentation",
     "apiDocs": {
-      "title": "API Documentation",
-      "description": "Complete API reference with interactive examples"
+      "title": "API-Dokumentation",
+      "description": "Vollständige API-Referenz mit interaktiven Beispielen"
     },
     "quickStart": {
-      "title": "Quick Start Guide",
-      "description": "Get up and running in minutes"
+      "title": "Schnellstartanleitung",
+      "description": "In wenigen Minuten einsatzbereit"
     },
     "examples": {
-      "title": "Code Examples",
-      "description": "React, Vue, and Node.js integration examples"
+      "title": "Code-Beispiele",
+      "description": "Integrationsbeispiele für React, Vue und Node.js"
     },
     "contributing": {
-      "title": "Contributing",
-      "description": "Help us improve FortressAuth"
+      "title": "Mitwirken",
+      "description": "Helfen Sie uns, FortressAuth zu verbessern"
     }
   },
+  "examples": {
+    "title": "Integrationsbeispiele",
+    "subtitle": "Entdecken Sie funktionierende Beispiele, um Ihre Integration zu beschleunigen",
+    "viewCode": "Code ansehen",
+    "viewDemo": "Live-Demo",
+    "basic-usage": {
+      "title": "Basis-Server",
+      "description": "Vollständiges Node.js-Serverbeispiel mit SQLite-Datenbank, Sitzungsverwaltung und E-Mail-Verifizierung."
+    },
+    "web-react": {
+      "title": "React Web-App",
+      "description": "Vollständige React-Anwendung mit @fortressauth/react-sdk, Auth-Hooks und geschützten Routen."
+    },
+    "web-vue": {
+      "title": "Vue Web-App",
+      "description": "Vue 3 Anwendung mit Composables für den Authentifizierungsstatus und nahtlose Integration."
+    },
+    "web-svelte": {
+      "title": "Svelte Web-App",
+      "description": "Svelte 5 Anwendung mit Authentifizierungsstatus und nahtlose Integration."
+    },
+    "web-angular": {
+      "title": "Angular Web-App",
+      "description": "Angular Anwendung mit Authentifizierungsstatus und RxJS Integration."
+    }
+  },
+  "codeShowcase": {
+    "title": "Entwicklererlebnis an erster Stelle",
+    "subtitle": "Saubere, typsichere APIs, die die Authentifizierung zum Kinderspiel machen",
+    "tabs": {
+      "quickStart": "Schnellstart",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Schnelle Integration",
+      "secure": "Standardmäßig sicher",
+      "typed": "Vollständig typisiert"
+    }
+  },
+  "documentation": {
+    "title": "API-Dokumentation",
+    "subtitle": "Interaktive API-Referenz basierend auf der OpenAPI-Spezifikation",
+    "openFullDocs": "In neuem Tab öffnen",
+    "serverNotRunning": "API-Server läuft nicht",
+    "fallbackMessage": "Starten Sie den FortressAuth-Server, um die interaktive API-Dokumentation anzuzeigen:",
+    "viewServerDocs": "Server-Dokumentation ansehen",
+    "openDocs": "Dokumentation öffnen"
+  },
   "footer": {
-    "tagline": "Built with hexagonal architecture • Zero infrastructure dependencies in core",
-    "copyright": "© 2024 FortressAuth. MIT License.",
+    "tagline": "Gebaut mit hexagonaler Architektur • Null Infrastruktur-Abhängigkeiten im Kern",
+    "copyright": "© 2024 FortressAuth. MIT-Lizenz.",
     "links": {
-      "documentation": "Documentation",
-      "apiReference": "API Reference",
-      "examples": "Examples",
-      "contributing": "Contributing",
+      "documentation": "Dokumentation",
+      "apiReference": "API-Referenz",
+      "examples": "Beispiele",
+      "contributing": "Mitwirken",
       "github": "GitHub",
-      "license": "License"
+      "license": "Lizenz"
     }
   }
 }

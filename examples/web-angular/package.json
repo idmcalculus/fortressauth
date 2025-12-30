@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "dev": "ng serve",
+    "start": "ng serve --port 3004 --serve-path /angular-demo/",
+    "dev": "ng serve --port 3004 --serve-path /angular-demo/",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "lint": "biome check ."

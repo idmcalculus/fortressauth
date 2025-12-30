@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { SiGithub } from 'react-icons/si';
 import styles from './Navigation.module.css';
 import { useTheme } from './ThemeProvider';
+import { LocaleSwitcher } from './LocaleSwitcher';
 
 export function Navigation() {
   const t = useTranslations('nav');
@@ -46,6 +47,9 @@ export function Navigation() {
 
           {/* Actions */}
           <div className={styles.actions}>
+            <div className={styles.desktopOnly}>
+              <LocaleSwitcher />
+            </div>
             <button onClick={toggleTheme} className={styles.themeToggle} aria-label="Toggle theme">
               {theme === 'light' ? (
                 <Moon style={{ width: '20px', height: '20px' }} />
@@ -91,6 +95,9 @@ export function Navigation() {
                 {link.label}
               </a>
             ))}
+            <div className={styles.mobileLocaleSwitcher}>
+              <LocaleSwitcher />
+            </div>
           </div>
         )}
       </div>

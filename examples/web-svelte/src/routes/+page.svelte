@@ -1,34 +1,34 @@
 <script lang="ts">
-import { createAuthStore } from '@fortressauth/svelte-sdk';
+  import { createAuthStore } from "@fortressauth/svelte-sdk";
 
-const auth = createAuthStore({ baseUrl: 'http://localhost:3001' });
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
-const { user, loading, error } = auth;
+  const auth = createAuthStore({ baseUrl: "" });
+  // biome-ignore lint/correctness/noUnusedVariables: Used in template
+  const { user, loading, error } = auth;
 
-const mode: 'signin' | 'signup' = 'signin';
-const email = '';
-const password = '';
-const confirmPassword = '';
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
-let formError = '';
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
-async function handleSubmit() {
-  formError = '';
+  let mode: "signin" | "signup" = $state("signin");
+  let email = $state("");
+  let password = $state("");
+  let confirmPassword = $state("");
+  // biome-ignore lint/correctness/noUnusedVariables: Used in template
+  let formError = $state("");
+  // biome-ignore lint/correctness/noUnusedVariables: Used in template
+  async function handleSubmit() {
+    formError = "";
 
-  if (mode === 'signup') {
-    if (password !== confirmPassword) {
-      formError = 'Passwords do not match';
-      return;
+    if (mode === "signup") {
+      if (password !== confirmPassword) {
+        formError = "Passwords do not match";
+        return;
+      }
+      await auth.signUp(email, password);
+    } else {
+      await auth.signIn(email, password);
     }
-    await auth.signUp(email, password);
-  } else {
-    await auth.signIn(email, password);
   }
-}
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
-async function handleSignOut() {
-  await auth.signOut();
-}
+  // biome-ignore lint/correctness/noUnusedVariables: Used in template
+  async function handleSignOut() {
+    await auth.signOut();
+  }
 </script>
 
 <div class="container">
@@ -42,8 +42,7 @@ async function handleSignOut() {
       <p style="margin: 1rem 0; color: #a0aec0;">
         Email verified: {$user.emailVerified ? "✅ Yes" : "❌ No"}
       </p>
-      <button class="btn btn-secondary" on:click={handleSignOut}
-        >Sign Out</button
+      <button class="btn btn-secondary" onclick={handleSignOut}>Sign Out</button
       >
     </div>
   {:else}
@@ -51,16 +50,21 @@ async function handleSignOut() {
       <button
         class="tab"
         class:active={mode === "signin"}
-        on:click={() => (mode = "signin")}>Sign In</button
+        onclick={() => (mode = "signin")}>Sign In</button
       >
       <button
         class="tab"
         class:active={mode === "signup"}
-        on:click={() => (mode = "signup")}>Sign Up</button
+        onclick={() => (mode = "signup")}>Sign Up</button
       >
     </div>
 
-    <form on:submit|preventDefault={handleSubmit}>
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
+    >
       <div class="form-group">
         <label for="email">Email</label>
         <input

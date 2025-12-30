@@ -21,10 +21,17 @@
             "outputPath": "dist/web-angular",
             "index": "src/index.html",
             "browser": "src/main.ts",
-            "polyfills": ["zone.js"],
+            "polyfills": [
+              "zone.js"
+            ],
             "tsConfig": "tsconfig.json",
-            "assets": ["src/favicon.ico"],
-            "styles": ["src/styles.css"],
+            "baseHref": "/angular-demo/",
+            "assets": [
+              "src/favicon.ico"
+            ],
+            "styles": [
+              "src/styles.css"
+            ],
             "scripts": []
           },
           "configurations": {

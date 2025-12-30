@@ -1,98 +1,151 @@
 {
   "nav": {
-    "features": "Features",
-    "docs": "Documentation",
-    "examples": "Examples",
-    "pricing": "Pricing",
+    "features": "المميزات",
+    "docs": "التوثيق",
+    "examples": "الأمثلة",
+    "pricing": "الأسعار",
     "github": "GitHub"
   },
   "hero": {
     "title": "FortressAuth",
-    "subtitle": "Secure-by-Default Authentication",
-    "description": "A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.",
-    "getStarted": "Get Started",
-    "viewDocs": "View Documentation",
-    "tryDemo": "Try Demo"
+    "subtitle": "مصادقة آمنة افتراضياً",
+    "description": "مكتبة مصادقة جاهزة للإنتاج مبنية بلغة TypeScript وبنية سداسية. مستقلة عن قاعدة البيانات، ومستقلة عن مزود البريد الإلكتروني، وآمنة افتراضياً.",
+    "getStarted": "ابدأ الآن",
+    "viewDocs": "عرض التوثيق",
+    "tryDemo": "جرب العرض التجريبي"
   },
   "features": {
-    "title": "Built for Security & Flexibility",
+    "title": "مبني للأمان والمرونة",
     "secureByDefault": {
-      "title": "Secure by Default",
-      "description": "Argon2id password hashing with OWASP-recommended parameters, split session tokens, and timing-attack prevention"
+      "title": "آمن افتراضياً",
+      "description": "تشفير كلمات المرور باستخدام Argon2id بمعايير موصى بها من OWASP، ورموز جلسات مقسمة، ومنع هجمات التوقيت"
     },
     "databaseAgnostic": {
-      "title": "Database Agnostic",
-      "description": "Works seamlessly with PostgreSQL, MySQL, and SQLite via Kysely query builder"
+      "title": "مستقل عن قاعدة البيانات",
+      "description": "يعمل بسلاسة مع PostgreSQL و MySQL و SQLite عبر منشئ الاستعلامات Kysely"
     },
     "emailAgnostic": {
-      "title": "Email Provider Agnostic",
-      "description": "Pluggable email providers - console for development, Resend for production, or bring your own"
+      "title": "مستقل عن مزود البريد",
+      "description": "مزودو بريد إلكتروني قابلون للتوصيل - وحدة تحكم للتطوير، Resend للإنتاج، أو استخدم مزودك الخاص"
     },
     "productionReady": {
-      "title": "Production Ready",
-      "description": "Email verification, password reset, rate limiting (memory/Redis), account lockout, and session management"
+      "title": "جاهز للإنتاج",
+      "description": "التحقق من البريد الإلكتروني، إعادة تعيين كلمة المرور، تحديد معدل الطلبات (memory/Redis)، قفل الحساب، وإدارة الجلسات"
     },
     "openApiDocs": {
-      "title": "OpenAPI Documentation",
-      "description": "Auto-generated API documentation with interactive Scalar UI for easy integration"
+      "title": "توثيق OpenAPI",
+      "description": "توثيق API يتم إنشاؤه تلقائياً مع واجهة Scalar تفاعلية لسهولة التكامل"
     },
     "dockerReady": {
-      "title": "Docker Ready",
-      "description": "Multi-stage Dockerfile with security best practices and Docker Compose configuration"
+      "title": "جاهز لـ Docker",
+      "description": "ملف Dockerfile متعدد المراحل مع أفضل ممارسات الأمان وإعدادات Docker Compose"
     },
     "sdks": {
-      "title": "React & Vue SDKs",
-      "description": "Cookie-aware authentication flows with React hooks and Vue composables for seamless integration"
+      "title": "SDK لـ React و Vue",
+      "description": "عمليات مصادقة تدعم الكوكيز مع React hooks و Vue composables لتكامل سلس"
     },
     "hexagonal": {
-      "title": "Hexagonal Architecture",
-      "description": "Clean separation between business logic and infrastructure with zero dependencies in core"
+      "title": "البنية السداسية",
+      "description": "فصل تام بين منطق العمل والبنية التحتية مع انعدام التبعيات في القلب"
     }
   },
   "code": {
-    "title": "Simple Integration",
-    "description": "Get started with just a few lines of code",
-    "installation": "Installation",
+    "title": "تكامل بسيط",
+    "description": "ابدأ ببضعة أسطر من الكود فقط",
+    "installation": "التثبيت",
     "react": "React",
     "vue": "Vue",
     "node": "Node.js",
-    "copy": "Copy",
-    "copied": "Copied!"
+    "copy": "نسخ",
+    "copied": "تم النسخ!"
   },
   "demo": {
-    "title": "Try It Live",
-    "description": "Experience FortressAuth in action with our interactive demo",
-    "tryNow": "Try Demo Now"
+    "title": "جربه الآن",
+    "description": "اختبر FortressAuth بشكل حي من خلال عرضنا التفاعلي",
+    "tryNow": "جرب العرض التجريبي الآن"
   },
   "resources": {
-    "title": "Resources & Documentation",
+    "title": "الموارد والتوثيق",
     "apiDocs": {
-      "title": "API Documentation",
-      "description": "Complete API reference with interactive examples"
+      "title": "توثيق الـ API",
+      "description": "مرجع API كامل مع أمثلة تفاعلية"
     },
     "quickStart": {
-      "title": "Quick Start Guide",
-      "description": "Get up and running in minutes"
+      "title": "دليل البدء السريع",
+      "description": "ابدأ العمل في دقائق معدودة"
     },
     "examples": {
-      "title": "Code Examples",
-      "description": "React, Vue, and Node.js integration examples"
+      "title": "أمثلة الكود",
+      "description": "أمثلة تكامل لـ React و Vue و Node.js"
     },
     "contributing": {
-      "title": "Contributing",
-      "description": "Help us improve FortressAuth"
+      "title": "المساهمة",
+      "description": "ساعدنا في تحسين FortressAuth"
     }
   },
+  "examples": {
+    "title": "أمثلة التكامل",
+    "subtitle": "استكشف أمثلة حية لتسريع عملية التكامل الخاصة بك",
+    "viewCode": "عرض الكود",
+    "viewDemo": "عرض حي",
+    "basic-usage": {
+      "title": "خادم أساسي",
+      "description": "مثال كامل لخادم Node.js مع قاعدة بيانات SQLite، وإدارة الجلسات، والتحقق من البريد الإلكتروني."
+    },
+    "web-react": {
+      "title": "تطبيق ويب React",
+      "description": "تطبيق React كامل يستخدم @fortressauth/react-sdk مع auth hooks ومسارات محمية."
+    },
+    "web-vue": {
+      "title": "تطبيق ويب Vue",
+      "description": "تطبيق Vue 3 مع composables لحالة المصادقة وتكامل سلس."
+    },
+    "web-svelte": {
+      "title": "تطبيق ويب Svelte",
+      "description": "تطبيق Svelte 5 مع حالة المصادقة وتكامل سلس."
+    },
+    "web-angular": {
+      "title": "تطبيق ويب Angular",
+      "description": "تطبيق Angular مع حالة المصادقة وتكامل RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "تجربة المطور أولاً",
+    "subtitle": "واجهات برمجة تطبيقات نظيفة وآمنة تجعل المصادقة أمراً سهلاً",
+    "tabs": {
+      "quickStart": "بدء سريع",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "تكامل سريع",
+      "secure": "آمن افتراضياً",
+      "typed": "مدعوم بالأنواع بالكامل"
+    }
+  },
+  "documentation": {
+    "title": "توثيق الـ API",
+    "subtitle": "مرجع API تفاعلي مدعوم بمواصفات OpenAPI",
+    "openFullDocs": "فتح في علامة تبويب جديدة",
+    "serverNotRunning": "خادم الـ API لا يعمل",
+    "fallbackMessage": "ابدأ خادم FortressAuth لعرض توثيق الـ API التفاعلي:",
+    "viewServerDocs": "عرض توثيق الخادم",
+    "openDocs": "افتح التوثيق"
+  },
   "footer": {
-    "tagline": "Built with hexagonal architecture • Zero infrastructure dependencies in core",
-    "copyright": "© 2024 FortressAuth. MIT License.",
+    "tagline": "مبني بالبنية السداسية • انعدام تبعيات البنية التحتية في القلب",
+    "copyright": "© 2024 FortressAuth. رخصة MIT.",
     "links": {
-      "documentation": "Documentation",
-      "apiReference": "API Reference",
-      "examples": "Examples",
-      "contributing": "Contributing",
+      "documentation": "التوثيق",
+      "apiReference": "مرجع الـ API",
+      "examples": "الأمثلة",
+      "contributing": "المساهمة",
       "github": "GitHub",
-      "license": "License"
+      "license": "الرخصة"
     }
   }
 }

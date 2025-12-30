@@ -83,6 +83,59 @@
       "description": "Ayúdanos a mejorar FortressAuth"
     }
   },
+  "examples": {
+    "title": "Ejemplos de Integración",
+    "subtitle": "Explore ejemplos funcionales para acelerar su integración",
+    "viewCode": "Ver Código",
+    "viewDemo": "Demo en Vivo",
+    "basic-usage": {
+      "title": "Servidor Básico",
+      "description": "Ejemplo completo de servidor Node.js con base de datos SQLite, gestión de sesiones y verificación de correo electrónico."
+    },
+    "web-react": {
+      "title": "App Web React",
+      "description": "Aplicación React completa usando @fortressauth/react-sdk con hooks de autenticación y rutas protegidas."
+    },
+    "web-vue": {
+      "title": "App Web Vue",
+      "description": "Aplicación Vue 3 con composables para el estado de autenticación e integración perfecta."
+    },
+    "web-svelte": {
+      "title": "App Web Svelte",
+      "description": "Aplicación Svelte 5 con estado de autenticación e integración perfecta."
+    },
+    "web-angular": {
+      "title": "App Web Angular",
+      "description": "Aplicación Angular con estado de autenticación e integración RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "Experiencia del Desarrollador Primero",
+    "subtitle": "APIs limpias y seguras que hacen que la autenticación sea pan comido",
+    "tabs": {
+      "quickStart": "Inicio Rápido",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Integración Rápida",
+      "secure": "Seguro por Defecto",
+      "typed": "Totalmente Tipado"
+    }
+  },
+  "documentation": {
+    "title": "Documentación API",
+    "subtitle": "Referencia de API interactiva impulsada por la especificación OpenAPI",
+    "openFullDocs": "Abrir en nueva pestaña",
+    "serverNotRunning": "El Servidor de API No Está Funcionando",
+    "fallbackMessage": "Inicie el servidor FortressAuth para ver la documentación interactiva de la API:",
+    "viewServerDocs": "Ver Documentación del Servidor",
+    "openDocs": "Abrir Documentación"
+  },
   "footer": {
     "tagline": "Construido con arquitectura hexagonal • Cero dependencias de infraestructura en el núcleo",
     "copyright": "© 2024 FortressAuth. Licencia MIT.",

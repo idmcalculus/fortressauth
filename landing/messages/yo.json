@@ -83,6 +83,59 @@
       "description": "Ràn wá lọ́wọ́ láti mú FortressAuth dára sí i"
     }
   },
+  "examples": {
+    "title": "Àwọn Àpẹẹrẹ Ítìgrésọ́nù",
+    "subtitle": "Ṣàwárí àwọn àpẹẹrẹ iṣẹ́ láti bẹ̀rẹ̀",
+    "viewCode": "Wo Kóòdù",
+    "viewDemo": "Demo Láààyè",
+    "basic-usage": {
+      "title": "Sárfà Kékeré",
+      "description": "Àpẹẹrẹ sárfà Node.js tó pé pẹ̀lú SQLite, ìṣàkóso ìgbàdúró àti ìfọwọ́sí ímeèlì."
+    },
+    "web-react": {
+      "title": "React Web App",
+      "description": "Àpèlìkéṣọ́nù React tó pé pẹ̀lú @fortressauth/react-sdk."
+    },
+    "web-vue": {
+      "title": "Vue Web App",
+      "description": "Àpèlìkéṣọ́nù Vue 3 pẹ̀lú àwọn composables fún ìfọwọ́sí."
+    },
+    "web-svelte": {
+      "title": "Svelte Web App",
+      "description": "Àpèlìkéṣọ́nù Svelte 5 pẹ̀lú ìfọwọ́sí."
+    },
+    "web-angular": {
+      "title": "Angular Web App",
+      "description": "Àpèlìkéṣọ́nù Angular pẹ̀lú RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "Ìrírí Olùgbékalẹ̀ Lákọ̀ọ́kọ́",
+    "subtitle": "Àwọn API tó mọ́ tí ó mú ìfọwọ́sí rọrùn",
+    "tabs": {
+      "quickStart": "Ìbẹ̀rẹ̀ Kíákíá",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Ìsopọ̀ Kíákíá",
+      "secure": "Ó Ní Àbò Látọwọ́dọwọ́",
+      "typed": "Tí A Kọ́ Ni Kikun"
+    }
+  },
+  "documentation": {
+    "title": "Ìwé-àkọsílẹ̀ API",
+    "subtitle": "Ìtọ́kasí API tó lè ṣe láti OpenAPI",
+    "openFullDocs": "Ṣí i nínú táàbù tuntun",
+    "serverNotRunning": "Sárfà API Kò Ṣiṣẹ́",
+    "fallbackMessage": "Bẹ̀rẹ̀ sárfà FortressAuth láti wo ìwé-àkọsílẹ̀ API:",
+    "viewServerDocs": "Wo Ìwé-àkọsílẹ̀ Sárfà",
+    "openDocs": "Ṣí Ìwé-àkọsílẹ̀"
+  },
   "footer": {
     "tagline": "Tí a kọ́ pẹ̀lú àgbékalẹ̀ hexagonal • Kò sí ìgbẹ́kẹ̀lé amayederun nínú àárín",
     "copyright": "© 2024 FortressAuth. Ìwé-àṣẹ MIT.",
