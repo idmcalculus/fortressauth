@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start",
+    "dev": "concurrently -n \"next,server,react,vue,svelte,angular\" -c \"blue,white,green,magenta,yellow,red\" \"next dev --turbopack\" \"PORT=5000 pnpm --filter @fortressauth/server dev\" \"pnpm --filter fortressauth-web-react dev\" \"pnpm --filter fortressauth-web-vue dev\" \"pnpm --filter fortressauth-web-svelte dev\" \"pnpm --filter fortressauth-web-angular dev\"",
+    "build": "next build",
+    "start": "concurrently -n \"next,server,react,vue,svelte,angular\" -c \"blue,white,green,magenta,yellow,red\" \"next start\" \"PORT=5000 pnpm --filter @fortressauth/server start\" \"pnpm --filter fortressauth-web-react preview\" \"pnpm --filter fortressauth-web-vue preview\" \"pnpm --filter fortressauth-web-svelte preview\" \"pnpm --filter fortressauth-web-angular start\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
-    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/postcss": "4.1.18",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",

@@ -1,98 +1,151 @@
 {
   "nav": {
-    "features": "Features",
-    "docs": "Documentation",
-    "examples": "Examples",
-    "pricing": "Pricing",
+    "features": "機能",
+    "docs": "ドキュメント",
+    "examples": "サンプル",
+    "pricing": "価格",
     "github": "GitHub"
   },
   "hero": {
     "title": "FortressAuth",
-    "subtitle": "Secure-by-Default Authentication",
-    "description": "A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.",
-    "getStarted": "Get Started",
-    "viewDocs": "View Documentation",
-    "tryDemo": "Try Demo"
+    "subtitle": "デフォルトで安全な認証",
+    "description": "TypeScriptとヘキサゴナルアーキテクチャで構築された、本番環境対応の認証ライブラリ。データベースを選ばず、メールプロバイダーに依存せず、デフォルトで安全です。",
+    "getStarted": "始める",
+    "viewDocs": "ドキュメントを見る",
+    "tryDemo": "デモを試す"
   },
   "features": {
-    "title": "Built for Security & Flexibility",
+    "title": "セキュリティと柔軟性のために構築",
     "secureByDefault": {
-      "title": "Secure by Default",
-      "description": "Argon2id password hashing with OWASP-recommended parameters, split session tokens, and timing-attack prevention"
+      "title": "デフォルトで安全",
+      "description": "OWASP推奨パラメータを使用したArgon2idパスワードハッシュ、分割セッショントークン、タイミング攻撃の防止"
     },
     "databaseAgnostic": {
-      "title": "Database Agnostic",
-      "description": "Works seamlessly with PostgreSQL, MySQL, and SQLite via Kysely query builder"
+      "title": "データベースに依存しない",
+      "description": "Kyselyクエリビルダーを介して、PostgreSQL、MySQL、SQLiteとシームレスに動作"
     },
     "emailAgnostic": {
-      "title": "Email Provider Agnostic",
-      "description": "Pluggable email providers - console for development, Resend for production, or bring your own"
+      "title": "メールプロバイダーに依存しない",
+      "description": "プラグ可能なメールプロバイダー - 開発用コンソール、本番用Resend、または独自のプロバイダーを持参可能"
     },
     "productionReady": {
-      "title": "Production Ready",
-      "description": "Email verification, password reset, rate limiting (memory/Redis), account lockout, and session management"
+      "title": "本番環境対応",
+      "description": "メール確認、パスワードリセット、レート制限（メモリ/Redis）、アカウントロック、セッション管理"
     },
     "openApiDocs": {
-      "title": "OpenAPI Documentation",
-      "description": "Auto-generated API documentation with interactive Scalar UI for easy integration"
+      "title": "OpenAPIドキュメント",
+      "description": "Scalar UIを使用したインタラクティブなAPIドキュメントを自動生成し、簡単な統合を実現"
     },
     "dockerReady": {
-      "title": "Docker Ready",
-      "description": "Multi-stage Dockerfile with security best practices and Docker Compose configuration"
+      "title": "Docker対応",
+      "description": "セキュリティのベストプラクティスを採用したマルチステージDockerfileとDocker Compose設定"
     },
     "sdks": {
-      "title": "React & Vue SDKs",
-      "description": "Cookie-aware authentication flows with React hooks and Vue composables for seamless integration"
+      "title": "React & Vue SDK",
+      "description": "Cookieを考慮した認証フローをReact HooksとVue Composablesで提供し、シームレスな統合を実現"
     },
     "hexagonal": {
-      "title": "Hexagonal Architecture",
-      "description": "Clean separation between business logic and infrastructure with zero dependencies in core"
+      "title": "ヘキサゴナルアーキテクチャ",
+      "description": "ビジネスロジックとインフラストラクチャを明確に分離し、コア部分は依存関係ゼロ"
     }
   },
   "code": {
-    "title": "Simple Integration",
-    "description": "Get started with just a few lines of code",
-    "installation": "Installation",
+    "title": "簡単な統合",
+    "description": "わずか数行のコードで始められます",
+    "installation": "インストール",
     "react": "React",
     "vue": "Vue",
     "node": "Node.js",
-    "copy": "Copy",
-    "copied": "Copied!"
+    "copy": "コピー",
+    "copied": "コピーしました！"
   },
   "demo": {
-    "title": "Try It Live",
-    "description": "Experience FortressAuth in action with our interactive demo",
-    "tryNow": "Try Demo Now"
+    "title": "ライブデモを試す",
+    "description": "インタラクティブなデモでFortressAuthのアクションを体験してください",
+    "tryNow": "今すぐデモを試す"
   },
   "resources": {
-    "title": "Resources & Documentation",
+    "title": "リソースとドキュメント",
     "apiDocs": {
-      "title": "API Documentation",
-      "description": "Complete API reference with interactive examples"
+      "title": "APIドキュメント",
+      "description": "インタラクティブな例を含む完全なAPIリファレンス"
     },
     "quickStart": {
-      "title": "Quick Start Guide",
-      "description": "Get up and running in minutes"
+      "title": "クイックスタートガイド",
+      "description": "数分でセットアップして実行可能"
     },
     "examples": {
-      "title": "Code Examples",
-      "description": "React, Vue, and Node.js integration examples"
+      "title": "コードサンプル",
+      "description": "React、Vue、Node.jsの統合例"
     },
     "contributing": {
-      "title": "Contributing",
-      "description": "Help us improve FortressAuth"
+      "title": "貢献",
+      "description": "FortressAuthの改善にご協力ください"
     }
   },
+  "examples": {
+    "title": "統合サンプル",
+    "subtitle": "統合を迅速に開始するための動作例を確認してください",
+    "viewCode": "コードを見る",
+    "viewDemo": "ライブデモ",
+    "basic-usage": {
+      "title": "基本サーバー",
+      "description": "SQLiteデータベース、セッション管理、メール確認を含む完全なNode.jsサーバーの例。"
+    },
+    "web-react": {
+      "title": "React Webアプリ",
+      "description": "認証Hooksと保護されたルートを備えた@fortressauth/react-sdkを使用する完全なReactアプリケーション。"
+    },
+    "web-vue": {
+      "title": "Vue Webアプリ",
+      "description": "認証状態のためのComposablesを備えたVue 3アプリケーション。"
+    },
+    "web-svelte": {
+      "title": "Svelte Webアプリ",
+      "description": "認証状態を備えたSvelte 5アプリケーション。"
+    },
+    "web-angular": {
+      "title": "Angular Webアプリ",
+      "description": "認証状態とRxJS統合を備えたAngularアプリケーション。"
+    }
+  },
+  "codeShowcase": {
+    "title": "開発者体験を第一に",
+    "subtitle": "認証を簡単にするクリーンで型安全なAPI",
+    "tabs": {
+      "quickStart": "クイックスタート",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "迅速な統合",
+      "secure": "デフォルトで安全",
+      "typed": "完全な型定義"
+    }
+  },
+  "documentation": {
+    "title": "APIドキュメント",
+    "subtitle": "OpenAPI仕様に基づくインタラクティブなAPIリファレンス",
+    "openFullDocs": "新しいタブで開く",
+    "serverNotRunning": "APIサーバーが稼働していません",
+    "fallbackMessage": "インタラクティブなAPIドキュメントを表示するには、FortressAuthサーバーを起動してください：",
+    "viewServerDocs": "サーバーのドキュメントを見る",
+    "openDocs": "ドキュメントを開く"
+  },
   "footer": {
-    "tagline": "Built with hexagonal architecture • Zero infrastructure dependencies in core",
+    "tagline": "ヘキサゴナルアーキテクチャで構築 • コア部分はインフラストラクチャへの依存なし",
     "copyright": "© 2024 FortressAuth. MIT License.",
     "links": {
-      "documentation": "Documentation",
-      "apiReference": "API Reference",
-      "examples": "Examples",
-      "contributing": "Contributing",
+      "documentation": "ドキュメント",
+      "apiReference": "APIリファレンス",
+      "examples": "サンプル",
+      "contributing": "貢献",
       "github": "GitHub",
-      "license": "License"
+      "license": "ライセンス"
     }
   }
 }

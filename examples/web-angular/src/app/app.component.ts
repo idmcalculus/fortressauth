@@ -11,9 +11,7 @@ import { AuthService } from '@fortressauth/angular-sdk';
     <div class="container">
       <h1 class="title">🏰 FortressAuth Angular</h1>
       
-      @if (auth.isLoading) {
-        <div class="loading">Loading...</div>
-      } @else if (auth.currentUser) {
+      @if (auth.currentUser) {
         <div class="success">
           <p>Welcome, <span class="user-email">{{ auth.currentUser.email }}</span>!</p>
           <p style="margin: 1rem 0; color: #a0aec0;">
@@ -74,8 +72,8 @@ import { AuthService } from '@fortressauth/angular-sdk';
             </div>
           }
 
-          <button type="submit" class="btn btn-primary">
-            {{ mode === 'signin' ? 'Sign In' : 'Sign Up' }}
+          <button type="submit" class="btn btn-primary" [disabled]="auth.isLoading">
+            {{ auth.isLoading ? 'Processing...' : (mode === 'signin' ? 'Sign In' : 'Sign Up') }}
           </button>
         </form>
 

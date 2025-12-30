@@ -3,7 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.js';
 
-const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+const baseUrl = '';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

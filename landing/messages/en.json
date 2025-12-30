@@ -99,6 +99,14 @@
     "web-vue": {
       "title": "Vue Web App",
       "description": "Vue 3 application with composables for authentication state and seamless integration."
+    },
+    "web-svelte": {
+      "title": "Svelte Web App",
+      "description": "Svelte 5 application with authentication state and seamless integration."
+    },
+    "web-angular": {
+      "title": "Angular Web App",
+      "description": "Angular application with authentication state and RxJS integration."
     }
   },
   "codeShowcase": {

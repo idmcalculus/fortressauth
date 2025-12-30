@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { SiNodedotjs, SiReact, SiVuedotjs } from 'react-icons/si';
+import { SiAngular, SiNodedotjs, SiReact, SiSvelte, SiVuedotjs } from 'react-icons/si';
 import styles from './ExamplesShowcase.module.css';
 
 const examples = [
@@ -10,21 +10,35 @@ const examples = [
     icon: SiNodedotjs,
     techStack: ['Node.js', 'TypeScript', 'SQLite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/basic-usage',
-    demoUrl: null, // No live demo for CLI example
+    demoUrl: null,
   },
   {
     id: 'web-react',
     icon: SiReact,
     techStack: ['React', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-react',
-    demoUrl: 'http://localhost:5173',
+    demoUrl: '/react-demo',
   },
   {
     id: 'web-vue',
     icon: SiVuedotjs,
     techStack: ['Vue 3', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-vue',
-    demoUrl: 'http://localhost:5174',
+    demoUrl: '/vue-demo',
+  },
+  {
+    id: 'web-svelte',
+    icon: SiSvelte,
+    techStack: ['Svelte 5', 'TypeScript', 'Vite'],
+    repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-svelte',
+    demoUrl: '/svelte-demo',
+  },
+  {
+    id: 'web-angular',
+    icon: SiAngular,
+    techStack: ['Angular', 'TypeScript', 'RxJS'],
+    repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-angular',
+    demoUrl: '/angular-demo',
   },
 ];
 

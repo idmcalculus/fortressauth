@@ -1,98 +1,151 @@
 {
   "nav": {
-    "features": "Features",
-    "docs": "Documentation",
-    "examples": "Examples",
-    "pricing": "Pricing",
+    "features": "功能",
+    "docs": "文档",
+    "examples": "示例",
+    "pricing": "价格",
     "github": "GitHub"
   },
   "hero": {
     "title": "FortressAuth",
-    "subtitle": "Secure-by-Default Authentication",
-    "description": "A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.",
-    "getStarted": "Get Started",
-    "viewDocs": "View Documentation",
-    "tryDemo": "Try Demo"
+    "subtitle": "默认安全的身份验证",
+    "description": "一个使用 TypeScript 和六边形架构构建的生产级身份验证库。数据库无关，邮件提供商无关，且默认安全。",
+    "getStarted": "开始使用",
+    "viewDocs": "查看文档",
+    "tryDemo": "尝试演示"
   },
   "features": {
-    "title": "Built for Security & Flexibility",
+    "title": "为安全与灵活性而生",
     "secureByDefault": {
-      "title": "Secure by Default",
-      "description": "Argon2id password hashing with OWASP-recommended parameters, split session tokens, and timing-attack prevention"
+      "title": "默认安全",
+      "description": "使用 OWASP 推荐参数的 Argon2id 密码哈希、分割会话令牌和计时攻击预防"
     },
     "databaseAgnostic": {
-      "title": "Database Agnostic",
-      "description": "Works seamlessly with PostgreSQL, MySQL, and SQLite via Kysely query builder"
+      "title": "数据库无关",
+      "description": "通过 Kysely 查询构建器与 PostgreSQL、MySQL 和 SQLite 缝衔接"
     },
     "emailAgnostic": {
-      "title": "Email Provider Agnostic",
-      "description": "Pluggable email providers - console for development, Resend for production, or bring your own"
+      "title": "邮件提供商无关",
+      "description": "可插拔的邮件提供商 - 开发环境使用控制台，生产环境使用 Resend，或使用您自己的提供商"
     },
     "productionReady": {
-      "title": "Production Ready",
-      "description": "Email verification, password reset, rate limiting (memory/Redis), account lockout, and session management"
+      "title": "生产就绪",
+      "description": "邮箱验证、密码重置、频率限制（内存/Redis）、账户锁定和会话管理"
     },
     "openApiDocs": {
-      "title": "OpenAPI Documentation",
-      "description": "Auto-generated API documentation with interactive Scalar UI for easy integration"
+      "title": "OpenAPI 文档",
+      "description": "自动生成的 API 文档，配有交互式 Scalar UI，易于集成"
     },
     "dockerReady": {
-      "title": "Docker Ready",
-      "description": "Multi-stage Dockerfile with security best practices and Docker Compose configuration"
+      "title": "支持 Docker",
+      "description": "采用安全最佳实践的多阶段 Dockerfile 和 Docker Compose 配置"
     },
     "sdks": {
-      "title": "React & Vue SDKs",
-      "description": "Cookie-aware authentication flows with React hooks and Vue composables for seamless integration"
+      "title": "React 和 Vue SDK",
+      "description": "支持 Cookie 的身份验证流程，配有 React Hooks 和 Vue Composables，实现无缝集成"
     },
     "hexagonal": {
-      "title": "Hexagonal Architecture",
-      "description": "Clean separation between business logic and infrastructure with zero dependencies in core"
+      "title": "六边形架构",
+      "description": "业务逻辑与基础设施完全分离，核心部分零依赖"
     }
   },
   "code": {
-    "title": "Simple Integration",
-    "description": "Get started with just a few lines of code",
-    "installation": "Installation",
+    "title": "简单集成",
+    "description": "只需几行代码即可开始",
+    "installation": "安装",
     "react": "React",
     "vue": "Vue",
     "node": "Node.js",
-    "copy": "Copy",
-    "copied": "Copied!"
+    "copy": "复制",
+    "copied": "已复制！"
   },
   "demo": {
-    "title": "Try It Live",
-    "description": "Experience FortressAuth in action with our interactive demo",
-    "tryNow": "Try Demo Now"
+    "title": "在线体验",
+    "description": "通过我们的交互式演示体验 FortressAuth",
+    "tryNow": "立即尝试演示"
   },
   "resources": {
-    "title": "Resources & Documentation",
+    "title": "资源与文档",
     "apiDocs": {
-      "title": "API Documentation",
-      "description": "Complete API reference with interactive examples"
+      "title": "API 文档",
+      "description": "包含交互式示例的完整 API 参考"
     },
     "quickStart": {
-      "title": "Quick Start Guide",
-      "description": "Get up and running in minutes"
+      "title": "快速入门指南",
+      "description": "在几分钟内启动并运行"
     },
     "examples": {
-      "title": "Code Examples",
-      "description": "React, Vue, and Node.js integration examples"
+      "title": "代码示例",
+      "description": "React、Vue 和 Node.js 集成示例"
     },
     "contributing": {
-      "title": "Contributing",
-      "description": "Help us improve FortressAuth"
+      "title": "贡献",
+      "description": "帮助我们改进 FortressAuth"
     }
   },
+  "examples": {
+    "title": "集成示例",
+    "subtitle": "通过实际运行的示例快速启动您的集成",
+    "viewCode": "查看代码",
+    "viewDemo": "在线演示",
+    "basic-usage": {
+      "title": "基础服务器",
+      "description": "包含 SQLite 数据库、会话管理和邮箱验证的完整 Node.js 服务器示例。"
+    },
+    "web-react": {
+      "title": "React Web 应用",
+      "description": "使用 @fortressauth/react-sdk 构建的完整 React 应用，包含身份验证 Hooks 和受保护路由。"
+    },
+    "web-vue": {
+      "title": "Vue Web 应用",
+      "description": "配有用于身份验证状态的 Composables 的 Vue 3 应用，实现无缝集成。"
+    },
+    "web-svelte": {
+      "title": "Svelte Web 应用",
+      "description": "配有身份验证状态的 Svelte 5 应用，实现无缝集成。"
+    },
+    "web-angular": {
+      "title": "Angular Web 应用",
+      "description": "配有身份验证状态和 RxJS 集成的 Angular 应用。"
+    }
+  },
+  "codeShowcase": {
+    "title": "开发者体验优先",
+    "subtitle": "整洁、类型安全的 API，让身份验证变得易如反掌",
+    "tabs": {
+      "quickStart": "快速入门",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "快速集成",
+      "secure": "默认安全",
+      "typed": "完全类型化"
+    }
+  },
+  "documentation": {
+    "title": "API 文档",
+    "subtitle": "由 OpenAPI 规范支持的交互式 API 参考",
+    "openFullDocs": "在新标签页中打开",
+    "serverNotRunning": "API 服务器未运行",
+    "fallbackMessage": "启动 FortressAuth 服务器以查看交互式 API 文档：",
+    "viewServerDocs": "查看服务器文档",
+    "openDocs": "打开文档"
+  },
   "footer": {
-    "tagline": "Built with hexagonal architecture • Zero infrastructure dependencies in core",
-    "copyright": "© 2024 FortressAuth. MIT License.",
+    "tagline": "采用六边形架构构建 • 核心部分零基础设施依赖",
+    "copyright": "© 2024 FortressAuth. 采用 MIT 许可证。",
     "links": {
-      "documentation": "Documentation",
-      "apiReference": "API Reference",
-      "examples": "Examples",
-      "contributing": "Contributing",
+      "documentation": "文档",
+      "apiReference": "API 参考",
+      "examples": "示例",
+      "contributing": "贡献",
       "github": "GitHub",
-      "license": "License"
+      "license": "许可证"
     }
   }
 }

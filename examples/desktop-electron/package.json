@@ -1,6 +1,8 @@
 {
   "name": "fortressauth-desktop-electron",
   "version": "0.1.0",
+  "description": "Desktop authentication application built with Electron and FortressAuth",
+  "author": "FortressAuth Team",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -13,6 +15,7 @@
     "@fortressauth/electron-sdk": "workspace:*"
   },
   "devDependencies": {
-    "electron": "^39.2.7"
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
   }
 }

@@ -126,8 +126,10 @@ export function createAuthStore(config?: AuthConfig) {
     });
   }
 
-  // Initialize by fetching user
-  refreshUser();
+  // Initialize by fetching user (only in browser)
+  if (typeof window !== 'undefined') {
+    refreshUser();
+  }
 
   return {
     // Stores
