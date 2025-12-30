@@ -9,8 +9,9 @@ const mode: 'signin' | 'signup' = 'signin';
 const email = '';
 const password = '';
 const confirmPassword = '';
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 let formError = '';
-
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleSubmit() {
   formError = '';
 
@@ -24,7 +25,7 @@ async function handleSubmit() {
     await auth.signIn(email, password);
   }
 }
-
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 async function handleSignOut() {
   await auth.signOut();
 }
