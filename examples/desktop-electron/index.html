@@ -71,55 +71,93 @@
 </head>
 <body>
   <div class="container">
-    <h1 class="title">🏰 FortressAuth Electron</h1>
+    <div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;">
+      <img src="logo.svg" alt="FortressAuth Logo" style="width: 64px; height: 64px; margin-bottom: 1rem;">
+      <h1 class="title">FortressAuth Electron</h1>
+    </div>
     
     <div id="loading" class="loading">Loading...</div>
     
-    <div id="auth-form" class="hidden">
-      <div class="tabs">
-        <button class="tab active" id="signin-tab">Sign In</button>
-        <button class="tab" id="signup-tab">Sign Up</button>
+    <div id="auth-ui" class="hidden">
+      <div id="auth-forms">
+        <div class="tabs">
+          <button class="tab active" id="signin-tab">Sign In</button>
+          <button class="tab" id="signup-tab">Sign Up</button>
+          <button class="tab" id="verify-tab">Verify</button>
+          <button class="tab" id="reset-tab">Reset</button>
+        </div>
+
+        <form id="form">
+          <div id="standard-fields">
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" placeholder="your@email.com" required>
+            </div>
+            
+            <div id="password-group">
+              <div class="form-group">
+                <label for="password" id="password-label">Password</label>
+                <input type="password" id="password" placeholder="••••••••">
+              </div>
+            </div>
+
+            <div class="form-group hidden" id="confirm-group">
+              <label for="confirm-password">Confirm Password</label>
+              <input type="password" id="confirm-password" placeholder="••••••••">
+            </div>
+          </div>
+
+          <div id="token-fields" class="hidden">
+            <div class="form-group">
+              <label for="token" id="token-label">Token</label>
+              <input type="text" id="token" placeholder="selector:verifier">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="submit-btn" style="margin-top: 1rem;">Sign In</button>
+          
+          <div id="forgot-password" class="forgot-link" style="margin-top: 1rem; text-align: center;">
+            <a href="#" id="forgot-link" style="color: #a0aec0; font-size: 0.875rem; text-decoration: none;">Forgot password?</a>
+          </div>
+        </form>
       </div>
 
-      <form id="form">
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input type="email" id="email" placeholder="your@email.com" required>
-        </div>
-        
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input type="password" id="password" placeholder="••••••••" required>
-        </div>
-
-        <div class="form-group hidden" id="confirm-group">
-          <label for="confirm-password">Confirm Password</label>
-          <input type="password" id="confirm-password" placeholder="••••••••">
-        </div>
-
-        <button type="submit" class="btn btn-primary" id="submit-btn">Sign In</button>
-      </form>
-
-      <p id="error" class="error hidden"></p>
+      <div id="error" class="error hidden"></div>
+      <div id="message" style="margin-top: 1rem; text-align: center; color: #4ecdc4; font-size: 0.875rem;" class="hidden"></div>
     </div>
 
     <div id="user-info" class="success hidden">
+      <div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;">
+        <img src="logo.svg" alt="FortressAuth Logo" style="width: 64px; height: 64px; margin-bottom: 1rem;">
+      </div>
       <p>Welcome, <span class="user-email" id="user-email"></span>!</p>
       <p class="verify-text" id="verify-status"></p>
       <button class="btn btn-secondary" id="signout-btn">Sign Out</button>
+    </div>
+
+    <div id="reset-overlay" class="overlay hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px);">
+      <div class="modal" style="background: #1e3a5f; padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%;">
+        <h3>Reset Password</h3>
+        <p class="muted" style="margin-bottom: 1.5rem; color: #a0aec0; font-size: 0.875rem;">Enter your email to receive a reset link.</p>
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="reset-email" style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #a0aec0;">Email</label>
+          <input type="email" id="reset-email" placeholder="your@email.com" style="width: 100%; padding: 0.7rem 1rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: #f8f9fa;">
+        </div>
+        <button class="btn btn-primary" id="reset-request-btn">Send Reset Link</button>
+        <button class="btn btn-secondary" id="reset-cancel-btn">Cancel</button>
+      </div>
     </div>
   </div>
 
   <script>
     const { createAuth } = require('@fortressauth/electron-sdk');
-    
-    const auth = createAuth({ baseUrl: 'http://localhost:3001' });
+    const auth = createAuth({ baseUrl: '' });
     
     let mode = 'signin';
     
     // DOM elements
     const loading = document.getElementById('loading');
-    const authForm = document.getElementById('auth-form');
+    const authUI = document.getElementById('auth-ui');
     const userInfo = document.getElementById('user-info');
     const form = document.getElementById('form');
     const email = document.getElementById('email');
@@ -128,24 +166,37 @@
     const confirmGroup = document.getElementById('confirm-group');
     const submitBtn = document.getElementById('submit-btn');
     const errorEl = document.getElementById('error');
+    const messageEl = document.getElementById('message');
     const signinTab = document.getElementById('signin-tab');
     const signupTab = document.getElementById('signup-tab');
+    const verifyTab = document.getElementById('verify-tab');
+    const resetTab = document.getElementById('reset-tab');
     const userEmail = document.getElementById('user-email');
     const verifyStatus = document.getElementById('verify-status');
     const signoutBtn = document.getElementById('signout-btn');
+    const forgotLink = document.getElementById('forgot-link');
+    const resetOverlay = document.getElementById('reset-overlay');
+    const resetRequestBtn = document.getElementById('reset-request-btn');
+    const resetCancelBtn = document.getElementById('reset-cancel-btn');
+    const resetEmailInput = document.getElementById('reset-email');
+    
+    const standardFields = document.getElementById('standard-fields');
+    const passwordGroup = document.getElementById('password-group');
+    const tokenFields = document.getElementById('token-fields');
+    const tokenInput = document.getElementById('token');
+    const forgotArea = document.getElementById('forgot-password');
 
-    // Subscribe to state changes
-    auth.subscribe((state) => {
+    function updateUIState(state) {
       loading.classList.toggle('hidden', !state.loading);
       
       if (!state.loading) {
         if (state.user) {
-          authForm.classList.add('hidden');
+          authUI.classList.add('hidden');
           userInfo.classList.remove('hidden');
           userEmail.textContent = state.user.email;
           verifyStatus.textContent = `Email verified: ${state.user.emailVerified ? '✅ Yes' : '❌ No'}`;
         } else {
-          authForm.classList.remove('hidden');
+          authUI.classList.remove('hidden');
           userInfo.classList.add('hidden');
         }
       }
@@ -156,28 +207,67 @@
       } else {
         errorEl.classList.add('hidden');
       }
-    });
+    }
 
-    // Tab switching
-    signinTab.addEventListener('click', () => {
-      mode = 'signin';
-      signinTab.classList.add('active');
-      signupTab.classList.remove('active');
+    auth.subscribe(updateUIState);
+
+    function setMode(newMode) {
+      mode = newMode;
+      [signinTab, signupTab, verifyTab, resetTab].forEach(t => t.classList.remove('active'));
+      document.getElementById(`${mode}-tab`).classList.add('active');
+      
+      errorEl.classList.add('hidden');
+      messageEl.classList.add('hidden');
+      
+      standardFields.classList.add('hidden');
+      tokenFields.classList.add('hidden');
       confirmGroup.classList.add('hidden');
-      submitBtn.textContent = 'Sign In';
+      passwordGroup.classList.add('hidden');
+      forgotArea.classList.add('hidden');
+
+      if (mode === 'signin' || mode === 'signup') {
+        standardFields.classList.remove('hidden');
+        passwordGroup.classList.remove('hidden');
+        submitBtn.textContent = mode === 'signin' ? 'Sign In' : 'Sign Up';
+        if (mode === 'signup') confirmGroup.classList.remove('hidden');
+        if (mode === 'signin') forgotArea.classList.remove('hidden');
+      } else if (mode === 'verify') {
+        tokenFields.classList.remove('hidden');
+        submitBtn.textContent = 'Verify Email';
+      } else if (mode === 'reset') {
+        tokenFields.classList.remove('hidden');
+        passwordGroup.classList.remove('hidden');
+        submitBtn.textContent = 'Set New Password';
+      }
+    }
+
+    signinTab.addEventListener('click', () => setMode('signin'));
+    signupTab.addEventListener('click', () => setMode('signup'));
+    verifyTab.addEventListener('click', () => setMode('verify'));
+    resetTab.addEventListener('click', () => setMode('reset'));
+
+    forgotLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      resetOverlay.classList.remove('hidden');
     });
 
-    signupTab.addEventListener('click', () => {
-      mode = 'signup';
-      signupTab.classList.add('active');
-      signinTab.classList.remove('active');
-      confirmGroup.classList.remove('hidden');
-      submitBtn.textContent = 'Sign Up';
+    resetCancelBtn.addEventListener('click', () => {
+      resetOverlay.classList.add('hidden');
     });
 
-    // Form submission
+    resetRequestBtn.addEventListener('click', async () => {
+      const res = await auth.requestPasswordReset(resetEmailInput.value);
+      if (res.success) {
+        messageEl.textContent = 'Password reset email sent.';
+        messageEl.classList.remove('hidden');
+        resetOverlay.classList.add('hidden');
+      }
+    });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorEl.classList.add('hidden');
+      messageEl.classList.add('hidden');
       
       if (mode === 'signup') {
         if (password.value !== confirmPassword.value) {
@@ -185,13 +275,30 @@
           errorEl.classList.remove('hidden');
           return;
         }
-        await auth.signUp(email.value, password.value);
-      } else {
+        const res = await auth.signUp(email.value, password.value);
+        if (res.success) {
+          messageEl.textContent = 'Verification email sent!';
+          messageEl.classList.remove('hidden');
+        }
+      } else if (mode === 'signin') {
         await auth.signIn(email.value, password.value);
+      } else if (mode === 'verify') {
+        const res = await auth.verifyEmail(tokenInput.value);
+        if (res.success) {
+          messageEl.textContent = 'Email verified! You can now sign in.';
+          messageEl.classList.remove('hidden');
+          setMode('signin');
+        }
+      } else if (mode === 'reset') {
+        const res = await auth.resetPassword(tokenInput.value, password.value);
+        if (res.success) {
+          messageEl.textContent = 'Password reset successful. Please sign in.';
+          messageEl.classList.remove('hidden');
+          setMode('signin');
+        }
       }
     });
 
-    // Sign out
     signoutBtn.addEventListener('click', async () => {
       await auth.signOut();
     });

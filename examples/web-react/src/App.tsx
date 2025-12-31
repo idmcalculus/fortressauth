@@ -1,226 +1,152 @@
 import { useAuth, useUser } from '@fortressauth/react-sdk';
-import type React from 'react';
-import { useEffect, useState } from 'react';
-
-type Credentials = { email: string; password: string; confirmPassword?: string };
-
-const emptyCreds: Credentials = { email: '', password: '' };
+import { useState } from 'react';
+import './App.css';
 
 export default function App() {
-  const { user, loading, error } = useUser();
   const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
+  const { user, loading, error } = useUser();
 
-  const [signup, setSignup] = useState<Credentials>({
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-  const [signin, setSignin] = useState<Credentials>(emptyCreds);
-  const [verifyToken, setVerifyToken] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetToken, setResetToken] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-  const [message, setMessage] = useState<string | null>(null);
+  const [mode, setMode] = useState<'signin' | 'signup' | 'verify' | 'reset'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [token, setToken] = useState('');
+  const [message, setMessage] = useState('');
+  const [showResetOverlay, setShowResetOverlay] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      setVerifyToken(token);
-      void verifyEmail(token).then((res) => {
-        setMessage(
-          res.success
-            ? 'Email verified. You can now sign in.'
-            : (res.error ?? 'Verification failed'),
-        );
-      });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage('');
+
+    if (mode === 'signup') {
+      if (password !== confirmPassword) {
+        setMessage('Passwords do not match');
+        return;
+      }
+      const res = await signUp(email, password);
+      if (res.success) setMessage('Verification email sent!');
+    } else if (mode === 'signin') {
+      await signIn(email, password);
+    } else if (mode === 'verify') {
+      const res = await verifyEmail(token);
+      if (res.success) {
+        setMessage('Email verified! You can now sign in.');
+        setMode('signin');
+      }
+    } else if (mode === 'reset') {
+      if (password !== confirmPassword) {
+        setMessage('Passwords do not match');
+        return;
+      }
+      const res = await resetPassword(token, password);
+      if (res.success) {
+        setMessage('Password reset successful. Please sign in.');
+        setMode('signin');
+      }
     }
-  }, [verifyEmail]);
-
-  const handleVerify = async (tokenValue?: string) => {
-    const token = tokenValue ?? verifyToken;
-    if (!token) return;
-    const res = await verifyEmail(token);
-    setMessage(
-      res.success ? 'Email verified. You can now sign in.' : (res.error ?? 'Verification failed'),
-    );
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (signup.password !== signup.confirmPassword) {
-      setMessage('Passwords do not match');
-      return;
+  const handleRequestReset = async () => {
+    const res = await requestPasswordReset(email);
+    if (res.success) {
+      setMessage('Password reset email sent.');
+      setShowResetOverlay(false);
     }
-    const res = await signUp(signup.email, signup.password);
-    setMessage(
-      res.success
-        ? 'Signed up. Check your email for verification.'
-        : (res.error ?? 'Sign up failed'),
-    );
-  };
-
-  const handleSignin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await signIn(signin.email, signin.password);
-    setMessage(res.success ? 'Signed in.' : (res.error ?? 'Sign in failed'));
-  };
-
-  const handleRequestReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await requestPasswordReset(resetEmail);
-    setMessage(res.success ? 'Password reset email sent.' : (res.error ?? 'Request failed'));
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmNewPassword) {
-      setMessage('Passwords do not match');
-      return;
-    }
-    const res = await resetPassword(resetToken, newPassword);
-    setMessage(res.success ? 'Password reset. You can sign in.' : (res.error ?? 'Reset failed'));
   };
 
   return (
-    <div>
-      <h1>FortressAuth React Demo</h1>
-      <p className="muted">Simple flows for signup, login, verification, and password reset.</p>
+    <div className="container">
+      <div className="header">
+        <img src="/react-demo/logo.svg" alt="FortressAuth Logo" className="logo" />
+        <h1 className="title">FortressAuth React</h1>
+      </div>
 
-      {message ? <div className="message">{message}</div> : null}
-      {error ? <div className="message">Last error: {error}</div> : null}
-
-      <div className="card">
-        <h3>Session</h3>
-        {loading ? (
-          <p className="muted">Loading session...</p>
-        ) : user ? (
-          <div>
-            <p>
-              Signed in as <strong>{user.email}</strong> (
-              {user.emailVerified ? 'verified' : 'unverified'})
-            </p>
-            <p className="muted">User ID: {user.id}</p>
-            <button
-              type="button"
-              onClick={() => void signOut().then(() => setMessage('Signed out.'))}
-            >
-              Sign out
-            </button>
+      {loading ? (
+        <div className="loading">Loading session...</div>
+      ) : user ? (
+        <div className="success">
+          <p>Welcome, <span className="user-email">{user.email}</span>!</p>
+          <p style={{ margin: '1rem 0', color: '#a0aec0' }}>
+            Email verified: {user.emailVerified ? '✅ Yes' : '❌ No'}
+          </p>
+          <button className="btn btn-secondary" onClick={() => signOut()}>Sign Out</button>
+        </div>
+      ) : (
+        <>
+          <div className="tabs">
+            <button className={`tab ${mode === 'signin' ? 'active' : ''}`} onClick={() => setMode('signin')}>Sign In</button>
+            <button className={`tab ${mode === 'signup' ? 'active' : ''}`} onClick={() => setMode('signup')}>Sign Up</button>
+            <button className={`tab ${mode === 'verify' ? 'active' : ''}`} onClick={() => setMode('verify')}>Verify</button>
+            <button className={`tab ${mode === 'reset' ? 'active' : ''}`} onClick={() => setMode('reset')}>Reset</button>
           </div>
-        ) : (
-          <p className="muted">Not signed in.</p>
-        )}
-      </div>
 
-      <div className="stack">
-        <div className="card">
-          <h3>Sign up</h3>
-          <form onSubmit={handleSignup}>
-            <input
-              placeholder="Email"
-              type="email"
-              value={signup.email}
-              onChange={(e) => setSignup({ ...signup, email: e.target.value })}
-              required
-            />
-            <input
-              placeholder="Password"
-              type="password"
-              value={signup.password}
-              onChange={(e) => setSignup({ ...signup, password: e.target.value })}
-              required
-            />
-            <input
-              placeholder="Confirm Password"
-              type="password"
-              value={signup.confirmPassword}
-              onChange={(e) => setSignup({ ...signup, confirmPassword: e.target.value })}
-              required
-            />
-            <button type="submit">Create account</button>
-            <p className="muted">A verification email will be sent.</p>
-          </form>
-        </div>
+          <form onSubmit={handleSubmit}>
+            {(mode === 'signin' || mode === 'signup') && (
+              <div className="form-group">
+                <label>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required />
+              </div>
+            )}
 
-        <div className="card">
-          <h3>Sign in</h3>
-          <form onSubmit={handleSignin}>
-            <input
-              placeholder="Email"
-              type="email"
-              value={signin.email}
-              onChange={(e) => setSignin({ ...signin, email: e.target.value })}
-              required
-            />
-            <input
-              placeholder="Password"
-              type="password"
-              value={signin.password}
-              onChange={(e) => setSignin({ ...signin, password: e.target.value })}
-              required
-            />
-            <button type="submit">Sign in</button>
-          </form>
-        </div>
+            {mode === 'reset' && (
+              <div className="form-group">
+                <label>Reset Token</label>
+                <input type="text" value={token} onChange={(e) => setToken(e.target.value)} placeholder="selector:verifier" required />
+              </div>
+            )}
 
-        <div className="card">
-          <h3>Email verification</h3>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void handleVerify();
-            }}
-          >
-            <input
-              placeholder="Token from email"
-              value={verifyToken}
-              onChange={(e) => setVerifyToken(e.target.value)}
-            />
-            <button type="submit">Verify email</button>
-            <p className="muted">Token format: selector:verifier</p>
-          </form>
-        </div>
+            {mode === 'verify' && (
+              <div className="form-group">
+                <label>Verification Token</label>
+                <input type="text" value={token} onChange={(e) => setToken(e.target.value)} placeholder="selector:verifier" required />
+              </div>
+            )}
 
-        <div className="card">
-          <h3>Password reset</h3>
-          <form onSubmit={handleRequestReset}>
-            <input
-              placeholder="Email"
-              type="email"
-              value={resetEmail}
-              onChange={(e) => setResetEmail(e.target.value)}
-              required
-            />
-            <button type="submit">Request reset</button>
+
+            {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
+              <div className="form-group">
+                <label>{mode === 'reset' ? 'New Password' : 'Password'}</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
+              </div>
+            )}
+
+            {(mode === 'signup' || mode === 'reset') && (
+              <div className="form-group">
+                <label>Confirm Password</label>
+                <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••" required />
+              </div>
+            )}
+
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Processing...' : mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : mode === 'verify' ? 'Verify Email' : 'Reset Password'}
+            </button>
+
+            {mode === 'signin' && (
+              <div className="forgot-password">
+                <a href="#" onClick={(e) => { e.preventDefault(); setShowResetOverlay(true); }}>Forgot password?</a>
+              </div>
+            )}
           </form>
-          <hr />
-          <form onSubmit={handleResetPassword}>
-            <input
-              placeholder="Reset token"
-              value={resetToken}
-              onChange={(e) => setResetToken(e.target.value)}
-              required
-            />
-            <input
-              placeholder="New password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-            />
-            <input
-              placeholder="Confirm new password"
-              type="password"
-              value={confirmNewPassword}
-              onChange={(e) => setConfirmNewPassword(e.target.value)}
-              required
-            />
-            <button type="submit">Set new password</button>
-          </form>
-        </div>
-      </div>
+
+          {showResetOverlay && (
+            <div className="overlay">
+              <div className="modal">
+                <h3>Reset Password</h3>
+                <p className="muted">Enter your email to receive a reset link.</p>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
+                </div>
+                <button className="btn btn-primary" onClick={handleRequestReset}>Send Reset Link</button>
+                <button className="btn btn-secondary" onClick={() => setShowResetOverlay(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {error && <div className="error">{error}</div>}
+          {message && <div className="message">{message}</div>}
+        </>
+      )}
     </div>
   );
 }

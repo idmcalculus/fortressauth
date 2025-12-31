@@ -3,7 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.js';
 
-const baseUrl = '';
+// Point directly to the backend to avoid CORS preflight redirects from the proxy
+const baseUrl = 'http://localhost:5001';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

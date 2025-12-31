@@ -15,20 +15,96 @@ body {
 }
 
 .container {
-  max-width: 400px;
+  max-width: 800px;
   width: 100%;
-  padding: 2rem;
+  padding: 2.5rem;
+  margin: 1rem;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.logo {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 1rem;
+}
+
 .title {
   font-size: 1.5rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
   text-align: center;
+  color: #f8f9fa;
+}
+
+.forgot-password {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.forgot-password a {
+  color: #a0aec0;
+  font-size: 0.875rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.forgot-password a:hover {
+  color: #4ecdc4;
+}
+
+.message {
+  margin-top: 1rem;
+  text-align: center;
+  color: #4ecdc4;
+  font-size: 0.875rem;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  background: #1e3a5f;
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 400px;
+  width: 90%;
+}
+
+.modal h3 {
+  margin-bottom: 1rem;
+  color: #f8f9fa;
+}
+
+.modal .muted {
+  margin-bottom: 1.5rem;
+  color: #a0aec0;
+  font-size: 0.875rem;
+}
+
+.modal .btn-secondary {
+  margin-top: 1rem;
 }
 
 .form-group {
@@ -116,17 +192,19 @@ input:focus {
   display: flex;
   margin-bottom: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 0.5rem;
 }
 
 .tab {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   background: transparent;
   border: none;
   color: #a0aec0;
-  font-size: 0.875rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: color 0.2s;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -136,4 +214,50 @@ input:focus {
 .tab.active {
   color: #4ecdc4;
   border-bottom: 2px solid #4ecdc4;
+}
+
+/* Responsive styles */
+@media (max-width: 600px) {
+  body {
+    padding: 0.5rem;
+  }
+
+  .container {
+    max-width: 100%;
+    padding: 1.5rem;
+    margin: 0.5rem;
+    border-radius: 12px;
+  }
+
+  .header {
+    margin-bottom: 1.5rem;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .title {
+    font-size: 1.25rem;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .tab {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  .btn {
+    padding: 0.875rem 1rem;
+  }
+
+  .modal {
+    padding: 1.5rem;
+    width: 95%;
+  }
 }

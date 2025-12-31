@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/auth/:path*',
-        destination: 'http://localhost:5000/auth/:path*',
+        destination: 'http://localhost:5001/auth/:path*',
       },
       {
         source: '/react-demo',
