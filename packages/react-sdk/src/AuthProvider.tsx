@@ -6,7 +6,7 @@ function resolveBaseUrl(explicit?: string): string {
   const envBaseUrl =
     typeof import.meta !== 'undefined' && typeof import.meta === 'object'
       ? // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed
-        ((import.meta as any).env?.VITE_API_BASE_URL ??
+      ((import.meta as any).env?.VITE_API_BASE_URL ??
         // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed
         (import.meta as any).env?.NEXT_PUBLIC_API_BASE_URL)
       : undefined;
@@ -18,16 +18,36 @@ async function apiRequest<T>(
   path: string,
   init?: RequestInit,
 ): Promise<ApiResponse<T>> {
-  const res = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
-  const data = (await res.json()) as ApiResponse<T>;
-  return data;
+  try {
+    const res = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(init?.headers ?? {}),
+      },
+    });
+
+    const contentType = res.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const data = (await res.json()) as ApiResponse<T>;
+      return data;
+    }
+
+    if (res.ok) {
+      return { success: true } as ApiResponse<T>;
+    }
+
+    return {
+      success: false,
+      error: `HTTP_${res.status}`,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'FETCH_ERROR',
+    };
+  }
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,15 +63,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
 
   const refreshUser = useCallback(async () => {
     setLoading(true);
-    const response = await apiRequest<{ user: User }>(baseUrl, '/auth/me');
-    if (response.success && response.data) {
-      setUser(response.data.user);
-      setError(null);
-    } else {
+    try {
+      const response = await apiRequest<{ user: User }>(baseUrl, '/auth/me');
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        setError(null);
+      } else {
+        setUser(null);
+        setError(response.error ?? null);
+      }
+    } catch (err) {
       setUser(null);
-      setError(response.error ?? null);
+      setError(err instanceof Error ? err.message : 'UNKNOWN_ERROR');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [baseUrl]);
 
   useEffect(() => {

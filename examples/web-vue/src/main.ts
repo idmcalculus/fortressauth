@@ -2,10 +2,12 @@ import { AuthProvider } from '@fortressauth/vue-sdk';
 import { createApp, h } from 'vue';
 import App from './App.vue';
 
-const baseUrl = '';
 
 createApp({
-  render() {
-    return h(AuthProvider, { baseUrl }, { default: () => h(App) });
+
+  setup() {
+    return () => h(AuthProvider, { baseUrl: 'http://localhost:5001' }, {
+      default: () => h(App)
+    });
   },
 }).mount('#app');
