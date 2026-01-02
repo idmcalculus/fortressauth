@@ -11,67 +11,247 @@
 // For React Native CLI, change to: '@fortressauth/react-native-sdk'
 import { useAuth, useUser } from '@fortressauth/expo-sdk';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Alert as RNAlert,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  type FormErrors,
+  getErrorMessage,
+  hasErrors,
+  sanitizeInput,
+  validateEmail,
+  validateResetPasswordForm,
+  validateSignInForm,
+  validateSignUpForm,
+  validateVerifyEmailForm,
+} from '../../shared/utils/validation';
+import { Alert, type AlertType, Button, Input, Logo, Modal } from '../components';
+import { borderRadius, colors, spacing, typography } from '../styles/designTokens';
+
+type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
+
+interface FeedbackState {
+  type: AlertType;
+  message: string;
+}
 
 export default function HomeScreen() {
   const { signIn, signUp, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
-  const { user, loading, error } = useUser();
+  const { user, loading, error: authError } = useUser();
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'verify' | 'reset'>('signin');
+  // Form state
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [token, setToken] = useState('');
-  const [message, setMessage] = useState('');
-  const [showResetOverlay, setShowResetOverlay] = useState(false);
 
+  // UI state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  // Show feedback
+  const showFeedback = useCallback((type: AlertType, message: string) => {
+    setFeedback({ type, message });
+  }, []);
+
+  const clearFeedback = useCallback(() => {
+    setFeedback(null);
+  }, []);
+
+  // Clear form state when switching modes
+  const handleModeChange = useCallback(
+    (newMode: AuthMode) => {
+      setMode(newMode);
+      setErrors({});
+      clearFeedback();
+    },
+    [clearFeedback],
+  );
+
+  // Reset form
+  const resetForm = useCallback(() => {
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setToken('');
+    setErrors({});
+  }, []);
+
+  // Handle form submission
   const handleSubmit = async () => {
-    setMessage('');
-    if (mode === 'signup') {
-      if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
-        return;
+    clearFeedback();
+
+    // Sanitize inputs
+    const sanitizedEmail = sanitizeInput(email);
+    const sanitizedToken = sanitizeInput(token);
+
+    // Validate based on mode
+    let validationErrors: FormErrors = {};
+
+    switch (mode) {
+      case 'signin':
+        validationErrors = validateSignInForm(sanitizedEmail, password);
+        break;
+      case 'signup':
+        validationErrors = validateSignUpForm(sanitizedEmail, password, confirmPassword);
+        break;
+      case 'verify':
+        validationErrors = validateVerifyEmailForm(sanitizedToken);
+        break;
+      case 'reset':
+        validationErrors = validateResetPasswordForm(sanitizedToken, password, confirmPassword);
+        break;
+    }
+
+    setErrors(validationErrors);
+
+    if (hasErrors(validationErrors)) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      switch (mode) {
+        case 'signup': {
+          const res = await signUp(sanitizedEmail, password);
+          if (res.success) {
+            showFeedback('success', 'Account created! Please check your email for verification.');
+            resetForm();
+          } else {
+            showFeedback('error', getErrorMessage(res.error));
+          }
+          break;
+        }
+
+        case 'signin': {
+          const res = await signIn(sanitizedEmail, password);
+          if (res.success) {
+            showFeedback('success', 'Welcome back!');
+            resetForm();
+          } else {
+            showFeedback('error', getErrorMessage(res.error));
+          }
+          break;
+        }
+
+        case 'verify': {
+          const res = await verifyEmail(sanitizedToken);
+          if (res.success) {
+            showFeedback('success', 'Email verified successfully! You can now sign in.');
+            setToken('');
+            handleModeChange('signin');
+          } else {
+            showFeedback('error', getErrorMessage(res.error));
+          }
+          break;
+        }
+
+        case 'reset': {
+          const res = await resetPassword(sanitizedToken, password);
+          if (res.success) {
+            showFeedback(
+              'success',
+              'Password reset successful! Please sign in with your new password.',
+            );
+            resetForm();
+            handleModeChange('signin');
+          } else {
+            showFeedback('error', getErrorMessage(res.error));
+          }
+          break;
+        }
       }
-      const res = await signUp(email, password);
-      if (res.success) setMessage('Verification email sent!');
-    } else if (mode === 'signin') {
-      await signIn(email, password);
-    } else if (mode === 'verify') {
-      const res = await verifyEmail(token);
-      if (res.success) {
-        setMessage('Email verified! You can now sign in.');
-        setMode('signin');
-      }
-    } else if (mode === 'reset') {
-      const res = await resetPassword(token, password);
-      if (res.success) {
-        setMessage('Password reset successful. Please sign in.');
-        setMode('signin');
-      }
+    } catch (_err) {
+      showFeedback('error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  // Handle password reset request
   const handleRequestReset = async () => {
-    const res = await requestPasswordReset(email);
-    if (res.success) {
-      Alert.alert('Success', 'Password reset email sent.');
-      setShowResetOverlay(false);
+    const sanitizedEmail = sanitizeInput(email);
+    const emailValidation = validateEmail(sanitizedEmail);
+
+    if (!emailValidation.isValid) {
+      setErrors({ email: emailValidation.error });
+      return;
     }
+
+    setIsSubmitting(true);
+
+    try {
+      const res = await requestPasswordReset(sanitizedEmail);
+      if (res.success) {
+        RNAlert.alert(
+          'Success',
+          'If an account exists with this email, you will receive a password reset link.',
+        );
+        setShowResetModal(false);
+        setEmail('');
+      } else {
+        showFeedback('error', getErrorMessage(res.error));
+      }
+    } catch (_err) {
+      showFeedback('error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    setIsSubmitting(true);
+    try {
+      await signOut();
+      showFeedback('info', 'You have been signed out.');
+    } catch (_err) {
+      showFeedback('error', 'Failed to sign out. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Get button text based on mode and state
+  const getButtonText = (): string => {
+    if (isSubmitting) {
+      const loadingTexts: Record<AuthMode, string> = {
+        signin: 'Signing in...',
+        signup: 'Creating account...',
+        verify: 'Verifying...',
+        reset: 'Resetting password...',
+      };
+      return loadingTexts[mode];
+    }
+
+    const buttonTexts: Record<AuthMode, string> = {
+      signin: 'Sign In',
+      signup: 'Create Account',
+      verify: 'Verify Email',
+      reset: 'Reset Password',
+    };
+    return buttonTexts[mode];
   };
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4ecdc4" />
+        <StatusBar style="light" />
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={colors.primary[400]} />
+          <Text style={styles.loadingText}>Loading session...</Text>
+        </View>
       </View>
     );
   }
@@ -79,150 +259,218 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <View style={styles.card}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Logo width={64} height={64} />
+            <Text style={styles.title}>FortressAuth</Text>
+            <Text style={styles.subtitle}>Secure Authentication Demo</Text>
+          </View>
 
-      <View style={styles.header}>
-        <Text style={styles.logoEmoji}>🏰</Text>
-        <Text style={styles.title}>FortressAuth Expo</Text>
-      </View>
+          {user ? (
+            // Authenticated state
+            <View style={styles.authenticated}>
+              <View style={styles.userInfo}>
+                <Text style={styles.welcomeText}>
+                  Welcome, <Text style={styles.userEmail}>{user.email}</Text>
+                </Text>
 
-      {user ? (
-        <View style={styles.success}>
-          <Text style={styles.welcomeText}>
-            Welcome, <Text style={styles.email}>{user.email}</Text>!
-          </Text>
-          <Text style={styles.verifyText}>
-            Email verified: {user.emailVerified ? '✅ Yes' : '❌ No'}
-          </Text>
-          <TouchableOpacity style={styles.btnSecondary} onPress={signOut}>
-            <Text style={styles.btnText}>Sign Out</Text>
-          </TouchableOpacity>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    user.emailVerified ? styles.statusVerified : styles.statusUnverified,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: user.emailVerified ? colors.success : colors.warning },
+                    ]}
+                  >
+                    {user.emailVerified ? '✓ Email Verified' : '⚠ Email Not Verified'}
+                  </Text>
+                </View>
+              </View>
+
+              <Button
+                variant="secondary"
+                onPress={handleSignOut}
+                loading={isSubmitting}
+                loadingText="Signing out..."
+              >
+                Sign Out
+              </Button>
+
+              {feedback && (
+                <Alert type={feedback.type} message={feedback.message} onDismiss={clearFeedback} />
+              )}
+            </View>
+          ) : (
+            // Unauthenticated state
+            <>
+              {/* Tab navigation */}
+              <View style={styles.tabs} accessibilityRole="tablist">
+                {(['signin', 'signup', 'verify', 'reset'] as AuthMode[]).map((tabMode) => (
+                  <TouchableOpacity
+                    key={tabMode}
+                    style={[styles.tab, mode === tabMode && styles.tabActive]}
+                    onPress={() => handleModeChange(tabMode)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: mode === tabMode }}
+                  >
+                    <Text style={[styles.tabText, mode === tabMode && styles.tabTextActive]}>
+                      {tabMode === 'signin' && 'Sign In'}
+                      {tabMode === 'signup' && 'Sign Up'}
+                      {tabMode === 'verify' && 'Verify'}
+                      {tabMode === 'reset' && 'Reset'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Form */}
+              <View style={styles.form}>
+                {/* Email field - shown for signin and signup */}
+                {(mode === 'signin' || mode === 'signup') && (
+                  <Input
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="your@email.com"
+                    error={errors.email}
+                    required
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    editable={!isSubmitting}
+                  />
+                )}
+
+                {/* Token field - shown for verify and reset */}
+                {(mode === 'verify' || mode === 'reset') && (
+                  <Input
+                    label={mode === 'verify' ? 'Verification Token' : 'Reset Token'}
+                    value={token}
+                    onChangeText={setToken}
+                    placeholder="selector:verifier"
+                    error={errors.token}
+                    hint="Paste the token from your email"
+                    required
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    editable={!isSubmitting}
+                  />
+                )}
+
+                {/* Password field - shown for signin, signup, and reset */}
+                {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
+                  <Input
+                    label={mode === 'reset' ? 'New Password' : 'Password'}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••"
+                    error={errors.password}
+                    hint={
+                      mode === 'signup' || mode === 'reset' ? 'Minimum 8 characters' : undefined
+                    }
+                    required
+                    secureTextEntry
+                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                    editable={!isSubmitting}
+                  />
+                )}
+
+                {/* Confirm password field - shown for signup and reset */}
+                {(mode === 'signup' || mode === 'reset') && (
+                  <Input
+                    label="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="••••••••"
+                    error={errors.confirmPassword}
+                    required
+                    secureTextEntry
+                    autoComplete="new-password"
+                    editable={!isSubmitting}
+                  />
+                )}
+
+                <Button
+                  variant="primary"
+                  onPress={handleSubmit}
+                  loading={isSubmitting}
+                  loadingText={getButtonText()}
+                >
+                  {getButtonText()}
+                </Button>
+
+                {/* Forgot password link - shown for signin */}
+                {mode === 'signin' && (
+                  <TouchableOpacity
+                    style={styles.forgotPassword}
+                    onPress={() => setShowResetModal(true)}
+                  >
+                    <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Feedback messages */}
+              {authError && (
+                <Alert
+                  type="error"
+                  message={getErrorMessage(authError)}
+                  onDismiss={clearFeedback}
+                />
+              )}
+
+              {feedback && (
+                <Alert type={feedback.type} message={feedback.message} onDismiss={clearFeedback} />
+              )}
+            </>
+          )}
         </View>
-      ) : (
-        <>
-          <View style={styles.tabs}>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'signin' && styles.tabActive]}
-              onPress={() => setMode('signin')}
+
+        {/* Password reset modal */}
+        <Modal
+          isOpen={showResetModal}
+          onClose={() => setShowResetModal(false)}
+          title="Reset Password"
+          description="Enter your email address and we'll send you a link to reset your password."
+        >
+          <Input
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="your@email.com"
+            error={errors.email}
+            required
+            autoCapitalize="none"
+            autoComplete="email"
+            keyboardType="email-address"
+            editable={!isSubmitting}
+          />
+
+          <View style={styles.modalActions}>
+            <Button
+              variant="primary"
+              onPress={handleRequestReset}
+              loading={isSubmitting}
+              loadingText="Sending..."
             >
-              <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>Sign In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'signup' && styles.tabActive]}
-              onPress={() => setMode('signup')}
+              Send Reset Link
+            </Button>
+            <Button
+              variant="secondary"
+              onPress={() => setShowResetModal(false)}
+              disabled={isSubmitting}
             >
-              <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>Sign Up</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'verify' && styles.tabActive]}
-              onPress={() => setMode('verify')}
-            >
-              <Text style={[styles.tabText, mode === 'verify' && styles.tabTextActive]}>Verify</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'reset' && styles.tabActive]}
-              onPress={() => setMode('reset')}
-            >
-              <Text style={[styles.tabText, mode === 'reset' && styles.tabTextActive]}>Reset</Text>
-            </TouchableOpacity>
+              Cancel
+            </Button>
           </View>
-
-          <View style={styles.form}>
-            {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
-              <>
-                <Text style={styles.label}>Email / User</Text>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="your@email.com"
-                  placeholderTextColor="#a0aec0"
-                  autoCapitalize="none"
-                />
-              </>
-            )}
-
-            {(mode === 'verify' || mode === 'reset') && (
-              <>
-                <Text style={styles.label}>Token</Text>
-                <TextInput
-                  style={styles.input}
-                  value={token}
-                  onChangeText={setToken}
-                  placeholder="selector:verifier"
-                  placeholderTextColor="#a0aec0"
-                  autoCapitalize="none"
-                />
-              </>
-            )}
-
-            {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
-              <>
-                <Text style={styles.label}>{mode === 'reset' ? 'New Password' : 'Password'}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor="#a0aec0"
-                  secureTextEntry
-                />
-              </>
-            )}
-
-            {mode === 'signup' && (
-              <>
-                <Text style={styles.label}>Confirm Password</Text>
-                <TextInput
-                  style={styles.input}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor="#a0aec0"
-                  secureTextEntry
-                />
-              </>
-            )}
-
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleSubmit}>
-              <Text style={styles.btnPrimaryText}>
-                {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Sign Up' : mode === 'verify' ? 'Verify' : 'Reset'}
-              </Text>
-            </TouchableOpacity>
-
-            {mode === 'signin' && (
-              <TouchableOpacity style={styles.forgotBtn} onPress={() => setShowResetOverlay(true)}>
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {message ? <Text style={styles.message}>{message}</Text> : null}
-          {error && <Text style={styles.error}>{error}</Text>}
-        </>
-      )}
-
-      {showResetOverlay && (
-        <View style={styles.overlay}>
-          <View style={styles.modal}>
-            <Text style={styles.modalTitle}>Reset Password</Text>
-            <Text style={styles.modalSubtitle}>Enter email for reset link</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your@email.com"
-              placeholderTextColor="#a0aec0"
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleRequestReset}>
-              <Text style={styles.btnPrimaryText}>Send Reset Link</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowResetOverlay(false)}>
-              <Text style={styles.btnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+        </Modal>
+      </ScrollView>
     </View>
   );
 }
@@ -230,150 +478,121 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a5f',
-    alignItems: 'center',
+    backgroundColor: colors.bg.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing[4],
+  },
+  card: {
+    backgroundColor: colors.bg.tertiary,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
+    padding: spacing[10],
+    maxWidth: 480,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 30,
-  },
-  logoEmoji: {
-    fontSize: 64,
-    marginBottom: 10,
+    marginBottom: spacing[8],
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#f8f9fa',
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.text.primary,
+    marginTop: spacing[4],
+  },
+  subtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginTop: spacing[2],
+  },
+  loading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing[4],
+  },
+  loadingText: {
+    color: colors.text.secondary,
+    fontSize: typography.fontSize.base,
   },
   tabs: {
     flexDirection: 'row',
-    marginBottom: 20,
+    marginBottom: spacing[6],
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.border.secondary,
   },
   tab: {
-    paddingHorizontal: 15,
-    paddingVertical: 12,
+    flex: 1,
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[4],
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
     alignItems: 'center',
   },
   tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#4ecdc4',
+    borderBottomColor: colors.text.accent,
   },
   tabText: {
-    color: '#a0aec0',
-    fontSize: 14,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text.secondary,
   },
   tabTextActive: {
-    color: '#4ecdc4',
+    color: colors.text.accent,
   },
   form: {
     width: '100%',
-    maxWidth: 350,
   },
-  label: {
-    color: '#a0aec0',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 8,
-    padding: 14,
-    color: '#f8f9fa',
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  btnPrimary: {
-    backgroundColor: '#4ecdc4',
-    padding: 14,
-    borderRadius: 8,
+  forgotPassword: {
+    marginTop: spacing[4],
     alignItems: 'center',
-    marginTop: 8,
+    padding: spacing[1],
   },
-  btnPrimaryText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
+  forgotPasswordText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
   },
-  btnSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  btnText: {
-    color: '#f8f9fa',
-    fontSize: 16,
-  },
-  forgotBtn: {
-    marginTop: 16,
+  authenticated: {
     alignItems: 'center',
   },
-  forgotText: {
-    color: '#a0aec0',
-    fontSize: 14,
-  },
-  success: {
+  userInfo: {
     alignItems: 'center',
+    marginBottom: spacing[6],
   },
   welcomeText: {
-    color: '#f8f9fa',
-    fontSize: 18,
+    fontSize: typography.fontSize.lg,
+    color: colors.text.primary,
+    marginBottom: spacing[4],
   },
-  email: {
-    color: '#4ecdc4',
-    fontWeight: '500',
+  userEmail: {
+    color: colors.text.accent,
+    fontWeight: typography.fontWeight.medium,
   },
-  verifyText: {
-    color: '#a0aec0',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  error: {
-    color: '#fc8181',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  message: {
-    color: '#4ecdc4',
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    zIndex: 1000,
-  },
-  modal: {
-    backgroundColor: '#1e3a5f',
-    width: '100%',
-    maxWidth: 350,
-    padding: 25,
-    borderRadius: 16,
+  statusBadge: {
+    paddingVertical: spacing[2],
+    paddingHorizontal: spacing[4],
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#f8f9fa',
-    marginBottom: 5,
+  statusVerified: {
+    backgroundColor: colors.successBg,
+    borderColor: colors.success,
   },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#a0aec0',
-    marginBottom: 20,
+  statusUnverified: {
+    backgroundColor: colors.warningBg,
+    borderColor: colors.warning,
+  },
+  statusText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  modalActions: {
+    marginTop: spacing[4],
+    gap: spacing[3],
   },
 });

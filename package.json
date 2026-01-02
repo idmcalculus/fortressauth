@@ -3,6 +3,9 @@
   "version": "0.1.9",
   "private": true,
   "packageManager": "pnpm@10.25.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "better-sqlite3", "esbuild"]
+  },
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",

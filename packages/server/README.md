@@ -39,7 +39,7 @@ BASE_URL=http://localhost:3000     # Public URL for email links
 COOKIE_SECURE=false                # Use secure cookies (true in production)
 COOKIE_SAMESITE=strict             # Cookie SameSite attribute
 LOG_LEVEL=info                     # Logging level
-CORS_ORIGINS=                      # Comma-separated allowed origins
+CORS_ORIGINS=                      # Comma-separated allowed origins (see CORS section below)
 
 # Email Provider Configuration
 EMAIL_PROVIDER=console             # 'console' (dev) or 'resend' (production)
@@ -47,6 +47,85 @@ RESEND_API_KEY=                    # Required when EMAIL_PROVIDER=resend
 EMAIL_FROM_ADDRESS=                # Sender email (e.g., noreply@yourdomain.com)
 EMAIL_FROM_NAME=                   # Sender name (e.g., "My App")
 ```
+
+## CORS Configuration
+
+FortressAuth server supports Cross-Origin Resource Sharing (CORS) for web applications running on different origins.
+
+### Default Origins
+
+When `CORS_ORIGINS` is not set, the server allows requests from these default origins:
+- The server's own origin (derived from `BASE_URL`)
+- `http://localhost:3000`
+- `http://localhost:3001`
+- `http://localhost:5173` (Vite default)
+- `http://localhost:5174`
+- `http://0.0.0.0:5173`
+- `http://0.0.0.0:5174`
+
+### Custom Origins
+
+Set `CORS_ORIGINS` to a comma-separated list of allowed origins:
+
+```bash
+# Single origin
+CORS_ORIGINS=https://myapp.com
+
+# Multiple origins
+CORS_ORIGINS=https://myapp.com,https://admin.myapp.com,http://localhost:3000
+
+# Development with multiple ports
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:4200
+```
+
+### Credentials Support
+
+The server is configured with `credentials: true`, which means:
+- Cookies are sent with cross-origin requests
+- The `Access-Control-Allow-Credentials` header is set to `true`
+- Client applications must use `credentials: 'include'` in fetch requests
+
+### Client SDK Configuration
+
+All FortressAuth web SDKs (React, Vue, Svelte, Angular) automatically include `credentials: 'include'` in their fetch requests. No additional configuration is needed.
+
+For custom implementations, ensure your fetch calls include credentials:
+
+```typescript
+// Correct - credentials included
+fetch('http://localhost:3000/auth/me', {
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' }
+});
+
+// Incorrect - cookies won't be sent
+fetch('http://localhost:3000/auth/me', {
+  headers: { 'Content-Type': 'application/json' }
+});
+```
+
+### Mobile/Desktop Applications
+
+Electron and React Native/Expo SDKs use Bearer token authentication instead of cookies, so CORS cookie handling doesn't apply. These SDKs store tokens securely using:
+- **Electron**: electron-store (encrypted local storage)
+- **Expo**: expo-secure-store (encrypted secure storage)
+- **React Native**: AsyncStorage (with optional secure storage)
+
+### Production Configuration
+
+For production deployments:
+
+```bash
+# Production example
+CORS_ORIGINS=https://myapp.com,https://www.myapp.com
+COOKIE_SECURE=true
+COOKIE_SAMESITE=strict
+```
+
+**Important**: In production, always:
+1. Set `COOKIE_SECURE=true` (requires HTTPS)
+2. Use `COOKIE_SAMESITE=strict` or `lax` for CSRF protection
+3. Only allow specific origins (avoid wildcards)
 
 ## Email Providers
 

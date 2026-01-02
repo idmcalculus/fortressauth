@@ -4,7 +4,6 @@
     "slug": "fortressauth-mobile-expo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "fortressauth",
     "splash": {
@@ -18,6 +17,9 @@
         "backgroundColor": "#1e3a5f"
       }
     },
-    "plugins": ["expo-router", "expo-secure-store"]
+    "plugins": ["expo-router", "expo-secure-store"],
+    "extra": {
+      "apiUrl": "${EXPO_PUBLIC_API_URL}"
+    }
   }
 }

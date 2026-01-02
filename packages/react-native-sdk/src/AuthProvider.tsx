@@ -1,13 +1,8 @@
 import type React from 'react';
+import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { getDefaultStorage } from './storage.js';
-import type {
-  ApiResponse,
-  AuthContextValue,
-  AuthProviderProps,
-  AuthStorage,
-  User,
-} from './types.js';
+import type { ApiResponse, AuthContextValue, AuthStorage, User } from './types.js';
 
 const TOKEN_STORAGE_KEY = 'fortress_auth_token';
 
@@ -48,15 +43,17 @@ async function apiRequest<T>(
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-export interface RNAuthProviderProps extends AuthProviderProps {
+export interface RNAuthProviderProps {
+  children: ReactNode;
+  baseUrl?: string;
   storage?: AuthStorage;
 }
 
-export const AuthProvider: React.FC<RNAuthProviderProps> = ({
+export const AuthProvider = ({
   children,
   baseUrl: explicitBaseUrl,
   storage: customStorage,
-}) => {
+}: RNAuthProviderProps): React.JSX.Element => {
   const baseUrl = useMemo(() => resolveBaseUrl(explicitBaseUrl), [explicitBaseUrl]);
   const storage = useMemo(() => customStorage ?? getDefaultStorage(), [customStorage]);
   const [user, setUser] = useState<User | null>(null);

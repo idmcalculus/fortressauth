@@ -1,5 +1,6 @@
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import {
+  type AuthErrorCode,
   FortressAuth,
   type FortressConfigInput,
   FortressConfigSchema,
@@ -18,10 +19,14 @@ import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { createEmailProvider } from './email-provider.js';
 import { env } from './env.js';
+import { ErrorResponseFactory } from './errors/error-response-factory.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
 const VERSION = '0.1.9';
+
+// Initialize error response factory based on NODE_ENV
+const errorFactory = new ErrorResponseFactory();
 
 if (env.METRICS_ENABLED) {
   collectDefaultMetrics({ register: metricsRegistry, prefix: 'fortress_' });
@@ -263,6 +268,14 @@ function success<T>(data: T) {
   return { success: true, data };
 }
 
+// Unified error response helper using ErrorResponseFactory
+function createError(errorCode: AuthErrorCode, details?: string, error?: Error) {
+  return {
+    response: errorFactory.createErrorResponse(errorCode, details, error),
+    status: errorFactory.getHttpStatus(errorCode) as 400 | 401 | 403 | 410 | 429 | 500,
+  };
+}
+
 // Auth routes
 app.post('/auth/signup', async (c) => {
   try {
@@ -278,8 +291,8 @@ app.post('/auth/signup', async (c) => {
     });
 
     if (!result.success) {
-      const statusCode = result.error === 'RATE_LIMIT_EXCEEDED' ? 429 : 400;
-      return c.json({ success: false, error: result.error }, statusCode);
+      const { response, status } = createError(result.error, `Signup failed for ${body.email}`);
+      return c.json(response, status);
     }
 
     const { user, token } = result.data;
@@ -297,7 +310,12 @@ app.post('/auth/signup', async (c) => {
     );
   } catch (error) {
     console.error('Signup error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during signup',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -315,15 +333,8 @@ app.post('/auth/login', async (c) => {
     });
 
     if (!result.success) {
-      const statusCode =
-        result.error === 'RATE_LIMIT_EXCEEDED'
-          ? 429
-          : result.error === 'INVALID_CREDENTIALS' || result.error === 'ACCOUNT_LOCKED'
-            ? 401
-            : result.error === 'EMAIL_NOT_VERIFIED'
-              ? 403
-              : 400;
-      return c.json({ success: false, error: result.error }, statusCode);
+      const { response, status } = createError(result.error, `Login failed for ${body.email}`);
+      return c.json(response, status);
     }
 
     const { user, token } = result.data;
@@ -341,7 +352,12 @@ app.post('/auth/login', async (c) => {
     );
   } catch (error) {
     console.error('Login error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during login',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -357,7 +373,12 @@ app.post('/auth/logout', async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Logout error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during logout',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -366,13 +387,15 @@ app.get('/auth/me', async (c) => {
     const token = getCookie(c, config.session.cookieName);
 
     if (!token) {
-      return c.json({ success: false, error: 'SESSION_INVALID' }, 401);
+      const { response, status } = createError('SESSION_INVALID', 'No session token provided');
+      return c.json(response, status);
     }
 
     const result = await fortress.validateSession(token);
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 401);
+      const { response, status } = createError(result.error, 'Session validation failed');
+      return c.json(response, status);
     }
 
     const { user } = result.data;
@@ -389,7 +412,12 @@ app.get('/auth/me', async (c) => {
     );
   } catch (error) {
     console.error('Me error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error fetching user',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -399,19 +427,19 @@ app.post('/auth/verify-email', async (c) => {
     const result = await fortress.verifyEmail(body.token);
 
     if (!result.success) {
-      const status =
-        result.error === 'EMAIL_VERIFICATION_EXPIRED'
-          ? 410
-          : result.error === 'EMAIL_VERIFICATION_INVALID'
-            ? 400
-            : 400;
-      return c.json({ success: false, error: result.error }, status);
+      const { response, status } = createError(result.error, 'Email verification failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ verified: true }));
   } catch (error) {
     console.error('Verify email error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during email verification',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -421,13 +449,19 @@ app.post('/auth/request-password-reset', async (c) => {
     const result = await fortress.requestPasswordReset(body.email);
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      const { response, status } = createError(result.error, 'Password reset request failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ requested: true }));
   } catch (error) {
     console.error('Request password reset error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during password reset request',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -440,19 +474,19 @@ app.post('/auth/reset-password', async (c) => {
     });
 
     if (!result.success) {
-      const status =
-        result.error === 'PASSWORD_RESET_EXPIRED'
-          ? 410
-          : result.error === 'PASSWORD_TOO_WEAK'
-            ? 400
-            : 400;
-      return c.json({ success: false, error: result.error }, status);
+      const { response, status } = createError(result.error, 'Password reset failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ reset: true }));
   } catch (error) {
     console.error('Reset password error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during password reset',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 

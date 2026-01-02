@@ -3,305 +3,695 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FortressAuth Electron</title>
+  <meta name="description" content="FortressAuth Electron Demo - Secure authentication example application">
+  <title>FortressAuth Electron Demo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/styles/index.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    /* Electron-specific overrides */
     body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #1e3a5f 0%, #0d1b2a 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #f8f9fa;
       -webkit-app-region: drag;
     }
     .container {
-      max-width: 380px;
-      width: 100%;
-      padding: 2rem;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       -webkit-app-region: no-drag;
     }
-    .title { font-size: 1.4rem; font-weight: 600; margin-bottom: 1.5rem; text-align: center; }
-    .form-group { margin-bottom: 1rem; }
-    label { display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #a0aec0; }
-    input {
-      width: 100%; padding: 0.7rem 1rem;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      color: #f8f9fa; font-size: 0.95rem;
+    /* Hide elements utility - using high specificity instead of !important */
+    .hidden[class] {
+      display: none;
     }
-    input:focus { outline: none; border-color: #4ecdc4; }
-    .btn {
-      width: 100%; padding: 0.7rem 1rem;
-      border: none; border-radius: 8px;
-      font-size: 1rem; font-weight: 500;
-      cursor: pointer; transition: transform 0.2s;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #4ecdc4, #44a08d);
-      color: white;
-    }
-    .btn-primary:hover { transform: translateY(-2px); }
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.1);
-      color: #f8f9fa;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      margin-top: 0.5rem;
-    }
-    .error { color: #fc8181; font-size: 0.875rem; margin-top: 1rem; text-align: center; }
-    .success { text-align: center; }
-    .user-email { color: #4ecdc4; font-weight: 500; }
-    .loading { text-align: center; padding: 2rem; }
-    .tabs { display: flex; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-    .tab { flex: 1; padding: 0.75rem; background: transparent; border: none; color: #a0aec0; font-size: 0.875rem; cursor: pointer; }
-    .tab:hover { color: #f8f9fa; }
-    .tab.active { color: #4ecdc4; border-bottom: 2px solid #4ecdc4; }
-    .hidden { display: none; }
-    .verify-text { color: #a0aec0; margin: 1rem 0; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;">
-      <img src="logo.svg" alt="FortressAuth Logo" style="width: 64px; height: 64px; margin-bottom: 1rem;">
-      <h1 class="title">FortressAuth Electron</h1>
-    </div>
-    
-    <div id="loading" class="loading">Loading...</div>
-    
-    <div id="auth-ui" class="hidden">
-      <div id="auth-forms">
-        <div class="tabs">
-          <button class="tab active" id="signin-tab">Sign In</button>
-          <button class="tab" id="signup-tab">Sign Up</button>
-          <button class="tab" id="verify-tab">Verify</button>
-          <button class="tab" id="reset-tab">Reset</button>
+  <!-- Skip link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <main id="main-content" class="container">
+    <!-- Header -->
+    <header class="header">
+      <img src="../shared/assets/logo.svg" alt="" class="logo" aria-hidden="true">
+      <h1 class="title">FortressAuth</h1>
+      <p class="subtitle">Secure Authentication Demo</p>
+    </header>
+
+    <!-- Loading State -->
+    <output id="loading" class="loading" aria-live="polite">
+      <span class="loading-spinner" aria-hidden="true"></span>
+      <span>Loading session...</span>
+    </output>
+
+    <!-- Auth Forms Section -->
+    <section id="auth-section" class="hidden" aria-labelledby="auth-heading">
+      <h2 id="auth-heading" class="sr-only">Authentication</h2>
+
+      <!-- Tab Navigation -->
+      <div class="tabs" role="tablist" aria-label="Authentication options">
+        <button type="button" role="tab" class="tab active" id="signin-tab" aria-selected="true" aria-controls="auth-panel">Sign In</button>
+        <button type="button" role="tab" class="tab" id="signup-tab" aria-selected="false" aria-controls="auth-panel">Sign Up</button>
+        <button type="button" role="tab" class="tab" id="verify-tab" aria-selected="false" aria-controls="auth-panel">Verify</button>
+        <button type="button" role="tab" class="tab" id="reset-tab" aria-selected="false" aria-controls="auth-panel">Reset</button>
+      </div>
+
+      <!-- Auth Form -->
+      <form id="auth-form" novalidate role="tabpanel" id="auth-panel" aria-labelledby="signin-tab">
+        <!-- Email Field -->
+        <div id="email-group" class="form-group">
+          <label for="email" class="form-label">
+            Email <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="email" 
+            class="form-input" 
+            placeholder="your@email.com" 
+            autocomplete="email"
+            aria-describedby="email-error"
+            required
+          >
+          <div id="email-error" class="form-error hidden" role="alert"></div>
         </div>
 
-        <form id="form">
-          <div id="standard-fields">
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input type="email" id="email" placeholder="your@email.com" required>
-            </div>
-            
-            <div id="password-group">
-              <div class="form-group">
-                <label for="password" id="password-label">Password</label>
-                <input type="password" id="password" placeholder="••••••••">
-              </div>
-            </div>
-
-            <div class="form-group hidden" id="confirm-group">
-              <label for="confirm-password">Confirm Password</label>
-              <input type="password" id="confirm-password" placeholder="••••••••">
-            </div>
-          </div>
-
-          <div id="token-fields" class="hidden">
-            <div class="form-group">
-              <label for="token" id="token-label">Token</label>
-              <input type="text" id="token" placeholder="selector:verifier">
-            </div>
-          </div>
-
-          <button type="submit" class="btn btn-primary" id="submit-btn" style="margin-top: 1rem;">Sign In</button>
-          
-          <div id="forgot-password" class="forgot-link" style="margin-top: 1rem; text-align: center;">
-            <a href="#" id="forgot-link" style="color: #a0aec0; font-size: 0.875rem; text-decoration: none;">Forgot password?</a>
-          </div>
-        </form>
-      </div>
-
-      <div id="error" class="error hidden"></div>
-      <div id="message" style="margin-top: 1rem; text-align: center; color: #4ecdc4; font-size: 0.875rem;" class="hidden"></div>
-    </div>
-
-    <div id="user-info" class="success hidden">
-      <div class="header" style="display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;">
-        <img src="logo.svg" alt="FortressAuth Logo" style="width: 64px; height: 64px; margin-bottom: 1rem;">
-      </div>
-      <p>Welcome, <span class="user-email" id="user-email"></span>!</p>
-      <p class="verify-text" id="verify-status"></p>
-      <button class="btn btn-secondary" id="signout-btn">Sign Out</button>
-    </div>
-
-    <div id="reset-overlay" class="overlay hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(5px);">
-      <div class="modal" style="background: #1e3a5f; padding: 2rem; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); max-width: 400px; width: 90%;">
-        <h3>Reset Password</h3>
-        <p class="muted" style="margin-bottom: 1.5rem; color: #a0aec0; font-size: 0.875rem;">Enter your email to receive a reset link.</p>
-        <div class="form-group" style="margin-bottom: 1rem;">
-          <label for="reset-email" style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; color: #a0aec0;">Email</label>
-          <input type="email" id="reset-email" placeholder="your@email.com" style="width: 100%; padding: 0.7rem 1rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: #f8f9fa;">
+        <!-- Token Field (for verify/reset modes) -->
+        <div id="token-group" class="form-group hidden">
+          <label for="token" class="form-label">
+            <span id="token-label-text">Verification Token</span> <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input 
+            type="text" 
+            id="token" 
+            class="form-input" 
+            placeholder="selector:verifier" 
+            autocomplete="off"
+            aria-describedby="token-hint token-error"
+          >
+          <div id="token-hint" class="form-hint">Paste the token from your email</div>
+          <div id="token-error" class="form-error hidden" role="alert"></div>
         </div>
-        <button class="btn btn-primary" id="reset-request-btn">Send Reset Link</button>
-        <button class="btn btn-secondary" id="reset-cancel-btn">Cancel</button>
+
+        <!-- Password Field -->
+        <div id="password-group" class="form-group">
+          <label for="password" class="form-label">
+            <span id="password-label-text">Password</span> <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input 
+            type="password" 
+            id="password" 
+            class="form-input" 
+            placeholder="••••••••" 
+            autocomplete="current-password"
+            aria-describedby="password-hint password-error"
+          >
+          <div id="password-hint" class="form-hint hidden">Minimum 8 characters</div>
+          <div id="password-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <!-- Confirm Password Field -->
+        <div id="confirm-password-group" class="form-group hidden">
+          <label for="confirm-password" class="form-label">
+            Confirm Password <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input 
+            type="password" 
+            id="confirm-password" 
+            class="form-input" 
+            placeholder="••••••••" 
+            autocomplete="new-password"
+            aria-describedby="confirm-password-error"
+          >
+          <div id="confirm-password-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submit-btn" class="btn btn-primary">
+          <span id="submit-text">Sign In</span>
+          <span id="submit-spinner" class="btn-spinner hidden" aria-hidden="true"></span>
+        </button>
+
+        <!-- Forgot Password Link -->
+        <div id="forgot-password" class="forgot-password">
+          <button type="button" id="forgot-link" class="link-button">Forgot your password?</button>
+        </div>
+      </form>
+
+      <!-- Alert Container -->
+      <div id="alert-container"></div>
+    </section>
+
+    <!-- Authenticated User Section -->
+    <section id="user-section" class="authenticated hidden" aria-labelledby="welcome-heading">
+      <h2 id="welcome-heading" class="sr-only">Welcome</h2>
+
+      <div class="user-info">
+        <p class="welcome-text">
+          Welcome, <span id="user-email" class="user-email"></span>
+        </p>
+
+        <output class="verification-status">
+          <span id="verification-badge" class="status-badge"></span>
+        </output>
+      </div>
+
+      <button type="button" id="signout-btn" class="btn btn-secondary">
+        <span id="signout-text">Sign Out</span>
+        <span id="signout-spinner" class="btn-spinner hidden" aria-hidden="true"></span>
+      </button>
+
+      <!-- Alert Container for authenticated state -->
+      <div id="user-alert-container"></div>
+    </section>
+
+    <!-- Password Reset Modal -->
+    <div id="reset-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="reset-modal-title">
+      <div class="modal" tabindex="-1">
+        <div class="modal-header">
+          <h3 id="reset-modal-title" class="modal-title">Reset Password</h3>
+          <button type="button" id="reset-modal-close" class="modal-close" aria-label="Close">&times;</button>
+        </div>
+        <p class="modal-description">Enter your email address and we'll send you a link to reset your password.</p>
+        
+        <div class="form-group">
+          <label for="reset-email" class="form-label">
+            Email <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input 
+            type="email" 
+            id="reset-email" 
+            class="form-input" 
+            placeholder="your@email.com" 
+            autocomplete="email"
+            aria-describedby="reset-email-error"
+          >
+          <div id="reset-email-error" class="form-error hidden" role="alert"></div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="reset-send-btn" class="btn btn-primary">
+            <span id="reset-send-text">Send Reset Link</span>
+            <span id="reset-send-spinner" class="btn-spinner hidden" aria-hidden="true"></span>
+          </button>
+          <button type="button" id="reset-cancel-btn" class="btn btn-secondary">Cancel</button>
+        </div>
       </div>
     </div>
-  </div>
+  </main>
 
   <script>
+    // Import validation utilities (compiled JS version)
+    const validation = require('../shared/utils/validation.js');
     const { createAuth } = require('@fortressauth/electron-sdk');
-    const auth = createAuth({ baseUrl: '' });
-    
-    let mode = 'signin';
-    
-    // DOM elements
-    const loading = document.getElementById('loading');
-    const authUI = document.getElementById('auth-ui');
-    const userInfo = document.getElementById('user-info');
-    const form = document.getElementById('form');
-    const email = document.getElementById('email');
-    const password = document.getElementById('password');
-    const confirmPassword = document.getElementById('confirm-password');
-    const confirmGroup = document.getElementById('confirm-group');
-    const submitBtn = document.getElementById('submit-btn');
-    const errorEl = document.getElementById('error');
-    const messageEl = document.getElementById('message');
-    const signinTab = document.getElementById('signin-tab');
-    const signupTab = document.getElementById('signup-tab');
-    const verifyTab = document.getElementById('verify-tab');
-    const resetTab = document.getElementById('reset-tab');
-    const userEmail = document.getElementById('user-email');
-    const verifyStatus = document.getElementById('verify-status');
-    const signoutBtn = document.getElementById('signout-btn');
-    const forgotLink = document.getElementById('forgot-link');
-    const resetOverlay = document.getElementById('reset-overlay');
-    const resetRequestBtn = document.getElementById('reset-request-btn');
-    const resetCancelBtn = document.getElementById('reset-cancel-btn');
-    const resetEmailInput = document.getElementById('reset-email');
-    
-    const standardFields = document.getElementById('standard-fields');
-    const passwordGroup = document.getElementById('password-group');
-    const tokenFields = document.getElementById('token-fields');
-    const tokenInput = document.getElementById('token');
-    const forgotArea = document.getElementById('forgot-password');
 
-    function updateUIState(state) {
-      loading.classList.toggle('hidden', !state.loading);
+    // Get API URL from environment or use default
+    const API_URL = process.env.FORTRESSAUTH_API_URL || 'http://localhost:3000';
+    const auth = createAuth({ baseUrl: API_URL });
+
+    // Current mode
+    let mode = 'signin';
+    let isSubmitting = false;
+
+    // DOM Elements
+    const elements = {
+      // Sections
+      loading: document.getElementById('loading'),
+      authSection: document.getElementById('auth-section'),
+      userSection: document.getElementById('user-section'),
       
-      if (!state.loading) {
-        if (state.user) {
-          authUI.classList.add('hidden');
-          userInfo.classList.remove('hidden');
-          userEmail.textContent = state.user.email;
-          verifyStatus.textContent = `Email verified: ${state.user.emailVerified ? '✅ Yes' : '❌ No'}`;
-        } else {
-          authUI.classList.remove('hidden');
-          userInfo.classList.add('hidden');
-        }
-      }
+      // Tabs
+      signinTab: document.getElementById('signin-tab'),
+      signupTab: document.getElementById('signup-tab'),
+      verifyTab: document.getElementById('verify-tab'),
+      resetTab: document.getElementById('reset-tab'),
       
-      if (state.error) {
-        errorEl.textContent = state.error;
-        errorEl.classList.remove('hidden');
+      // Form
+      authForm: document.getElementById('auth-form'),
+      
+      // Form groups
+      emailGroup: document.getElementById('email-group'),
+      tokenGroup: document.getElementById('token-group'),
+      passwordGroup: document.getElementById('password-group'),
+      confirmPasswordGroup: document.getElementById('confirm-password-group'),
+      forgotPassword: document.getElementById('forgot-password'),
+      
+      // Inputs
+      email: document.getElementById('email'),
+      token: document.getElementById('token'),
+      password: document.getElementById('password'),
+      confirmPassword: document.getElementById('confirm-password'),
+      
+      // Labels
+      tokenLabelText: document.getElementById('token-label-text'),
+      passwordLabelText: document.getElementById('password-label-text'),
+      passwordHint: document.getElementById('password-hint'),
+      
+      // Errors
+      emailError: document.getElementById('email-error'),
+      tokenError: document.getElementById('token-error'),
+      passwordError: document.getElementById('password-error'),
+      confirmPasswordError: document.getElementById('confirm-password-error'),
+      
+      // Buttons
+      submitBtn: document.getElementById('submit-btn'),
+      submitText: document.getElementById('submit-text'),
+      submitSpinner: document.getElementById('submit-spinner'),
+      forgotLink: document.getElementById('forgot-link'),
+      
+      // User section
+      userEmail: document.getElementById('user-email'),
+      verificationBadge: document.getElementById('verification-badge'),
+      signoutBtn: document.getElementById('signout-btn'),
+      signoutText: document.getElementById('signout-text'),
+      signoutSpinner: document.getElementById('signout-spinner'),
+      
+      // Alert containers
+      alertContainer: document.getElementById('alert-container'),
+      userAlertContainer: document.getElementById('user-alert-container'),
+      
+      // Reset modal
+      resetModal: document.getElementById('reset-modal'),
+      resetModalClose: document.getElementById('reset-modal-close'),
+      resetEmail: document.getElementById('reset-email'),
+      resetEmailError: document.getElementById('reset-email-error'),
+      resetSendBtn: document.getElementById('reset-send-btn'),
+      resetSendText: document.getElementById('reset-send-text'),
+      resetSendSpinner: document.getElementById('reset-send-spinner'),
+      resetCancelBtn: document.getElementById('reset-cancel-btn'),
+    };
+
+    // Utility functions
+    function showElement(el) {
+      el.classList.remove('hidden');
+    }
+
+    function hideElement(el) {
+      el.classList.add('hidden');
+    }
+
+    function setInputError(input, errorEl, message) {
+      if (message) {
+        input.classList.add('input-error');
+        errorEl.textContent = message;
+        showElement(errorEl);
       } else {
-        errorEl.classList.add('hidden');
+        input.classList.remove('input-error');
+        errorEl.textContent = '';
+        hideElement(errorEl);
       }
     }
 
-    auth.subscribe(updateUIState);
+    function clearAllErrors() {
+      setInputError(elements.email, elements.emailError, '');
+      setInputError(elements.token, elements.tokenError, '');
+      setInputError(elements.password, elements.passwordError, '');
+      setInputError(elements.confirmPassword, elements.confirmPasswordError, '');
+    }
 
+    function setSubmitting(submitting) {
+      isSubmitting = submitting;
+      elements.submitBtn.disabled = submitting;
+      elements.email.disabled = submitting;
+      elements.token.disabled = submitting;
+      elements.password.disabled = submitting;
+      elements.confirmPassword.disabled = submitting;
+      
+      if (submitting) {
+        showElement(elements.submitSpinner);
+      } else {
+        hideElement(elements.submitSpinner);
+      }
+      
+      updateSubmitButtonText();
+    }
+
+    function setSignoutSubmitting(submitting) {
+      elements.signoutBtn.disabled = submitting;
+      
+      if (submitting) {
+        elements.signoutText.textContent = 'Signing out...';
+        showElement(elements.signoutSpinner);
+      } else {
+        elements.signoutText.textContent = 'Sign Out';
+        hideElement(elements.signoutSpinner);
+      }
+    }
+
+    function createAlert(type, message, container) {
+      // Clear existing alerts
+      container.innerHTML = '';
+      
+      const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+      };
+      
+      const alert = document.createElement('div');
+      alert.className = `alert alert-${type}`;
+      alert.setAttribute('role', 'alert');
+      alert.innerHTML = `
+        <span class="alert-icon" aria-hidden="true">${icons[type]}</span>
+        <span class="alert-message">${message}</span>
+        <button type="button" class="alert-dismiss" aria-label="Dismiss">&times;</button>
+      `;
+      
+      const dismissBtn = alert.querySelector('.alert-dismiss');
+      dismissBtn.addEventListener('click', () => {
+        alert.remove();
+      });
+      
+      container.appendChild(alert);
+    }
+
+    function showAlert(type, message) {
+      const container = elements.userSection.classList.contains('hidden') 
+        ? elements.alertContainer 
+        : elements.userAlertContainer;
+      createAlert(type, message, container);
+    }
+
+    function clearAlerts() {
+      elements.alertContainer.innerHTML = '';
+      elements.userAlertContainer.innerHTML = '';
+    }
+
+    function getErrorMessage(error) {
+      return validation.getErrorMessage(error);
+    }
+
+    function updateSubmitButtonText() {
+      const loadingTexts = {
+        signin: 'Signing in...',
+        signup: 'Creating account...',
+        verify: 'Verifying...',
+        reset: 'Resetting password...'
+      };
+      
+      const buttonTexts = {
+        signin: 'Sign In',
+        signup: 'Create Account',
+        verify: 'Verify Email',
+        reset: 'Reset Password'
+      };
+      
+      elements.submitText.textContent = isSubmitting ? loadingTexts[mode] : buttonTexts[mode];
+    }
+
+    // Mode switching
     function setMode(newMode) {
       mode = newMode;
-      [signinTab, signupTab, verifyTab, resetTab].forEach(t => t.classList.remove('active'));
-      document.getElementById(`${mode}-tab`).classList.add('active');
+      clearAllErrors();
+      clearAlerts();
       
-      errorEl.classList.add('hidden');
-      messageEl.classList.add('hidden');
+      // Update tabs
+      [elements.signinTab, elements.signupTab, elements.verifyTab, elements.resetTab].forEach(tab => {
+        tab.classList.remove('active');
+        tab.setAttribute('aria-selected', 'false');
+      });
       
-      standardFields.classList.add('hidden');
-      tokenFields.classList.add('hidden');
-      confirmGroup.classList.add('hidden');
-      passwordGroup.classList.add('hidden');
-      forgotArea.classList.add('hidden');
+      const activeTab = document.getElementById(`${mode}-tab`);
+      activeTab.classList.add('active');
+      activeTab.setAttribute('aria-selected', 'true');
+      
+      // Update form fields visibility
+      hideElement(elements.emailGroup);
+      hideElement(elements.tokenGroup);
+      hideElement(elements.passwordGroup);
+      hideElement(elements.confirmPasswordGroup);
+      hideElement(elements.forgotPassword);
+      hideElement(elements.passwordHint);
+      
+      switch (mode) {
+        case 'signin':
+          showElement(elements.emailGroup);
+          showElement(elements.passwordGroup);
+          showElement(elements.forgotPassword);
+          elements.password.autocomplete = 'current-password';
+          elements.passwordLabelText.textContent = 'Password';
+          break;
+          
+        case 'signup':
+          showElement(elements.emailGroup);
+          showElement(elements.passwordGroup);
+          showElement(elements.confirmPasswordGroup);
+          showElement(elements.passwordHint);
+          elements.password.autocomplete = 'new-password';
+          elements.passwordLabelText.textContent = 'Password';
+          break;
+          
+        case 'verify':
+          showElement(elements.tokenGroup);
+          elements.tokenLabelText.textContent = 'Verification Token';
+          break;
+          
+        case 'reset':
+          showElement(elements.tokenGroup);
+          showElement(elements.passwordGroup);
+          showElement(elements.confirmPasswordGroup);
+          showElement(elements.passwordHint);
+          elements.tokenLabelText.textContent = 'Reset Token';
+          elements.password.autocomplete = 'new-password';
+          elements.passwordLabelText.textContent = 'New Password';
+          break;
+      }
+      
+      updateSubmitButtonText();
+    }
 
-      if (mode === 'signin' || mode === 'signup') {
-        standardFields.classList.remove('hidden');
-        passwordGroup.classList.remove('hidden');
-        submitBtn.textContent = mode === 'signin' ? 'Sign In' : 'Sign Up';
-        if (mode === 'signup') confirmGroup.classList.remove('hidden');
-        if (mode === 'signin') forgotArea.classList.remove('hidden');
-      } else if (mode === 'verify') {
-        tokenFields.classList.remove('hidden');
-        submitBtn.textContent = 'Verify Email';
-      } else if (mode === 'reset') {
-        tokenFields.classList.remove('hidden');
-        passwordGroup.classList.remove('hidden');
-        submitBtn.textContent = 'Set New Password';
+    // Form validation
+    function validateForm() {
+      let errors = {};
+      
+      const sanitizedEmail = validation.sanitizeInput(elements.email.value);
+      const sanitizedToken = validation.sanitizeInput(elements.token.value);
+      
+      switch (mode) {
+        case 'signin':
+          errors = validation.validateSignInForm(sanitizedEmail, elements.password.value);
+          break;
+        case 'signup':
+          errors = validation.validateSignUpForm(sanitizedEmail, elements.password.value, elements.confirmPassword.value);
+          break;
+        case 'verify':
+          errors = validation.validateVerifyEmailForm(sanitizedToken);
+          break;
+        case 'reset':
+          errors = validation.validateResetPasswordForm(sanitizedToken, elements.password.value, elements.confirmPassword.value);
+          break;
+      }
+      
+      // Display errors
+      setInputError(elements.email, elements.emailError, errors.email);
+      setInputError(elements.token, elements.tokenError, errors.token);
+      setInputError(elements.password, elements.passwordError, errors.password);
+      setInputError(elements.confirmPassword, elements.confirmPasswordError, errors.confirmPassword);
+      
+      return !validation.hasErrors(errors);
+    }
+
+    // Form submission
+    async function handleSubmit(e) {
+      e.preventDefault();
+      clearAlerts();
+      
+      if (!validateForm()) {
+        return;
+      }
+      
+      setSubmitting(true);
+      
+      const sanitizedEmail = validation.sanitizeInput(elements.email.value);
+      const sanitizedToken = validation.sanitizeInput(elements.token.value);
+      
+      try {
+        switch (mode) {
+          case 'signup': {
+            const res = await auth.signUp(sanitizedEmail, elements.password.value);
+            if (res.success) {
+              showAlert('success', 'Account created! Please check your email for verification.');
+              resetForm();
+            } else {
+              showAlert('error', getErrorMessage(res.error));
+            }
+            break;
+          }
+          
+          case 'signin': {
+            const res = await auth.signIn(sanitizedEmail, elements.password.value);
+            if (res.success) {
+              showAlert('success', 'Welcome back!');
+              resetForm();
+            } else {
+              showAlert('error', getErrorMessage(res.error));
+            }
+            break;
+          }
+          
+          case 'verify': {
+            const res = await auth.verifyEmail(sanitizedToken);
+            if (res.success) {
+              showAlert('success', 'Email verified successfully! You can now sign in.');
+              elements.token.value = '';
+              setMode('signin');
+            } else {
+              showAlert('error', getErrorMessage(res.error));
+            }
+            break;
+          }
+          
+          case 'reset': {
+            const res = await auth.resetPassword(sanitizedToken, elements.password.value);
+            if (res.success) {
+              showAlert('success', 'Password reset successful! Please sign in with your new password.');
+              resetForm();
+              setMode('signin');
+            } else {
+              showAlert('error', getErrorMessage(res.error));
+            }
+            break;
+          }
+        }
+      } catch (_err) {
+        showAlert('error', 'An unexpected error occurred. Please try again.');
+      } finally {
+        setSubmitting(false);
       }
     }
 
-    signinTab.addEventListener('click', () => setMode('signin'));
-    signupTab.addEventListener('click', () => setMode('signup'));
-    verifyTab.addEventListener('click', () => setMode('verify'));
-    resetTab.addEventListener('click', () => setMode('reset'));
+    function resetForm() {
+      elements.email.value = '';
+      elements.password.value = '';
+      elements.confirmPassword.value = '';
+      elements.token.value = '';
+      clearAllErrors();
+    }
 
-    forgotLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      resetOverlay.classList.remove('hidden');
-    });
+    // Password reset modal
+    function openResetModal() {
+      elements.resetEmail.value = elements.email.value;
+      setInputError(elements.resetEmail, elements.resetEmailError, '');
+      showElement(elements.resetModal);
+      elements.resetEmail.focus();
+    }
 
-    resetCancelBtn.addEventListener('click', () => {
-      resetOverlay.classList.add('hidden');
-    });
+    function closeResetModal() {
+      hideElement(elements.resetModal);
+    }
 
-    resetRequestBtn.addEventListener('click', async () => {
-      const res = await auth.requestPasswordReset(resetEmailInput.value);
-      if (res.success) {
-        messageEl.textContent = 'Password reset email sent.';
-        messageEl.classList.remove('hidden');
-        resetOverlay.classList.add('hidden');
-      }
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorEl.classList.add('hidden');
-      messageEl.classList.add('hidden');
+    async function handleRequestReset() {
+      const sanitizedEmail = validation.sanitizeInput(elements.resetEmail.value);
+      const emailValidation = validation.validateEmail(sanitizedEmail);
       
-      if (mode === 'signup') {
-        if (password.value !== confirmPassword.value) {
-          errorEl.textContent = 'Passwords do not match';
-          errorEl.classList.remove('hidden');
-          return;
-        }
-        const res = await auth.signUp(email.value, password.value);
+      if (!emailValidation.isValid) {
+        setInputError(elements.resetEmail, elements.resetEmailError, emailValidation.error);
+        return;
+      }
+      
+      setInputError(elements.resetEmail, elements.resetEmailError, '');
+      
+      // Set loading state
+      elements.resetSendBtn.disabled = true;
+      elements.resetSendText.textContent = 'Sending...';
+      showElement(elements.resetSendSpinner);
+      
+      try {
+        const res = await auth.requestPasswordReset(sanitizedEmail);
         if (res.success) {
-          messageEl.textContent = 'Verification email sent!';
-          messageEl.classList.remove('hidden');
+          showAlert('success', 'If an account exists with this email, you will receive a password reset link.');
+          closeResetModal();
+          elements.email.value = '';
+        } else {
+          showAlert('error', getErrorMessage(res.error));
         }
-      } else if (mode === 'signin') {
-        await auth.signIn(email.value, password.value);
-      } else if (mode === 'verify') {
-        const res = await auth.verifyEmail(tokenInput.value);
-        if (res.success) {
-          messageEl.textContent = 'Email verified! You can now sign in.';
-          messageEl.classList.remove('hidden');
-          setMode('signin');
+      } catch (_err) {
+        showAlert('error', 'An unexpected error occurred. Please try again.');
+      } finally {
+        elements.resetSendBtn.disabled = false;
+        elements.resetSendText.textContent = 'Send Reset Link';
+        hideElement(elements.resetSendSpinner);
+      }
+    }
+
+    // Sign out
+    async function handleSignOut() {
+      setSignoutSubmitting(true);
+      
+      try {
+        await auth.signOut();
+        showAlert('info', 'You have been signed out.');
+      } catch (_err) {
+        showAlert('error', 'Failed to sign out. Please try again.');
+      } finally {
+        setSignoutSubmitting(false);
+      }
+    }
+
+    // Update UI based on auth state
+    function updateUI(state) {
+      hideElement(elements.loading);
+      
+      if (state.loading) {
+        showElement(elements.loading);
+        hideElement(elements.authSection);
+        hideElement(elements.userSection);
+        return;
+      }
+      
+      if (state.user) {
+        hideElement(elements.authSection);
+        showElement(elements.userSection);
+        
+        elements.userEmail.textContent = state.user.email;
+        
+        if (state.user.emailVerified) {
+          elements.verificationBadge.className = 'status-badge status-verified';
+          elements.verificationBadge.textContent = '✓ Email Verified';
+        } else {
+          elements.verificationBadge.className = 'status-badge status-unverified';
+          elements.verificationBadge.textContent = '⚠ Email Not Verified';
         }
-      } else if (mode === 'reset') {
-        const res = await auth.resetPassword(tokenInput.value, password.value);
-        if (res.success) {
-          messageEl.textContent = 'Password reset successful. Please sign in.';
-          messageEl.classList.remove('hidden');
-          setMode('signin');
-        }
+      } else {
+        showElement(elements.authSection);
+        hideElement(elements.userSection);
+      }
+      
+      if (state.error && !state.user) {
+        showAlert('error', getErrorMessage(state.error));
+      }
+    }
+
+    // Event listeners
+    elements.signinTab.addEventListener('click', () => setMode('signin'));
+    elements.signupTab.addEventListener('click', () => setMode('signup'));
+    elements.verifyTab.addEventListener('click', () => setMode('verify'));
+    elements.resetTab.addEventListener('click', () => setMode('reset'));
+
+    elements.authForm.addEventListener('submit', handleSubmit);
+    elements.forgotLink.addEventListener('click', openResetModal);
+    elements.signoutBtn.addEventListener('click', handleSignOut);
+
+    elements.resetModalClose.addEventListener('click', closeResetModal);
+    elements.resetCancelBtn.addEventListener('click', closeResetModal);
+    elements.resetSendBtn.addEventListener('click', handleRequestReset);
+
+    // Close modal on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !elements.resetModal.classList.contains('hidden')) {
+        closeResetModal();
       }
     });
 
-    signoutBtn.addEventListener('click', async () => {
-      await auth.signOut();
+    // Close modal on overlay click
+    elements.resetModal.addEventListener('click', (e) => {
+      if (e.target === elements.resetModal) {
+        closeResetModal();
+      }
     });
+
+    // Subscribe to auth state changes
+    auth.subscribe(updateUI);
+
+    // Initialize mode
+    setMode('signin');
   </script>
 </body>
 </html>
