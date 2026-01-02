@@ -1,0 +1,8 @@
+/**
+ * FortressAuth Vue Example - Application Styles
+ * Imports shared design system and adds Vue-specific overrides.
+ */
+
+@import "../../shared/styles/index.css";
+
+/* Vue-specific overrides (if needed) */

@@ -53,6 +53,7 @@ export type { PasswordConfig } from './security/validation.js';
 export { validatePassword } from './security/validation.js';
 
 // Types
-export type { AuthErrorCode } from './types/errors.js';
+export type { AuthErrorCode, ErrorCodeMapping } from './types/errors.js';
+export { ERROR_CODE_MAP, getErrorCodeMapping } from './types/errors.js';
 export type { Result } from './types/result.js';
 export { err, isErr, isOk, ok } from './types/result.js';

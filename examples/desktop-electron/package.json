@@ -6,7 +6,7 @@
   "private": true,
   "main": "main.js",
   "scripts": {
-    "dev": "electron .",
+    "dev": "NODE_ENV=development electron .",
     "start": "electron .",
     "lint": "biome check .",
     "build": "electron-builder"
@@ -15,6 +15,7 @@
     "@fortressauth/electron-sdk": "workspace:*"
   },
   "devDependencies": {
+    "dotenv": "^17.2.3",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12"
   }

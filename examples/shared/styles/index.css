@@ -1,0 +1,11 @@
+/**
+ * FortressAuth Design System - Main Entry Point
+ * Import this file to get all shared styles in the correct order.
+ * 
+ * Usage: @import '../../shared/styles/index.css';
+ */
+
+@import './design-tokens.css';
+@import './base.css';
+@import './components.css';
+@import './responsive.css';
