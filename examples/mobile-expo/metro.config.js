@@ -25,9 +25,15 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+// Avoid duplicate React copies from workspace packages.
+config.resolver.disableHierarchicalLookup = true;
+
 // Ensure Metro can resolve files outside the project root
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
+  react: path.resolve(projectRoot, 'node_modules/react'),
+  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  'react-dom': path.resolve(projectRoot, 'node_modules/react-dom'),
 };
 
 module.exports = config;
