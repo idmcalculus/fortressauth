@@ -14,6 +14,7 @@
 import { AuthProvider } from '@fortressauth/expo-sdk';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Get API URL from environment variables
 // For Expo, use EXPO_PUBLIC_ prefix for environment variables
@@ -33,8 +34,10 @@ export default function RootLayout() {
   return (
     // baseUrl: Your FortressAuth server URL
     // For React Native CLI, the same props work identically
-    <AuthProvider baseUrl={API_URL}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider baseUrl={API_URL}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
