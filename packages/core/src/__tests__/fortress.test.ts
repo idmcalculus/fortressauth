@@ -102,6 +102,7 @@ describe('FortressAuth', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   describe('signUp()', () => {
@@ -140,6 +141,40 @@ describe('FortressAuth', () => {
       if (!result.success) {
         expect(result.error).toBe('PASSWORD_TOO_WEAK');
       }
+    });
+
+    it('should reject breached passwords when enabled', async () => {
+      const password = 'P@ssw0rd!';
+      const hash = createHash('sha1').update(password).digest('hex').toUpperCase();
+      const prefix = hash.slice(0, 5);
+      const suffix = hash.slice(5);
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(`${suffix}:10`),
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const fortressWithBreach = new FortressAuth(repository, rateLimiter, emailProvider, {
+        urls: { baseUrl: 'http://localhost:3000' },
+        password: { breachedCheck: { enabled: true } },
+      });
+
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(null);
+
+      const result = await fortressWithBreach.signUp({
+        email: 'test@example.com',
+        password,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_TOO_WEAK');
+      }
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `https://api.pwnedpasswords.com/range/${prefix}`,
+        expect.any(Object),
+      );
     });
   });
 
@@ -549,6 +584,40 @@ describe('FortressAuth', () => {
       const result = await fortress.resetPassword({
         token: rawToken,
         newPassword: 'weak',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('PASSWORD_TOO_WEAK');
+      }
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(token.id);
+    });
+
+    it('should reject breached passwords during reset when enabled', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+      const password = 'P@ssw0rd!';
+      const hash = createHash('sha1').update(password).digest('hex').toUpperCase();
+      const suffix = hash.slice(5);
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(`${suffix}:1`),
+      });
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const fortressWithBreach = new FortressAuth(repository, rateLimiter, emailProvider, {
+        urls: { baseUrl: 'http://localhost:3000' },
+        password: { breachedCheck: { enabled: true } },
+      });
+
+      const result = await fortressWithBreach.resetPassword({
+        token: rawToken,
+        newPassword: password,
       });
 
       expect(result.success).toBe(false);

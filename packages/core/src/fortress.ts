@@ -9,6 +9,7 @@ import type { EmailProviderPort } from './ports/email-provider.js';
 import type { RateLimiterPort } from './ports/rate-limiter.js';
 import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
+import { isBreachedPassword } from './security/breached-password.js';
 import { validateEmailInput, validatePasswordInput } from './security/input-validation.js';
 import { hashPassword, verifyPassword } from './security/password.js';
 import { buildRateLimitIdentifier } from './security/rate-limit-key.js';
@@ -125,6 +126,13 @@ export class FortressAuth {
     const existingUser = await this.repository.findUserByEmail(email);
     if (existingUser) {
       return err('EMAIL_EXISTS');
+    }
+
+    if (this.config.password.breachedCheck.enabled) {
+      const breached = await isBreachedPassword(input.password, this.config.password.breachedCheck);
+      if (breached) {
+        return err('PASSWORD_TOO_WEAK');
+      }
     }
 
     const passwordHash = await hashPassword(input.password);
@@ -500,6 +508,17 @@ export class FortressAuth {
     if (!passwordValidation.valid) {
       await this.repository.deletePasswordReset(record.id);
       return err('PASSWORD_TOO_WEAK');
+    }
+
+    if (this.config.password.breachedCheck.enabled) {
+      const breached = await isBreachedPassword(
+        input.newPassword,
+        this.config.password.breachedCheck,
+      );
+      if (breached) {
+        await this.repository.deletePasswordReset(record.id);
+        return err('PASSWORD_TOO_WEAK');
+      }
     }
 
     const account = await this.repository.findEmailAccountByUserId(user.id);

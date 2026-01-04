@@ -11,6 +11,7 @@ describe('Error Code Mappings', () => {
         'INVALID_CREDENTIALS',
         'ACCOUNT_LOCKED',
         'EMAIL_NOT_VERIFIED',
+        'CSRF_TOKEN_INVALID',
         'EMAIL_VERIFICATION_INVALID',
         'EMAIL_VERIFICATION_EXPIRED',
         'PASSWORD_RESET_INVALID',
@@ -52,6 +53,7 @@ describe('Error Code Mappings', () => {
 
       // 403 Forbidden for email not verified
       expect(ERROR_CODE_MAP.EMAIL_NOT_VERIFIED.httpStatus).toBe(403);
+      expect(ERROR_CODE_MAP.CSRF_TOKEN_INVALID.httpStatus).toBe(403);
 
       // 410 Gone for expired tokens
       expect(ERROR_CODE_MAP.EMAIL_VERIFICATION_EXPIRED.httpStatus).toBe(410);

@@ -34,6 +34,10 @@ function createWrapper(baseUrl?: string) {
 describe('AuthProvider', () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    const doc = (globalThis as { document?: { cookie?: string } }).document;
+    if (doc) {
+      doc.cookie = 'fortress_csrf=test-csrf';
+    }
   });
 
   afterEach(() => {
@@ -236,9 +240,9 @@ describe('AuthProvider', () => {
     });
 
     it('should surface fetch errors', async () => {
-      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false })).mockRejectedValueOnce(
-        new Error('Network down'),
-      );
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockRejectedValueOnce(new Error('Network down'));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 

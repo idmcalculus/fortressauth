@@ -5,6 +5,7 @@ export type AuthErrorCode =
   | 'INVALID_CREDENTIALS'
   | 'ACCOUNT_LOCKED'
   | 'EMAIL_NOT_VERIFIED'
+  | 'CSRF_TOKEN_INVALID'
   | 'EMAIL_VERIFICATION_INVALID'
   | 'EMAIL_VERIFICATION_EXPIRED'
   | 'PASSWORD_RESET_INVALID'
@@ -56,6 +57,11 @@ export const ERROR_CODE_MAP: Record<AuthErrorCode, ErrorCodeMapping> = {
   EMAIL_NOT_VERIFIED: {
     code: 'AUTH_005',
     message: 'Please verify your email to continue.',
+    httpStatus: 403,
+  },
+  CSRF_TOKEN_INVALID: {
+    code: 'AUTH_016',
+    message: 'Security token is missing or invalid.',
     httpStatus: 403,
   },
   SESSION_INVALID: {

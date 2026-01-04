@@ -366,7 +366,9 @@ describe('AuthProvider (React Native)', () => {
         return { json: () => Promise.resolve({ success: false }) };
       });
 
-      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper('https://api.example.com') });
+      const { result } = renderHook(() => useAuth(), {
+        wrapper: createWrapper('https://api.example.com'),
+      });
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 

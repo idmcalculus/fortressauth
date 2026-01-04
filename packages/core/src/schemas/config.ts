@@ -12,9 +12,16 @@ const SESSION_DEFAULTS = {
   cookieDomain: undefined as string | undefined,
 };
 
+const BREACHED_PASSWORD_DEFAULTS = {
+  enabled: false,
+  apiUrl: 'https://api.pwnedpasswords.com',
+  timeoutMs: 5000,
+};
+
 const PASSWORD_DEFAULTS = {
   minLength: 8,
   maxLength: 128,
+  breachedCheck: BREACHED_PASSWORD_DEFAULTS,
 };
 
 const RATE_LIMIT_LOGIN_DEFAULTS = {
@@ -86,14 +93,29 @@ const SessionConfigSchema = z
   }))
   .openapi('SessionConfig');
 
+const BreachedPasswordConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    apiUrl: z.string().url().optional(),
+    timeoutMs: z.number().positive().optional(),
+  })
+  .transform((val) => ({
+    enabled: val.enabled ?? BREACHED_PASSWORD_DEFAULTS.enabled,
+    apiUrl: val.apiUrl ?? BREACHED_PASSWORD_DEFAULTS.apiUrl,
+    timeoutMs: val.timeoutMs ?? BREACHED_PASSWORD_DEFAULTS.timeoutMs,
+  }))
+  .openapi('BreachedPasswordConfig');
+
 const PasswordConfigSchema = z
   .object({
     minLength: z.number().min(8).optional(),
     maxLength: z.number().max(128).optional(),
+    breachedCheck: BreachedPasswordConfigSchema.optional(),
   })
   .transform((val) => ({
     minLength: val.minLength ?? PASSWORD_DEFAULTS.minLength,
     maxLength: val.maxLength ?? PASSWORD_DEFAULTS.maxLength,
+    breachedCheck: val.breachedCheck ?? PASSWORD_DEFAULTS.breachedCheck,
   }))
   .openapi('PasswordConfig');
 
@@ -198,3 +220,4 @@ export const FortressConfigSchema = z
 
 export type FortressConfig = z.infer<typeof FortressConfigSchema>;
 export type FortressConfigInput = z.input<typeof FortressConfigSchema>;
+export type BreachedPasswordConfig = z.infer<typeof BreachedPasswordConfigSchema>;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FortressAuth, createAuth } from '../auth.js';
+import { createAuth, FortressAuth } from '../auth.js';
 
 // Mock fetch globally
 const mockFetch = vi.fn();

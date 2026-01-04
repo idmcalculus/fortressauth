@@ -13,6 +13,9 @@ describe('FortressConfigSchema', () => {
 
       expect(config.password.minLength).toBe(8);
       expect(config.password.maxLength).toBe(128);
+      expect(config.password.breachedCheck.enabled).toBe(false);
+      expect(config.password.breachedCheck.apiUrl).toBe('https://api.pwnedpasswords.com');
+      expect(config.password.breachedCheck.timeoutMs).toBe(5000);
 
       expect(config.rateLimit.enabled).toBe(true);
       expect(config.rateLimit.login.maxTokens).toBe(5);
@@ -107,6 +110,22 @@ describe('FortressConfigSchema', () => {
           password: { maxLength: 200 },
         }),
       ).toThrow();
+    });
+
+    it('should allow configuring breached password checks', () => {
+      const config = FortressConfigSchema.parse({
+        password: {
+          breachedCheck: {
+            enabled: true,
+            apiUrl: 'https://hibp.example.com',
+            timeoutMs: 2500,
+          },
+        },
+      });
+
+      expect(config.password.breachedCheck.enabled).toBe(true);
+      expect(config.password.breachedCheck.apiUrl).toBe('https://hibp.example.com');
+      expect(config.password.breachedCheck.timeoutMs).toBe(2500);
     });
   });
 
