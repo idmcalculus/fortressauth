@@ -143,6 +143,53 @@ describe('AuthProvider (React Native)', () => {
         expect(result.current.user?.email).toBe('new@example.com');
       });
     });
+
+    it('should not store token when signup response has no token', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/auth/signup')) {
+          return {
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: { user: { id: '2', email: 'new@example.com' } },
+              }),
+          };
+        }
+        return { json: () => Promise.resolve({ success: false }) };
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signUp('new@example.com', 'password123');
+      });
+
+      expect(mockStorage.setItem).not.toHaveBeenCalled();
+      expect(result.current.user?.email).toBe('new@example.com');
+    });
+
+    it('should set error when signup fails', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/auth/signup')) {
+          return {
+            json: () => Promise.resolve({ success: false, error: 'Signup failed' }),
+          };
+        }
+        return { json: () => Promise.resolve({ success: false }) };
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signUp('new@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('Signup failed');
+    });
   });
 
   describe('signIn', () => {
@@ -186,6 +233,41 @@ describe('AuthProvider (React Native)', () => {
       await waitFor(() => {
         expect(result.current.user?.email).toBe('test@example.com');
       });
+    });
+
+    it('should set error when signin fails', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/auth/login')) {
+          return {
+            json: () => Promise.resolve({ success: false, error: 'Invalid credentials' }),
+          };
+        }
+        return { json: () => Promise.resolve({ success: false }) };
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('Invalid credentials');
+    });
+
+    it('should surface network errors during signin', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network down'));
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('Network down');
     });
   });
 
@@ -236,6 +318,94 @@ describe('AuthProvider (React Native)', () => {
         expect(result.current.user).toBeNull();
       });
     });
+
+    it('should keep user when logout fails', async () => {
+      storageData.set('fortress_auth_token', 'existing-token');
+
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/auth/me')) {
+          return {
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: { user: { id: '1', email: 'test@example.com' } },
+              }),
+          };
+        }
+        if (url.endsWith('/auth/logout')) {
+          return { json: () => Promise.resolve({ success: false }) };
+        }
+        return { json: () => Promise.resolve({ success: false }) };
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.user).not.toBeNull());
+
+      await act(async () => {
+        await result.current.signOut();
+      });
+
+      expect(mockStorage.removeItem).not.toHaveBeenCalled();
+      expect(result.current.user?.email).toBe('test@example.com');
+    });
+  });
+
+  describe('auxiliary endpoints', () => {
+    it('should call verifyEmail, requestPasswordReset, and resetPassword', async () => {
+      mockFetch.mockImplementation(async (url: string) => {
+        if (url.endsWith('/auth/verify-email')) {
+          return { json: () => Promise.resolve({ success: true, data: { verified: true } }) };
+        }
+        if (url.endsWith('/auth/request-password-reset')) {
+          return { json: () => Promise.resolve({ success: true, data: { requested: true } }) };
+        }
+        if (url.endsWith('/auth/reset-password')) {
+          return { json: () => Promise.resolve({ success: true, data: { reset: true } }) };
+        }
+        return { json: () => Promise.resolve({ success: false }) };
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper('https://api.example.com') });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.verifyEmail('verify-token');
+        await result.current.requestPasswordReset('test@example.com');
+        await result.current.resetPassword('reset-token', 'new-password');
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/auth/verify-email',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ token: 'verify-token' }),
+        }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/auth/request-password-reset',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ email: 'test@example.com' }),
+        }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/auth/reset-password',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ token: 'reset-token', newPassword: 'new-password' }),
+        }),
+      );
+    });
+  });
+});
+
+describe('useAuth (React Native)', () => {
+  it('should throw when used outside provider', () => {
+    expect(() => renderHook(() => useAuth())).toThrow(
+      'useAuth must be used within an AuthProvider',
+    );
   });
 });
 

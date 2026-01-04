@@ -15,8 +15,10 @@
   },
   "scripts": {
     "build": "tsc",
+    "pretest": "pnpm rebuild better-sqlite3",
     "test": "vitest run",
     "test:watch": "vitest",
+    "pretest:coverage": "pnpm rebuild better-sqlite3",
     "test:coverage": "vitest run --coverage",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"

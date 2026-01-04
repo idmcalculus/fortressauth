@@ -16,6 +16,15 @@ const jsonResponse = (payload: unknown) => ({
   json: () => Promise.resolve(payload),
 });
 
+const textResponse = (ok: boolean, status: number) => ({
+  ok,
+  status,
+  headers: {
+    get: () => 'text/plain',
+  },
+  json: () => Promise.resolve({}),
+});
+
 function createWrapper(baseUrl?: string) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return <AuthProvider {...(baseUrl ? { baseUrl } : {})}>{children}</AuthProvider>;
@@ -192,6 +201,70 @@ describe('AuthProvider', () => {
       });
 
       expect(result.current.error).toBe('UNKNOWN_ERROR');
+    });
+
+    it('should handle non-JSON success responses', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(textResponse(true, 204));
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('UNKNOWN_ERROR');
+    });
+
+    it('should surface HTTP error codes for non-JSON failures', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(textResponse(false, 500));
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('HTTP_500');
+    });
+
+    it('should surface fetch errors', async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false })).mockRejectedValueOnce(
+        new Error('Network down'),
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('Network down');
+    });
+
+    it('should fall back to FETCH_ERROR for non-Error failures', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockRejectedValueOnce('boom');
+
+      const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      await act(async () => {
+        await result.current.signIn('test@example.com', 'password123');
+      });
+
+      expect(result.current.error).toBe('FETCH_ERROR');
     });
   });
 
