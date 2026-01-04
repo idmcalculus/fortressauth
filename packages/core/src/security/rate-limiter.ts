@@ -17,8 +17,15 @@ const DEFAULT_LOGIN_CONFIG: ActionConfig = {
   windowMs: 15 * 60 * 1000, // 15 minute window
 };
 
+const DEFAULT_PASSWORD_RESET_CONFIG: ActionConfig = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes per token
+  windowMs: 15 * 60 * 1000, // 15 minute window
+};
+
 const DEFAULT_CONFIGS: Record<string, ActionConfig> = {
   login: DEFAULT_LOGIN_CONFIG,
+  passwordReset: DEFAULT_PASSWORD_RESET_CONFIG,
 };
 
 export class MemoryRateLimiter implements RateLimiterPort {

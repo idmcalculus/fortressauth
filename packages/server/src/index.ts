@@ -96,10 +96,16 @@ let rateLimiter: RateLimiterPort;
 if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
   redisClient = new Redis(env.REDIS_URL);
   rateLimiter = new RedisRateLimiter(redisClient, {
-    actions: { login: resolvedConfig.rateLimit.login },
+    actions: {
+      login: resolvedConfig.rateLimit.login,
+      passwordReset: resolvedConfig.rateLimit.passwordReset,
+    },
   });
 } else {
-  rateLimiter = new MemoryRateLimiter({ login: resolvedConfig.rateLimit.login });
+  rateLimiter = new MemoryRateLimiter({
+    login: resolvedConfig.rateLimit.login,
+    passwordReset: resolvedConfig.rateLimit.passwordReset,
+  });
 }
 
 // Initialize FortressAuth
@@ -468,9 +474,13 @@ app.post('/auth/request-password-reset', async (c) => {
 app.post('/auth/reset-password', async (c) => {
   try {
     const body = await c.req.json();
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
     const result = await fortress.resetPassword({
       token: body.token,
       newPassword: body.newPassword,
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
     });
 
     if (!result.success) {

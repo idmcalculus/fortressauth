@@ -11,6 +11,7 @@ import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
 import { validateEmailInput, validatePasswordInput } from './security/input-validation.js';
 import { hashPassword, verifyPassword } from './security/password.js';
+import { buildRateLimitIdentifier } from './security/rate-limit-key.js';
 import { validatePassword } from './security/validation.js';
 import type { AuthErrorCode } from './types/errors.js';
 import type { Result } from './types/result.js';
@@ -33,6 +34,8 @@ export interface SignInInput {
 export interface ResetPasswordInput {
   token: string;
   newPassword: string;
+  ipAddress?: string | undefined;
+  userAgent?: string | undefined;
 }
 
 export interface AuthResult {
@@ -72,9 +75,14 @@ export class FortressAuth {
     }
 
     const email = emailValidation.data;
+    const rateLimitId = buildRateLimitIdentifier({
+      email,
+      ipAddress: input.ipAddress,
+      userAgent: input.userAgent,
+    });
 
     if (this.config.rateLimit.enabled) {
-      const rateCheck = await this.rateLimiter.check(email, 'login');
+      const rateCheck = await this.rateLimiter.check(rateLimitId, 'login');
       if (!rateCheck.allowed) {
         return err('RATE_LIMIT_EXCEEDED');
       }
@@ -120,7 +128,7 @@ export class FortressAuth {
     });
 
     if (result.success && this.config.rateLimit.enabled) {
-      await this.rateLimiter.consume(email, 'login');
+      await this.rateLimiter.consume(rateLimitId, 'login');
     }
 
     if (result.success) {
@@ -147,16 +155,21 @@ export class FortressAuth {
 
     const email = emailValidation.data;
     const ipAddress = input.ipAddress ?? 'unknown';
+    const rateLimitId = buildRateLimitIdentifier({
+      email,
+      ipAddress,
+      userAgent: input.userAgent,
+    });
 
     // Check rate limit first and consume a token for every attempt (prevents brute force)
     if (this.config.rateLimit.enabled) {
-      const rateCheck = await this.rateLimiter.check(email, 'login');
+      const rateCheck = await this.rateLimiter.check(rateLimitId, 'login');
       if (!rateCheck.allowed) {
         await this.repository.recordLoginAttempt(LoginAttempt.create(email, ipAddress, false));
         return err('RATE_LIMIT_EXCEEDED');
       }
       // Consume token for every login attempt, not just successful ones
-      await this.rateLimiter.consume(email, 'login');
+      await this.rateLimiter.consume(rateLimitId, 'login');
     }
 
     const user = await this.repository.findUserByEmail(email);
@@ -320,6 +333,27 @@ export class FortressAuth {
       return ok(undefined);
     }
 
+    const existingTokens = await this.repository.findPasswordResetsByUserId(user.id);
+    const activeTokens = existingTokens.filter((token) => !token.isExpired());
+
+    for (const token of existingTokens) {
+      if (token.isExpired()) {
+        await this.repository.deletePasswordReset(token.id);
+      }
+    }
+
+    if (activeTokens.length >= this.config.passwordReset.maxActiveTokens) {
+      const excessCount = activeTokens.length - this.config.passwordReset.maxActiveTokens + 1;
+      const tokensToDelete = activeTokens
+        .slice()
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .slice(0, excessCount);
+
+      for (const token of tokensToDelete) {
+        await this.repository.deletePasswordReset(token.id);
+      }
+    }
+
     const { token, rawToken } = PasswordResetToken.create(user.id, this.config.passwordReset.ttlMs);
 
     await this.repository.createPasswordResetToken(token);
@@ -331,6 +365,20 @@ export class FortressAuth {
   }
 
   async resetPassword(input: ResetPasswordInput): Promise<Result<void, AuthErrorCode>> {
+    const ipAddress = input.ipAddress ?? 'unknown';
+    const baseRateLimitId = buildRateLimitIdentifier({
+      ipAddress,
+      userAgent: input.userAgent,
+    });
+
+    if (this.config.rateLimit.enabled) {
+      const rateCheck = await this.rateLimiter.check(baseRateLimitId, 'passwordReset');
+      if (!rateCheck.allowed) {
+        return err('RATE_LIMIT_EXCEEDED');
+      }
+      await this.rateLimiter.consume(baseRateLimitId, 'passwordReset');
+    }
+
     const parsed = PasswordResetToken.parse(input.token);
     if (!parsed) {
       return err('PASSWORD_RESET_INVALID');
@@ -357,12 +405,26 @@ export class FortressAuth {
       return err('PASSWORD_RESET_INVALID');
     }
 
+    if (this.config.rateLimit.enabled) {
+      const compositeRateLimitId = buildRateLimitIdentifier({
+        email: user.email,
+        ipAddress,
+        userAgent: input.userAgent,
+      });
+      const rateCheck = await this.rateLimiter.check(compositeRateLimitId, 'passwordReset');
+      if (!rateCheck.allowed) {
+        return err('RATE_LIMIT_EXCEEDED');
+      }
+      await this.rateLimiter.consume(compositeRateLimitId, 'passwordReset');
+    }
+
     const passwordValidation = validatePassword(input.newPassword, {
       minLength: this.config.password.minLength,
       maxLength: this.config.password.maxLength,
     });
 
     if (!passwordValidation.valid) {
+      await this.repository.deletePasswordReset(record.id);
       return err('PASSWORD_TOO_WEAK');
     }
 

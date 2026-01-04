@@ -18,10 +18,16 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.login.maxTokens).toBe(5);
       expect(config.rateLimit.login.refillRateMs).toBe(3 * 60 * 1000);
       expect(config.rateLimit.login.windowMs).toBe(15 * 60 * 1000);
+      expect(config.rateLimit.passwordReset.maxTokens).toBe(5);
+      expect(config.rateLimit.passwordReset.refillRateMs).toBe(3 * 60 * 1000);
+      expect(config.rateLimit.passwordReset.windowMs).toBe(15 * 60 * 1000);
 
       expect(config.lockout.enabled).toBe(true);
       expect(config.lockout.maxFailedAttempts).toBe(5);
       expect(config.lockout.lockoutDurationMs).toBe(15 * 60 * 1000);
+
+      expect(config.passwordReset.ttlMs).toBe(60 * 60 * 1000);
+      expect(config.passwordReset.maxActiveTokens).toBe(3);
     });
   });
 
@@ -121,6 +127,36 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.login.maxTokens).toBe(10);
       expect(config.rateLimit.login.refillRateMs).toBe(60000);
       expect(config.rateLimit.login.windowMs).toBe(600000);
+    });
+
+    it('should allow custom password reset rate limit settings', () => {
+      const config = FortressConfigSchema.parse({
+        rateLimit: {
+          passwordReset: {
+            maxTokens: 3,
+            refillRateMs: 120000,
+            windowMs: 300000,
+          },
+        },
+      });
+
+      expect(config.rateLimit.passwordReset.maxTokens).toBe(3);
+      expect(config.rateLimit.passwordReset.refillRateMs).toBe(120000);
+      expect(config.rateLimit.passwordReset.windowMs).toBe(300000);
+    });
+  });
+
+  describe('password reset config', () => {
+    it('should allow custom password reset TTL and token limit', () => {
+      const config = FortressConfigSchema.parse({
+        passwordReset: {
+          ttlMs: 30 * 60 * 1000,
+          maxActiveTokens: 2,
+        },
+      });
+
+      expect(config.passwordReset.ttlMs).toBe(30 * 60 * 1000);
+      expect(config.passwordReset.maxActiveTokens).toBe(2);
     });
   });
 
