@@ -10,7 +10,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "svelte-kit sync && tsc --noEmit"
   },
   "dependencies": {
     "@fortressauth/svelte-sdk": "workspace:*"
