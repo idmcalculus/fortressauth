@@ -14,6 +14,20 @@ describe('SESEmailProvider', () => {
     expect((provider as unknown as { from: string }).from).toBe('Test App <noreply@example.com>');
   });
 
+  it('uses raw from address when no name is provided', () => {
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      credentials: {
+        accessKeyId: 'AKIA_TEST',
+        secretAccessKey: 'SECRET_TEST',
+      },
+      client: { send: vi.fn().mockResolvedValue(undefined) },
+    });
+
+    expect((provider as unknown as { from: string }).from).toBe('noreply@example.com');
+  });
+
   it('sends verification email with rendered templates', async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const provider = new SESEmailProvider({
@@ -29,5 +43,28 @@ describe('SESEmailProvider', () => {
     expect(command.input?.Destination?.ToAddresses).toEqual(['user@example.com']);
     expect(command.input?.Message?.Subject?.Data).toBe('Verify your email address');
     expect(command.input?.Message?.Body?.Text?.Data).toContain('https://example.com/verify');
+  });
+
+  it('sends password reset email with rendered templates', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      appName: 'Fortress',
+      credentials: {
+        accessKeyId: 'AKIA_TEST',
+        secretAccessKey: 'SECRET_TEST',
+        sessionToken: 'SESSION_TOKEN',
+      },
+      client: { send },
+    });
+
+    await provider.sendPasswordResetEmail('user@example.com', 'https://example.com/reset');
+
+    expect(send).toHaveBeenCalledWith(expect.any(SendEmailCommand));
+    const command = send.mock.calls[0]?.[0] as SendEmailCommand;
+    expect(command.input?.Destination?.ToAddresses).toEqual(['user@example.com']);
+    expect(command.input?.Message?.Subject?.Data).toBe('Reset your password for Fortress');
+    expect(command.input?.Message?.Body?.Text?.Data).toContain('https://example.com/reset');
   });
 });

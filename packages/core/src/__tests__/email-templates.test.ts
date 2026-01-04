@@ -82,14 +82,8 @@ describe('email templates', () => {
     expect(verificationNoName.html).toContain('Verify your email address');
     expect(verificationWithName.html).toContain('for FortressAuth');
 
-    const resetNoName = renderEmailTemplate(
-      DEFAULT_EMAIL_TEMPLATES.passwordReset,
-      baseParams,
-    );
-    const resetWithName = renderEmailTemplate(
-      DEFAULT_EMAIL_TEMPLATES.passwordReset,
-      withName,
-    );
+    const resetNoName = renderEmailTemplate(DEFAULT_EMAIL_TEMPLATES.passwordReset, baseParams);
+    const resetWithName = renderEmailTemplate(DEFAULT_EMAIL_TEMPLATES.passwordReset, withName);
 
     expect(resetNoName.subject).toBe('Reset your password');
     expect(resetWithName.subject).toBe('Reset your password for FortressAuth');

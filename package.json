@@ -9,7 +9,8 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
-    "test:coverage": "turbo run test:coverage",
+    "test:coverage": "turbo run test:coverage --filter=./packages/** --filter=!./examples/** --filter=!./landing/**",
+    "test:coverage:all": "turbo run test:coverage",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev"

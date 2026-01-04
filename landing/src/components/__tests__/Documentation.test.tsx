@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Documentation } from '../Documentation';
 
@@ -41,7 +41,10 @@ describe('Documentation', () => {
   });
 
   it('shows fallback when server is not found', async () => {
-    (global.fetch as any).mockRejectedValue(new Error('Failed'));
+    const fetchMock = global.fetch as unknown as { mockRejectedValue: (value: unknown) => void };
+    const fetchCalls = global.fetch as unknown as { mock: { calls: unknown[][] } };
+
+    fetchMock.mockRejectedValue(new Error('Failed'));
 
     render(<Documentation />);
 
@@ -51,8 +54,13 @@ describe('Documentation', () => {
 
     // Check retry button
     const retryButton = screen.getByText('Retry');
-    fireEvent.click(retryButton);
-    expect(screen.getByText('Discovering API server...')).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(retryButton);
+    });
+
+    await waitFor(() => {
+      expect(fetchCalls.mock.calls.length).toBe(8);
+    });
   });
 
   it('retries discovery when Retry button is clicked', async () => {
@@ -75,7 +83,9 @@ describe('Documentation', () => {
     });
 
     const retryButton = screen.getByText('Retry');
-    fireEvent.click(retryButton);
+    await act(async () => {
+      fireEvent.click(retryButton);
+    });
 
     await waitFor(() => {
       expect(screen.getByTitle('FortressAuth API Documentation')).toBeInTheDocument();

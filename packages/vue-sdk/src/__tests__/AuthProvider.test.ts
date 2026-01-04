@@ -25,6 +25,26 @@ const textResponse = (ok: boolean, status: number) => ({
   json: () => Promise.resolve({}),
 });
 
+type MockResponse = ReturnType<typeof jsonResponse>;
+
+const createDeferred = <T>() => {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
+};
+
+const clearCsrfCookie = () => {
+  const doc = (globalThis as { document?: { cookie?: string } }).document;
+  if (doc) {
+    doc.cookie = 'fortress_csrf=; Max-Age=0';
+  }
+};
+
+const getHeaderValue = (headers: unknown, name: string) =>
+  new Headers(headers as Record<string, string>).get(name);
+
 // Helper component to test useAuth hook
 const TestConsumer = defineComponent({
   setup() {
@@ -362,6 +382,147 @@ describe('AuthProvider', () => {
       expect(response.success).toBe(false);
       const consumer = wrapper.find('[data-testid="consumer"]');
       expect(consumer.attributes('data-error')).toBe('FETCH_ERROR');
+    });
+  });
+
+  describe('csrf handling', () => {
+    it('fetches a csrf token once for concurrent requests', async () => {
+      clearCsrfCookie();
+      const deferred = createDeferred<MockResponse>();
+      const loginHeaders: string[] = [];
+      let csrfCalls = 0;
+
+      mockFetch.mockImplementation((input, init) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return Promise.resolve(jsonResponse({ success: false, error: 'No session' }));
+        }
+        if (url.endsWith('/auth/csrf')) {
+          csrfCalls += 1;
+          return deferred.promise;
+        }
+        if (url.endsWith('/auth/login')) {
+          const headerValue = getHeaderValue(init?.headers, 'x-csrf-token');
+          loginHeaders.push(headerValue ?? '');
+          return Promise.resolve(
+            jsonResponse({
+              success: true,
+              data: { user: { id: '1', email: 'test@example.com' } },
+            }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${url}`));
+      });
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'https://csrf.concurrent' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const first = auth.signIn('first@example.com', 'password123');
+      const second = auth.signIn('second@example.com', 'password123');
+
+      deferred.resolve(jsonResponse({ success: true, data: { csrfToken: 'csrf-1' } }));
+
+      await Promise.all([first, second]);
+
+      expect(csrfCalls).toBe(1);
+      expect(loginHeaders).toEqual(['csrf-1', 'csrf-1']);
+
+      await auth.signIn('third@example.com', 'password123');
+
+      expect(csrfCalls).toBe(1);
+      expect(loginHeaders).toEqual(['csrf-1', 'csrf-1', 'csrf-1']);
+    });
+
+    it('retries once when the csrf token is invalid', async () => {
+      clearCsrfCookie();
+      const loginHeaders: string[] = [];
+      const csrfTokens = ['csrf-1', 'csrf-2'];
+      let loginCalls = 0;
+
+      mockFetch.mockImplementation((input, init) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return Promise.resolve(jsonResponse({ success: false, error: 'No session' }));
+        }
+        if (url.endsWith('/auth/csrf')) {
+          const token = csrfTokens.shift() ?? 'csrf-final';
+          return Promise.resolve(jsonResponse({ success: true, data: { csrfToken: token } }));
+        }
+        if (url.endsWith('/auth/login')) {
+          const headerValue = getHeaderValue(init?.headers, 'x-csrf-token');
+          loginHeaders.push(headerValue ?? '');
+          loginCalls += 1;
+          if (loginCalls === 1) {
+            return Promise.resolve(jsonResponse({ success: false, error: 'CSRF_TOKEN_INVALID' }));
+          }
+          return Promise.resolve(
+            jsonResponse({
+              success: true,
+              data: { user: { id: '2', email: 'retry@example.com' } },
+            }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${url}`));
+      });
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'https://csrf.retry' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const result = await auth.signIn('retry@example.com', 'password123');
+
+      expect(result.success).toBe(true);
+      expect(loginHeaders).toEqual(['csrf-1', 'csrf-2']);
+    });
+
+    it('continues without csrf header when token is unavailable', async () => {
+      clearCsrfCookie();
+      let csrfHeader: string | null = null;
+
+      mockFetch.mockImplementation((input, init) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return Promise.resolve(jsonResponse({ success: false, error: 'No session' }));
+        }
+        if (url.endsWith('/auth/csrf')) {
+          return Promise.resolve(textResponse(true, 200));
+        }
+        if (url.endsWith('/auth/login')) {
+          csrfHeader = getHeaderValue(init?.headers, 'x-csrf-token');
+          return Promise.resolve(
+            jsonResponse({
+              success: true,
+              data: { user: { id: '3', email: 'fallback@example.com' } },
+            }),
+          );
+        }
+        return Promise.reject(new Error(`Unexpected request: ${url}`));
+      });
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'https://csrf.unavailable' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const result = await auth.signIn('fallback@example.com', 'password123');
+
+      expect(result.success).toBe(true);
+      expect(csrfHeader).toBeNull();
     });
   });
 

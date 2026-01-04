@@ -240,6 +240,46 @@ describe('FortressAuth', () => {
       }
     });
 
+    it('locks account after repeated failed attempts when lockout is enabled', async () => {
+      const user = User.rehydrate({
+        id: 'user-locked',
+        email: 'test@example.com',
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lockedUntil: null,
+      });
+      const passwordHash = await hashPassword('CorrectPassword123!');
+      const account = Account.createEmailAccount(user.id, user.email, passwordHash);
+
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
+      vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
+      vi.mocked(repository.countRecentFailedAttempts).mockResolvedValue(0);
+
+      const fortressWithLockout = new FortressAuth(repository, rateLimiter, emailProvider, {
+        urls: { baseUrl: 'http://localhost:3000' },
+        rateLimit: { enabled: false },
+        lockout: {
+          enabled: true,
+          maxFailedAttempts: 1,
+          lockoutDurationMs: 15 * 60 * 1000,
+        },
+      });
+
+      const result = await fortressWithLockout.signIn({
+        email: user.email,
+        password: 'WrongPassword123!',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('INVALID_CREDENTIALS');
+      }
+      expect(repository.updateUser).toHaveBeenCalled();
+      const lockedUser = vi.mocked(repository.updateUser).mock.calls[0]?.[0] as User;
+      expect(lockedUser.lockedUntil).not.toBeNull();
+    });
+
     it('should fail if rate limit exceeded', async () => {
       vi.mocked(rateLimiter.check).mockResolvedValue({
         allowed: false,
@@ -327,6 +367,46 @@ describe('FortressAuth', () => {
       expect(result.success).toBe(true);
       expect(repository.deleteSession).toHaveBeenCalledWith(session.id);
     });
+
+    it('should reject invalid token format', async () => {
+      const result = await fortress.signOut('invalid-token');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_INVALID');
+      }
+      expect(repository.findSessionBySelector).not.toHaveBeenCalled();
+    });
+
+    it('should return SESSION_INVALID when session is missing', async () => {
+      const { rawToken } = Session.create('user-123', 3600000);
+      vi.mocked(repository.findSessionBySelector).mockResolvedValue(null);
+
+      const result = await fortress.signOut(rawToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_INVALID');
+      }
+      expect(repository.deleteSession).not.toHaveBeenCalled();
+    });
+
+    it('should return SESSION_INVALID when verifier does not match', async () => {
+      const { session } = Session.create('user-123', 3600000);
+      vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);
+
+      // Construct a token with the SAME selector but DIFFERENT verifier
+      const wrongVerifier = 'wrong-verifier';
+      const wrongToken = `${session.selector}:${wrongVerifier}`;
+
+      const result = await fortress.signOut(wrongToken);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('SESSION_INVALID');
+      }
+      expect(repository.deleteSession).not.toHaveBeenCalled();
+    });
   });
 
   describe('verifyEmail()', () => {
@@ -409,6 +489,51 @@ describe('FortressAuth', () => {
         expect(result.error).toBe('EMAIL_VERIFICATION_INVALID');
       }
     });
+
+    it('should return RATE_LIMIT_EXCEEDED when user composite limit is exceeded', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = EmailVerificationToken.create(user.id, 3600000);
+      const ipAddress = '203.0.113.12';
+      const userAgent = 'VerifyAgent/1.0';
+      const uaHash = createHash('sha256').update(userAgent).digest('hex').slice(0, 16);
+      const ipOnlyIdentifier = `ip:${ipAddress}`;
+      const ipUaIdentifier = `ip:${ipAddress}|ua:${uaHash}`;
+      const compositeIdentifier = `email:${user.email}|ip:${ipAddress}|ua:${uaHash}`;
+
+      vi.mocked(repository.findEmailVerificationBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+      vi.mocked(rateLimiter.check)
+        .mockResolvedValueOnce({
+          allowed: true,
+          remaining: 1,
+          resetAt: new Date(),
+          retryAfterMs: 0,
+        })
+        .mockResolvedValueOnce({
+          allowed: true,
+          remaining: 1,
+          resetAt: new Date(),
+          retryAfterMs: 0,
+        })
+        .mockResolvedValueOnce({
+          allowed: false,
+          remaining: 0,
+          resetAt: new Date(),
+          retryAfterMs: 1000,
+        });
+
+      const result = await fortress.verifyEmail(rawToken, { ipAddress, userAgent });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('RATE_LIMIT_EXCEEDED');
+      }
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipOnlyIdentifier, 'verifyEmail');
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipUaIdentifier, 'verifyEmail');
+      expect(rateLimiter.consume).not.toHaveBeenCalledWith(compositeIdentifier, 'verifyEmail');
+      expect(repository.updateUser).not.toHaveBeenCalled();
+      expect(repository.deleteEmailVerification).not.toHaveBeenCalled();
+    });
   });
 
   describe('requestPasswordReset()', () => {
@@ -456,6 +581,36 @@ describe('FortressAuth', () => {
 
       expect(result.success).toBe(true);
       expect(repository.deletePasswordReset).toHaveBeenCalledWith(oldest.id);
+    });
+
+    it('cleans up expired tokens and trims active tokens before issuing new ones', async () => {
+      const user = User.create('test@example.com');
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
+
+      vi.setSystemTime(new Date('2024-01-15T08:00:00.000Z'));
+      const { token: expired } = PasswordResetToken.create(user.id, -1000);
+      vi.setSystemTime(new Date('2024-01-15T09:00:00.000Z'));
+      const { token: activeOld } = PasswordResetToken.create(user.id, 3600000);
+      vi.setSystemTime(new Date('2024-01-15T10:00:00.000Z'));
+      const { token: activeNew } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetsByUserId).mockResolvedValue([
+        expired,
+        activeOld,
+        activeNew,
+      ]);
+
+      fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
+        urls: { baseUrl: 'http://localhost:3000' },
+        passwordReset: { maxActiveTokens: 1 },
+      });
+
+      const result = await fortress.requestPasswordReset('test@example.com');
+
+      expect(result.success).toBe(true);
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(expired.id);
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(activeOld.id);
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(activeNew.id);
     });
   });
 
@@ -535,6 +690,57 @@ describe('FortressAuth', () => {
       expect(rateLimiter.consume).toHaveBeenCalledWith(ipOnlyIdentifier, 'passwordReset');
       expect(rateLimiter.consume).toHaveBeenCalledWith(ipUaIdentifier, 'passwordReset');
       expect(rateLimiter.consume).toHaveBeenCalledWith(compositeIdentifier, 'passwordReset');
+    });
+
+    it('should return RATE_LIMIT_EXCEEDED when composite reset limit is exceeded', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+      const account = Account.createEmailAccount(user.id, 'test@example.com', 'old-hash');
+      const ipAddress = '203.0.113.10';
+      const userAgent = 'ExampleAgent/1.0';
+      const uaHash = createHash('sha256').update(userAgent).digest('hex').slice(0, 16);
+      const ipOnlyIdentifier = `ip:${ipAddress}`;
+      const ipUaIdentifier = `ip:${ipAddress}|ua:${uaHash}`;
+      const compositeIdentifier = `email:${user.email}|ip:${ipAddress}|ua:${uaHash}`;
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+      vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
+      vi.mocked(rateLimiter.check)
+        .mockResolvedValueOnce({
+          allowed: true,
+          remaining: 1,
+          resetAt: new Date(),
+          retryAfterMs: 0,
+        })
+        .mockResolvedValueOnce({
+          allowed: true,
+          remaining: 1,
+          resetAt: new Date(),
+          retryAfterMs: 0,
+        })
+        .mockResolvedValueOnce({
+          allowed: false,
+          remaining: 0,
+          resetAt: new Date(),
+          retryAfterMs: 1000,
+        });
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+        ipAddress,
+        userAgent,
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('RATE_LIMIT_EXCEEDED');
+      }
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipOnlyIdentifier, 'passwordReset');
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipUaIdentifier, 'passwordReset');
+      expect(rateLimiter.consume).not.toHaveBeenCalledWith(compositeIdentifier, 'passwordReset');
+      expect(repository.updateEmailAccountPassword).not.toHaveBeenCalled();
     });
 
     it('should fail if account not found', async () => {
@@ -642,6 +848,7 @@ describe('FortressAuth', () => {
       if (!result.success) {
         expect(result.error).toBe('PASSWORD_RESET_EXPIRED');
       }
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(token.id);
     });
 
     it('should fail if token verifier does not match', async () => {
@@ -663,6 +870,7 @@ describe('FortressAuth', () => {
       if (!result.success) {
         expect(result.error).toBe('PASSWORD_RESET_INVALID');
       }
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(token.id);
     });
   });
 
