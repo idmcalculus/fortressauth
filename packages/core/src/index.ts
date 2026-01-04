@@ -8,6 +8,17 @@ export { LoginAttempt } from './domain/entities/login-attempt.js';
 export { PasswordResetToken } from './domain/entities/password-reset-token.js';
 export { Session } from './domain/entities/session.js';
 export { User } from './domain/entities/user.js';
+export type {
+  EmailTemplate,
+  EmailTemplateParams,
+  EmailTemplateSet,
+  EmailTemplateValue,
+} from './email-templates.js';
+export {
+  DEFAULT_EMAIL_TEMPLATES,
+  mergeEmailTemplates,
+  renderEmailTemplate,
+} from './email-templates.js';
 export type { AuthResult, ResetPasswordInput, SignInInput, SignUpInput } from './fortress.js';
 export { FortressAuth } from './fortress.js';
 

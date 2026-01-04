@@ -1,6 +1,11 @@
 import { derived, writable } from 'svelte/store';
 import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
 
+const CSRF_COOKIE_NAME = 'fortress_csrf';
+const CSRF_HEADER_NAME = 'x-csrf-token';
+const csrfTokenCache = new Map<string, string>();
+const csrfPromiseCache = new Map<string, Promise<string>>();
+
 function resolveBaseUrl(explicit?: string): string {
   if (typeof window !== 'undefined') {
     // biome-ignore lint/suspicious/noExplicitAny: import.meta is not fully typed in all environments
@@ -10,21 +15,90 @@ function resolveBaseUrl(explicit?: string): string {
   return explicit ?? 'http://localhost:3000';
 }
 
+function getCookieValue(name: string): string | null {
+  const doc = (globalThis as { document?: { cookie?: string } }).document;
+  const cookie = doc?.cookie;
+  if (!cookie) return null;
+  const entry = cookie
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${name}=`));
+  return entry ? decodeURIComponent(entry.slice(name.length + 1)) : null;
+}
+
+async function fetchCsrfToken(baseUrl: string): Promise<string> {
+  const res = await fetch(`${baseUrl}/auth/csrf`, { credentials: 'include' });
+  const contentType = res.headers.get('content-type');
+  if (contentType?.includes('application/json')) {
+    const data = (await res.json()) as ApiResponse<{ csrfToken: string }>;
+    if (data.success && data.data?.csrfToken) {
+      return data.data.csrfToken;
+    }
+  }
+  throw new Error('CSRF_TOKEN_UNAVAILABLE');
+}
+
+async function getCsrfToken(baseUrl: string): Promise<string> {
+  const cookieToken = getCookieValue(CSRF_COOKIE_NAME);
+  if (cookieToken) {
+    csrfTokenCache.set(baseUrl, cookieToken);
+    return cookieToken;
+  }
+
+  const cached = csrfTokenCache.get(baseUrl);
+  if (cached) return cached;
+
+  const inflight = csrfPromiseCache.get(baseUrl);
+  if (inflight) return inflight;
+
+  const promise = fetchCsrfToken(baseUrl)
+    .then((token) => {
+      csrfTokenCache.set(baseUrl, token);
+      return token;
+    })
+    .finally(() => {
+      csrfPromiseCache.delete(baseUrl);
+    });
+  csrfPromiseCache.set(baseUrl, promise);
+  return promise;
+}
+
+function clearCsrfToken(baseUrl: string): void {
+  csrfTokenCache.delete(baseUrl);
+}
+
 async function apiRequest<T>(
   baseUrl: string,
   path: string,
   init?: RequestInit,
+  retry = false,
 ): Promise<ApiResponse<T>> {
   try {
+    const method = init?.method?.toUpperCase() ?? 'GET';
+    const requiresCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+    let csrfToken: string | undefined;
+    if (requiresCsrf) {
+      try {
+        csrfToken = await getCsrfToken(baseUrl);
+      } catch {
+        csrfToken = undefined;
+      }
+    }
+
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
         ...(init?.headers ?? {}),
       },
     });
     const data = (await res.json()) as ApiResponse<T>;
+    if (!retry && requiresCsrf && !data.success && data.error === 'CSRF_TOKEN_INVALID') {
+      clearCsrfToken(baseUrl);
+      return apiRequest(baseUrl, path, init, true);
+    }
     return data;
   } catch (error) {
     return {

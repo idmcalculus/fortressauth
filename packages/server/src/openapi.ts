@@ -37,6 +37,17 @@ const HealthResponseSchema = z
 
 registry.register('HealthResponse', HealthResponseSchema);
 
+const CsrfTokenResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z.object({
+      csrfToken: z.string(),
+    }),
+  })
+  .openapi('CsrfTokenResponse');
+
+registry.register('CsrfTokenResponse', CsrfTokenResponseSchema);
+
 // Register health endpoint
 registry.registerPath({
   method: 'get',
@@ -66,6 +77,23 @@ registry.registerPath({
       content: {
         'text/plain': {
           schema: z.string(),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/auth/csrf',
+  tags: ['Authentication'],
+  summary: 'Get CSRF token for state-changing requests',
+  responses: {
+    200: {
+      description: 'CSRF token issued',
+      content: {
+        'application/json': {
+          schema: CsrfTokenResponseSchema,
         },
       },
     },

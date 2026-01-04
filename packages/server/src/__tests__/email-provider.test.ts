@@ -3,6 +3,9 @@ import {
   ConsoleEmailProvider,
   createEmailProvider,
   ResendEmailProvider,
+  SESEmailProvider,
+  SendGridEmailProvider,
+  SMTPEmailProvider,
 } from '../email-provider.js';
 
 describe('Email providers', () => {
@@ -23,7 +26,7 @@ describe('Email providers', () => {
       await provider.sendVerificationEmail('test@example.com', 'https://example.com/verify');
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[email] Verification for test@example.com: https://example.com/verify',
+        '[email] Verify your email address for test@example.com: https://example.com/verify',
       );
     });
 
@@ -31,7 +34,7 @@ describe('Email providers', () => {
       await provider.sendPasswordResetEmail('test@example.com', 'https://example.com/reset');
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        '[email] Password reset for test@example.com: https://example.com/reset',
+        '[email] Reset your password for test@example.com: https://example.com/reset',
       );
     });
   });
@@ -155,6 +158,61 @@ describe('Email providers', () => {
     it('should throw error when resend provider missing config', () => {
       expect(() => createEmailProvider({ provider: 'resend' })).toThrow(
         'Resend configuration is required when using resend provider',
+      );
+    });
+
+    it('should create SESEmailProvider when configured', () => {
+      const provider = createEmailProvider({
+        provider: 'ses',
+        ses: {
+          region: 'us-east-1',
+          fromEmail: 'noreply@example.com',
+        },
+      });
+
+      expect(provider).toBeInstanceOf(SESEmailProvider);
+    });
+
+    it('should create SendGridEmailProvider when configured', () => {
+      const provider = createEmailProvider({
+        provider: 'sendgrid',
+        sendgrid: {
+          apiKey: 'test-key',
+          fromEmail: 'noreply@example.com',
+        },
+      });
+
+      expect(provider).toBeInstanceOf(SendGridEmailProvider);
+    });
+
+    it('should create SMTPEmailProvider when configured', () => {
+      const provider = createEmailProvider({
+        provider: 'smtp',
+        smtp: {
+          host: 'smtp.example.com',
+          port: 587,
+          fromEmail: 'noreply@example.com',
+        },
+      });
+
+      expect(provider).toBeInstanceOf(SMTPEmailProvider);
+    });
+
+    it('should throw error when SES provider missing config', () => {
+      expect(() => createEmailProvider({ provider: 'ses' })).toThrow(
+        'SES configuration is required when using ses provider',
+      );
+    });
+
+    it('should throw error when SendGrid provider missing config', () => {
+      expect(() => createEmailProvider({ provider: 'sendgrid' })).toThrow(
+        'SendGrid configuration is required when using sendgrid provider',
+      );
+    });
+
+    it('should throw error when SMTP provider missing config', () => {
+      expect(() => createEmailProvider({ provider: 'smtp' })).toThrow(
+        'SMTP configuration is required when using smtp provider',
       );
     });
 

@@ -59,6 +59,10 @@ const TestUserConsumer = defineComponent({
 describe('AuthProvider', () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    const doc = (globalThis as { document?: { cookie?: string } }).document;
+    if (doc) {
+      doc.cookie = 'fortress_csrf=test-csrf';
+    }
   });
 
   afterEach(() => {

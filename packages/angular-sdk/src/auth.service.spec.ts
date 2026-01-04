@@ -11,6 +11,10 @@ describe('AuthService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFetch.mockReset();
+    const doc = (globalThis as { document?: { cookie?: string } }).document;
+    if (doc) {
+      doc.cookie = 'fortress_csrf=test-csrf';
+    }
   });
 
   afterEach(() => {

@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import {
   type AuthErrorCode,
@@ -80,6 +81,13 @@ const fortressConfigInput: FortressConfigInput = {
     cookieSameSite: env.COOKIE_SAMESITE,
     cookieDomain: env.COOKIE_DOMAIN,
   },
+  password: {
+    breachedCheck: {
+      enabled: env.BREACHED_PASSWORD_CHECK,
+      apiUrl: env.BREACHED_PASSWORD_API_URL,
+      timeoutMs: env.BREACHED_PASSWORD_TIMEOUT_MS,
+    },
+  },
   rateLimit: {
     backend: env.REDIS_URL ? 'redis' : 'memory',
   },
@@ -114,6 +122,25 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
 
 // Initialize FortressAuth
 const repository = new SqlAdapter(db, { dialect });
+const sesCredentials =
+  env.SES_ACCESS_KEY_ID && env.SES_SECRET_ACCESS_KEY
+    ? {
+        accessKeyId: env.SES_ACCESS_KEY_ID,
+        secretAccessKey: env.SES_SECRET_ACCESS_KEY,
+        ...(env.SES_SESSION_TOKEN ? { sessionToken: env.SES_SESSION_TOKEN } : {}),
+      }
+    : undefined;
+const smtpAuth =
+  env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined;
+const smtpTls =
+  env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined || env.SMTP_TLS_SERVERNAME
+    ? {
+        ...(env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined
+          ? { rejectUnauthorized: env.SMTP_TLS_REJECT_UNAUTHORIZED }
+          : {}),
+        ...(env.SMTP_TLS_SERVERNAME ? { servername: env.SMTP_TLS_SERVERNAME } : {}),
+      }
+    : undefined;
 const emailProvider = createEmailProvider({
   provider: env.EMAIL_PROVIDER,
   resend:
@@ -122,6 +149,35 @@ const emailProvider = createEmailProvider({
           apiKey: env.RESEND_API_KEY,
           fromEmail: env.EMAIL_FROM_ADDRESS,
           fromName: env.EMAIL_FROM_NAME,
+        }
+      : undefined,
+  ses:
+    env.SES_REGION && env.SES_FROM_ADDRESS
+      ? {
+          region: env.SES_REGION,
+          fromEmail: env.SES_FROM_ADDRESS,
+          ...(env.SES_FROM_NAME ? { fromName: env.SES_FROM_NAME } : {}),
+          ...(sesCredentials ? { credentials: sesCredentials } : {}),
+        }
+      : undefined,
+  sendgrid:
+    env.SENDGRID_API_KEY && env.SENDGRID_FROM_ADDRESS
+      ? {
+          apiKey: env.SENDGRID_API_KEY,
+          fromEmail: env.SENDGRID_FROM_ADDRESS,
+          fromName: env.SENDGRID_FROM_NAME,
+        }
+      : undefined,
+  smtp:
+    env.SMTP_HOST && env.SMTP_PORT && env.SMTP_FROM_ADDRESS
+      ? {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_SECURE,
+          ...(smtpAuth ? { auth: smtpAuth } : {}),
+          ...(smtpTls ? { tls: smtpTls } : {}),
+          fromEmail: env.SMTP_FROM_ADDRESS,
+          ...(env.SMTP_FROM_NAME ? { fromName: env.SMTP_FROM_NAME } : {}),
         }
       : undefined,
 });
@@ -164,6 +220,21 @@ app.use(
     credentials: true,
   }),
 );
+
+app.use('/auth/*', async (c, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+    const headerToken = c.req.header(env.CSRF_HEADER_NAME);
+    const cookieToken = getCookie(c, env.CSRF_COOKIE_NAME);
+    if (!headerToken || !cookieToken || !isValidCsrfToken(headerToken, cookieToken)) {
+      const { response, status } = createError(
+        'CSRF_TOKEN_INVALID',
+        'Missing or invalid CSRF token',
+      );
+      return c.json(response, status);
+    }
+  }
+  return next();
+});
 
 // Health check
 app.get('/health', async (c) => {
@@ -231,6 +302,17 @@ function getSameSite(): 'Strict' | 'Lax' | 'None' {
   }
 }
 
+function getCsrfSameSite(): 'Strict' | 'Lax' | 'None' {
+  switch (env.CSRF_COOKIE_SAMESITE) {
+    case 'strict':
+      return 'Strict';
+    case 'none':
+      return 'None';
+    default:
+      return 'Lax';
+  }
+}
+
 // Helper to set session cookie
 function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): void {
   const cookieOptions: {
@@ -253,6 +335,28 @@ function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): vo
   setCookie(c, config.session.cookieName, token, cookieOptions);
 }
 
+function setCsrfCookie(c: Parameters<typeof setCookie>[0], token: string): void {
+  const cookieOptions: {
+    httpOnly: false;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+    domain?: string;
+    path: string;
+    maxAge: number;
+  } = {
+    httpOnly: false,
+    secure: env.CSRF_COOKIE_SECURE,
+    sameSite: getCsrfSameSite(),
+    path: '/',
+    maxAge: Math.floor(env.CSRF_TOKEN_TTL_MS / 1000),
+  };
+  const domain = env.CSRF_COOKIE_DOMAIN ?? config.session.cookieDomain;
+  if (domain) {
+    cookieOptions.domain = domain;
+  }
+  setCookie(c, env.CSRF_COOKIE_NAME, token, cookieOptions);
+}
+
 // Helper to clear session cookie
 function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
   const cookieOptions: {
@@ -271,6 +375,19 @@ function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
     cookieOptions.domain = config.session.cookieDomain;
   }
   deleteCookie(c, config.session.cookieName, cookieOptions);
+}
+
+function generateCsrfToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function isValidCsrfToken(headerToken: string, cookieToken: string): boolean {
+  const headerBuffer = Buffer.from(headerToken);
+  const cookieBuffer = Buffer.from(cookieToken);
+  if (headerBuffer.length !== cookieBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(headerBuffer, cookieBuffer);
 }
 
 // Unified success response helper
@@ -429,6 +546,12 @@ app.get('/auth/me', async (c) => {
     );
     return c.json(response, status);
   }
+});
+
+app.get('/auth/csrf', (c) => {
+  const token = generateCsrfToken();
+  setCsrfCookie(c, token);
+  return c.json(success({ csrfToken: token }));
 });
 
 app.post('/auth/verify-email', async (c) => {
