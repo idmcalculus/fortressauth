@@ -23,7 +23,7 @@ import { ok } from '../../types/result.js';
 
 const MAX_PASSWORD_LENGTH = FortressConfigSchema.parse({}).password.maxLength;
 
-const emailSchema = z.string().email();
+const emailSchema = z.email();
 
 const controlCharArb = fc.oneof(
   fc.integer({ min: 0, max: 31 }).map((code) => String.fromCharCode(code)),

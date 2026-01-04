@@ -61,7 +61,7 @@ export const ERROR_CODE_MAP: Record<AuthErrorCode, ErrorCodeMapping> = {
   },
   CSRF_TOKEN_INVALID: {
     code: 'AUTH_016',
-    message: 'Security token is missing or invalid.',
+    message: 'Security verification failed. Please try again.',
     httpStatus: 403,
   },
   SESSION_INVALID: {

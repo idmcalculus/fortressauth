@@ -9,7 +9,7 @@ Standalone HTTP server for FortressAuth with REST API and OpenAPI documentation.
 - Secure Defaults: HTTPS, secure cookies, CORS configured
 - Type-Safe: Built with Hono and Zod
 - Health Checks: Built-in health endpoint
-- Pluggable Email: Console (dev) or Resend (production)
+- Pluggable Email: Console, Resend, SES, SendGrid, SMTP, or custom
 
 ## Quick Start
 
@@ -42,10 +42,28 @@ LOG_LEVEL=info                     # Logging level
 CORS_ORIGINS=                      # Comma-separated allowed origins (see CORS section below)
 
 # Email Provider Configuration
-EMAIL_PROVIDER=console             # 'console' (dev) or 'resend' (production)
+EMAIL_PROVIDER=console             # 'console', 'resend', 'ses', 'sendgrid', 'smtp'
 RESEND_API_KEY=                    # Required when EMAIL_PROVIDER=resend
 EMAIL_FROM_ADDRESS=                # Sender email (e.g., noreply@yourdomain.com)
 EMAIL_FROM_NAME=                   # Sender name (e.g., "My App")
+SES_REGION=                        # Required when EMAIL_PROVIDER=ses
+SES_ACCESS_KEY_ID=                 # Required when EMAIL_PROVIDER=ses
+SES_SECRET_ACCESS_KEY=             # Required when EMAIL_PROVIDER=ses
+SES_SESSION_TOKEN=                 # Optional when EMAIL_PROVIDER=ses
+SES_FROM_ADDRESS=                  # Required when EMAIL_PROVIDER=ses
+SES_FROM_NAME=                     # Optional when EMAIL_PROVIDER=ses
+SENDGRID_API_KEY=                  # Required when EMAIL_PROVIDER=sendgrid
+SENDGRID_FROM_ADDRESS=             # Required when EMAIL_PROVIDER=sendgrid
+SENDGRID_FROM_NAME=                # Optional when EMAIL_PROVIDER=sendgrid
+SMTP_HOST=                         # Required when EMAIL_PROVIDER=smtp
+SMTP_PORT=                         # Required when EMAIL_PROVIDER=smtp
+SMTP_SECURE=false                  # Optional when EMAIL_PROVIDER=smtp
+SMTP_USER=                         # Optional when EMAIL_PROVIDER=smtp
+SMTP_PASS=                         # Optional when EMAIL_PROVIDER=smtp
+SMTP_FROM_ADDRESS=                 # Required when EMAIL_PROVIDER=smtp
+SMTP_FROM_NAME=                    # Optional when EMAIL_PROVIDER=smtp
+SMTP_TLS_REJECT_UNAUTHORIZED=      # Optional when EMAIL_PROVIDER=smtp
+SMTP_TLS_SERVERNAME=               # Optional when EMAIL_PROVIDER=smtp
 ```
 
 ## CORS Configuration
@@ -155,6 +173,42 @@ EMAIL_FROM_NAME="Your App Name"
 2. Add and verify your domain
 3. Create an API key
 4. Set the environment variables above
+
+### AWS SES Provider
+
+```bash
+EMAIL_PROVIDER=ses
+SES_REGION=us-east-1
+SES_ACCESS_KEY_ID=...
+SES_SECRET_ACCESS_KEY=...
+SES_SESSION_TOKEN=        # optional
+SES_FROM_ADDRESS=noreply@yourdomain.com
+SES_FROM_NAME="Your App Name"
+```
+
+### SendGrid Provider
+
+```bash
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=...
+SENDGRID_FROM_ADDRESS=noreply@yourdomain.com
+SENDGRID_FROM_NAME="Your App Name"
+```
+
+### SMTP Provider
+
+```bash
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM_ADDRESS=noreply@yourdomain.com
+SMTP_FROM_NAME="Your App Name"
+SMTP_TLS_REJECT_UNAUTHORIZED=false
+SMTP_TLS_SERVERNAME=smtp.example.com
+```
 
 ### Custom Providers
 

@@ -31,7 +31,7 @@ const HealthResponseSchema = z
   .object({
     status: z.string(),
     version: z.string(),
-    timestamp: z.string().datetime(),
+    timestamp: z.iso.datetime(),
   })
   .openapi('HealthResponse');
 

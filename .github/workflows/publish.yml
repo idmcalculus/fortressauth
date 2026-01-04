@@ -47,6 +47,21 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Publish @fortressauth/email-ses
+        run: cd packages/email-ses && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/email-sendgrid
+        run: cd packages/email-sendgrid && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/email-smtp
+        run: cd packages/email-smtp && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish @fortressauth/server
         run: cd packages/server && pnpm publish --access public --no-git-checks
         env:
@@ -59,6 +74,31 @@ jobs:
 
       - name: Publish @fortressauth/vue-sdk
         run: cd packages/vue-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/angular-sdk
+        run: cd packages/angular-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/svelte-sdk
+        run: cd packages/svelte-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/react-native-sdk
+        run: cd packages/react-native-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/expo-sdk
+        run: cd packages/expo-sdk && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/electron-sdk
+        run: cd packages/electron-sdk && pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

@@ -96,7 +96,7 @@ const SessionConfigSchema = z
 const BreachedPasswordConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
-    apiUrl: z.string().url().optional(),
+    apiUrl: z.url().optional(),
     timeoutMs: z.number().positive().optional(),
   })
   .transform((val) => ({
@@ -190,7 +190,7 @@ const PasswordResetConfigSchema = z
 
 const UrlConfigSchema = z
   .object({
-    baseUrl: z.string().url().optional(),
+    baseUrl: z.url().optional(),
   })
   .transform((val) => ({
     baseUrl: val.baseUrl ?? URL_DEFAULTS.baseUrl,

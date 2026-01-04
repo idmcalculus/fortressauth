@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net';
 import type { Transporter } from 'nodemailer';
+import nodemailer from 'nodemailer';
 import { SMTPServer } from 'smtp-server';
 import { describe, expect, it, vi } from 'vitest';
 import { SMTPEmailProvider } from '../index.js';
@@ -23,6 +24,37 @@ describe('SMTPEmailProvider', () => {
         subject: 'Reset your password',
       }),
     );
+  });
+
+  it('uses default secure option and formats from name', async () => {
+    const sendMail = vi.fn().mockResolvedValue(undefined);
+    const createTransportSpy = vi
+      .spyOn(nodemailer, 'createTransport')
+      .mockReturnValue({ sendMail } as unknown as Transporter);
+
+    const provider = new SMTPEmailProvider({
+      host: 'smtp.example.com',
+      port: 587,
+      fromEmail: 'noreply@example.com',
+      fromName: 'FortressAuth',
+    });
+
+    await provider.sendVerificationEmail('user@example.com', 'https://example.com/verify');
+
+    expect(createTransportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secure: false,
+      }),
+    );
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'user@example.com',
+        from: 'FortressAuth <noreply@example.com>',
+        subject: 'Verify your email address',
+      }),
+    );
+
+    createTransportSpy.mockRestore();
   });
 });
 
@@ -54,6 +86,7 @@ describe('SMTPEmailProvider integration', () => {
       host: '127.0.0.1',
       port,
       secure: false,
+      tls: { rejectUnauthorized: false },
       fromEmail: 'noreply@example.com',
     });
 

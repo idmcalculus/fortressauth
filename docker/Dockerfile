@@ -65,6 +65,9 @@ COPY --from=native-builder --chown=fortress:fortress /app/pruned .
 # We manually copy them from the builder stage into the node_modules.
 COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./node_modules/@fortressauth/core/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./node_modules/@fortressauth/adapter-sql/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/email-ses/dist ./node_modules/@fortressauth/email-ses/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/email-sendgrid/dist ./node_modules/@fortressauth/email-sendgrid/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/email-smtp/dist ./node_modules/@fortressauth/email-smtp/dist
 
 # Copy the main server build
 COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist

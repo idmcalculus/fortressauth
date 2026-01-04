@@ -263,7 +263,7 @@ describe('Server API', () => {
     const csrfBody = (await csrfRes.json()) as ApiResponse<{ csrfToken: string }>;
     csrfToken = csrfBody.data?.csrfToken ?? null;
     const cookieHeader = csrfRes.headers.get('set-cookie');
-    csrfCookie = cookieHeader ? cookieHeader.split(';')[0] : null;
+    csrfCookie = cookieHeader?.split(';')[0] ?? null;
 
     if (!csrfToken || !csrfCookie) {
       throw new Error('Failed to initialize CSRF test context');
