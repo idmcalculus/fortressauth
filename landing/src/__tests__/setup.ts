@@ -9,6 +9,20 @@ vi.mock('next-intl', () => ({
   useLocale: () => 'en',
 }));
 
+// Mock next-intl navigation helpers
+vi.mock('next-intl/navigation', () => ({
+  createNavigation: () => ({
+    Link: ({ children }: { children: unknown }) => children,
+    redirect: vi.fn(),
+    usePathname: () => '/',
+    useRouter: () => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+      prefetch: vi.fn(),
+    }),
+  }),
+}));
+
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
   useRouter: () => ({

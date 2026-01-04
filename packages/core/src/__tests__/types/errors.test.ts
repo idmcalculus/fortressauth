@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type AuthErrorCode,
-  ERROR_CODE_MAP,
-  type ErrorCodeMapping,
-  getErrorCodeMapping,
-} from '../../types/errors.js';
+import { type AuthErrorCode, ERROR_CODE_MAP, getErrorCodeMapping } from '../../types/errors.js';
 
 describe('Error Code Mappings', () => {
   describe('ERROR_CODE_MAP', () => {

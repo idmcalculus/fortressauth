@@ -9,9 +9,9 @@
  * user-specific information beyond the error code.
  */
 
+import type { AuthErrorCode } from '@fortressauth/core';
 import * as fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import type { AuthErrorCode } from '@fortressauth/core';
 import {
   ErrorResponseFactory,
   type ProductionErrorResponse,
@@ -120,44 +120,36 @@ describe('Property 22: Production Error Message Safety', () => {
 
   it('should never expose database error details in production responses', () => {
     fc.assert(
-      fc.property(
-        authErrorCodeArb,
-        sensitiveDetailsArb,
-        (errorCode, details) => {
-          const response = productionFactory.createErrorResponse(errorCode, details);
-          const responseStr = JSON.stringify(response).toLowerCase();
+      fc.property(authErrorCodeArb, sensitiveDetailsArb, (errorCode, details) => {
+        const response = productionFactory.createErrorResponse(errorCode, details);
+        const responseStr = JSON.stringify(response).toLowerCase();
 
-          // Should not contain database-specific error patterns
-          expect(responseStr).not.toMatch(/econnrefused/i);
-          expect(responseStr).not.toMatch(/postgresql error/i);
-          expect(responseStr).not.toMatch(/mysql error/i);
-          expect(responseStr).not.toMatch(/sqlite error/i);
-          expect(responseStr).not.toMatch(/database is locked/i);
-          expect(responseStr).not.toMatch(/relation.*does not exist/i);
-        },
-      ),
+        // Should not contain database-specific error patterns
+        expect(responseStr).not.toMatch(/econnrefused/i);
+        expect(responseStr).not.toMatch(/postgresql error/i);
+        expect(responseStr).not.toMatch(/mysql error/i);
+        expect(responseStr).not.toMatch(/sqlite error/i);
+        expect(responseStr).not.toMatch(/database is locked/i);
+        expect(responseStr).not.toMatch(/relation.*does not exist/i);
+      }),
       { numRuns: 100 },
     );
   });
 
   it('should never expose sensitive tokens or hashes in production responses', () => {
     fc.assert(
-      fc.property(
-        authErrorCodeArb,
-        sensitiveDetailsArb,
-        (errorCode, details) => {
-          const response = productionFactory.createErrorResponse(errorCode, details);
-          const responseStr = JSON.stringify(response);
+      fc.property(authErrorCodeArb, sensitiveDetailsArb, (errorCode, details) => {
+        const response = productionFactory.createErrorResponse(errorCode, details);
+        const responseStr = JSON.stringify(response);
 
-          // Should not contain password hash patterns
-          expect(responseStr).not.toMatch(/\$argon2/i);
-          expect(responseStr).not.toMatch(/\$bcrypt/i);
-          expect(responseStr).not.toMatch(/password.*hash/i);
+        // Should not contain password hash patterns
+        expect(responseStr).not.toMatch(/\$argon2/i);
+        expect(responseStr).not.toMatch(/\$bcrypt/i);
+        expect(responseStr).not.toMatch(/password.*hash/i);
 
-          // Should not have details field in production
-          expect(response).not.toHaveProperty('details');
-        },
-      ),
+        // Should not have details field in production
+        expect(response).not.toHaveProperty('details');
+      }),
       { numRuns: 100 },
     );
   });

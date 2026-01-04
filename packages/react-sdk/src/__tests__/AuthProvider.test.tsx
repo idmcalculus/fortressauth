@@ -7,6 +7,15 @@ import { AuthProvider, useAuth, useUser } from '../AuthProvider.js';
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+const jsonResponse = (payload: unknown) => ({
+  ok: true,
+  status: 200,
+  headers: {
+    get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
+  },
+  json: () => Promise.resolve(payload),
+});
+
 function createWrapper(baseUrl?: string) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return <AuthProvider {...(baseUrl ? { baseUrl } : {})}>{children}</AuthProvider>;
@@ -24,13 +33,12 @@ describe('AuthProvider', () => {
 
   describe('initial state', () => {
     it('should call /auth/me on mount', async () => {
-      mockFetch.mockResolvedValueOnce({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { user: { id: '1', email: 'test@example.com' } },
-          }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: { user: { id: '1', email: 'test@example.com' } },
+        }),
+      );
 
       renderHook(() => useAuth(), { wrapper: createWrapper('http://localhost:3000') });
 
@@ -43,13 +51,12 @@ describe('AuthProvider', () => {
     });
 
     it('should set user from /auth/me response', async () => {
-      mockFetch.mockResolvedValueOnce({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { user: { id: '1', email: 'test@example.com' } },
-          }),
-      });
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: { user: { id: '1', email: 'test@example.com' } },
+        }),
+      );
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -61,9 +68,7 @@ describe('AuthProvider', () => {
     });
 
     it('should set error when /auth/me fails', async () => {
-      mockFetch.mockResolvedValueOnce({
-        json: () => Promise.resolve({ success: false, error: 'UNAUTHORIZED' }),
-      });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false, error: 'UNAUTHORIZED' }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -78,15 +83,12 @@ describe('AuthProvider', () => {
 
   describe('signUp', () => {
     it('should call /auth/signup and set user on success', async () => {
-      mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) }) // Initial /auth/me
-        .mockResolvedValueOnce({
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { user: { id: '2', email: 'new@example.com' } },
-            }),
-        });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false })).mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: { user: { id: '2', email: 'new@example.com' } },
+        }),
+      ); // Initial /auth/me
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -105,10 +107,8 @@ describe('AuthProvider', () => {
 
     it('should set error on signUp failure', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: false, error: 'EMAIL_EXISTS' }),
-        });
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: false, error: 'EMAIL_EXISTS' }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -123,8 +123,8 @@ describe('AuthProvider', () => {
 
     it('should set UNKNOWN_ERROR when no error message in response', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) }); // No error field
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: false })); // No error field
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -140,15 +140,12 @@ describe('AuthProvider', () => {
 
   describe('signIn', () => {
     it('should call /auth/login and set user on success', async () => {
-      mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { user: { id: '1', email: 'test@example.com' } },
-            }),
-        });
+      mockFetch.mockResolvedValueOnce(jsonResponse({ success: false })).mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: { user: { id: '1', email: 'test@example.com' } },
+        }),
+      );
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -167,10 +164,8 @@ describe('AuthProvider', () => {
 
     it('should set error on signIn failure', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: false, error: 'INVALID_CREDENTIALS' }),
-        });
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: false, error: 'INVALID_CREDENTIALS' }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -185,8 +180,8 @@ describe('AuthProvider', () => {
 
     it('should set UNKNOWN_ERROR when signIn fails without error message', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) }); // No error field
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: false })); // No error field
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -203,14 +198,13 @@ describe('AuthProvider', () => {
   describe('signOut', () => {
     it('should call /auth/logout and clear user on success', async () => {
       mockFetch
-        .mockResolvedValueOnce({
-          json: () =>
-            Promise.resolve({
-              success: true,
-              data: { user: { id: '1', email: 'test@example.com' } },
-            }),
-        })
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: true }) });
+        .mockResolvedValueOnce(
+          jsonResponse({
+            success: true,
+            data: { user: { id: '1', email: 'test@example.com' } },
+          }),
+        )
+        .mockResolvedValueOnce(jsonResponse({ success: true }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -231,10 +225,8 @@ describe('AuthProvider', () => {
   describe('verifyEmail', () => {
     it('should call /auth/verify-email with token', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: true, data: { verified: true } }),
-        });
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: true, data: { verified: true } }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -253,10 +245,8 @@ describe('AuthProvider', () => {
   describe('requestPasswordReset', () => {
     it('should call /auth/request-password-reset with email', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: true, data: { requested: true } }),
-        });
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: true, data: { requested: true } }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -278,10 +268,8 @@ describe('AuthProvider', () => {
   describe('resetPassword', () => {
     it('should call /auth/reset-password with token and new password', async () => {
       mockFetch
-        .mockResolvedValueOnce({ json: () => Promise.resolve({ success: false }) })
-        .mockResolvedValueOnce({
-          json: () => Promise.resolve({ success: true, data: { reset: true } }),
-        });
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(jsonResponse({ success: true, data: { reset: true } }));
 
       const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
 
@@ -311,10 +299,9 @@ describe('useAuth', () => {
 
 describe('useUser', () => {
   it('should return user, loading, and error from context', async () => {
-    mockFetch.mockResolvedValueOnce({
-      json: () =>
-        Promise.resolve({ success: true, data: { user: { id: '1', email: 'test@example.com' } } }),
-    });
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ success: true, data: { user: { id: '1', email: 'test@example.com' } } }),
+    );
 
     const { result } = renderHook(() => useUser(), { wrapper: createWrapper() });
 

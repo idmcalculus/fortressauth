@@ -32,8 +32,8 @@ export interface InputProps {
   label: string;
   modelValue: string;
   placeholder?: string;
-  error?: string;
-  hint?: string;
+  error?: string | undefined;
+  hint?: string | undefined;
   required?: boolean;
   disabled?: boolean;
   autoComplete?: string;

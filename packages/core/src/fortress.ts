@@ -9,6 +9,7 @@ import type { EmailProviderPort } from './ports/email-provider.js';
 import type { RateLimiterPort } from './ports/rate-limiter.js';
 import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
+import { validateEmailInput, validatePasswordInput } from './security/input-validation.js';
 import { hashPassword, verifyPassword } from './security/password.js';
 import { validatePassword } from './security/validation.js';
 import type { AuthErrorCode } from './types/errors.js';
@@ -57,7 +58,20 @@ export class FortressAuth {
   }
 
   async signUp(input: SignUpInput): Promise<Result<AuthResult, AuthErrorCode>> {
-    const email = input.email.toLowerCase();
+    const emailValidation = validateEmailInput(input.email);
+    if (!emailValidation.success) {
+      return err(emailValidation.error);
+    }
+
+    const passwordValidation = validatePasswordInput(
+      input.password,
+      this.config.password.maxLength,
+    );
+    if (!passwordValidation.success) {
+      return err(passwordValidation.error);
+    }
+
+    const email = emailValidation.data;
 
     if (this.config.rateLimit.enabled) {
       const rateCheck = await this.rateLimiter.check(email, 'login');
@@ -118,7 +132,20 @@ export class FortressAuth {
   }
 
   async signIn(input: SignInInput): Promise<Result<AuthResult, AuthErrorCode>> {
-    const email = input.email.toLowerCase();
+    const emailValidation = validateEmailInput(input.email);
+    if (!emailValidation.success) {
+      return err(emailValidation.error);
+    }
+
+    const passwordValidation = validatePasswordInput(
+      input.password,
+      this.config.password.maxLength,
+    );
+    if (!passwordValidation.success) {
+      return err(passwordValidation.error);
+    }
+
+    const email = emailValidation.data;
     const ipAddress = input.ipAddress ?? 'unknown';
 
     // Check rate limit first and consume a token for every attempt (prevents brute force)
@@ -280,7 +307,12 @@ export class FortressAuth {
   }
 
   async requestPasswordReset(email: string): Promise<Result<void, AuthErrorCode>> {
-    const normalizedEmail = email.toLowerCase();
+    const emailValidation = validateEmailInput(email);
+    if (!emailValidation.success) {
+      return err(emailValidation.error);
+    }
+
+    const normalizedEmail = emailValidation.data;
     const user = await this.repository.findUserByEmail(normalizedEmail);
 
     if (!user) {

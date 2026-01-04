@@ -40,6 +40,13 @@ export {
 export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 export { FortressConfigSchema } from './schemas/config.js';
 
+export {
+  containsControlCharacters,
+  MAX_EMAIL_LENGTH,
+  normalizeEmail,
+  validateEmailInput,
+  validatePasswordInput,
+} from './security/input-validation.js';
 // Security utilities
 export { hashPassword, verifyPassword } from './security/password.js';
 export { MemoryRateLimiter } from './security/rate-limiter.js';

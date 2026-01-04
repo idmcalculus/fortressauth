@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+  type DevelopmentErrorResponse,
   ErrorResponseFactory,
   type ProductionErrorResponse,
-  type DevelopmentErrorResponse,
 } from '../../errors/error-response-factory.js';
 
 describe('ErrorResponseFactory', () => {
@@ -82,7 +82,9 @@ describe('ErrorResponseFactory', () => {
       const response = factory.createErrorResponse('INTERNAL_ERROR', 'Connection error', error);
 
       expect((response as DevelopmentErrorResponse).stack).toBeDefined();
-      expect((response as DevelopmentErrorResponse).stack).toContain('Error: Database connection failed');
+      expect((response as DevelopmentErrorResponse).stack).toContain(
+        'Error: Database connection failed',
+      );
     });
 
     it('should use default details when not provided', () => {
