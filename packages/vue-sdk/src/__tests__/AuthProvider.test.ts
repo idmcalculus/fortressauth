@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineComponent, h, nextTick } from 'vue';
-import { AuthProvider, useAuth } from '../AuthProvider.js';
+import { AuthProvider, useAuth, useUser } from '../AuthProvider.js';
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -16,6 +16,15 @@ const jsonResponse = <T>(payload: T) => ({
   json: () => Promise.resolve(payload),
 });
 
+const textResponse = (ok: boolean, status: number) => ({
+  ok,
+  status,
+  headers: {
+    get: () => 'text/plain',
+  },
+  json: () => Promise.resolve({}),
+});
+
 // Helper component to test useAuth hook
 const TestConsumer = defineComponent({
   setup() {
@@ -28,6 +37,21 @@ const TestConsumer = defineComponent({
       'data-user': JSON.stringify(this.auth.user.value),
       'data-loading': String(this.auth.loading.value),
       'data-error': this.auth.error.value ?? '',
+    });
+  },
+});
+
+const TestUserConsumer = defineComponent({
+  setup() {
+    const user = useUser();
+    return { user };
+  },
+  render() {
+    return h('div', {
+      'data-testid': 'user-consumer',
+      'data-user': JSON.stringify(this.user.user.value),
+      'data-loading': String(this.user.loading.value),
+      'data-error': this.user.error.value ?? '',
     });
   },
 });
@@ -52,6 +76,26 @@ describe('AuthProvider', () => {
 
       mount(AuthProvider, {
         props: { baseUrl: 'http://localhost:3000' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/me',
+        expect.objectContaining({ credentials: 'include' }),
+      );
+    });
+
+    it('should use default baseUrl when none is provided', async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+          data: { user: { id: '1', email: 'test@example.com' } },
+        }),
+      );
+
+      mount(AuthProvider, {
         slots: { default: () => h(TestConsumer) },
       });
 
@@ -223,6 +267,98 @@ describe('AuthProvider', () => {
       const consumer = wrapper.find('[data-testid="consumer"]');
       expect(consumer.attributes('data-error')).toBe('UNKNOWN_ERROR');
     });
+
+    it('should handle non-JSON success responses', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(textResponse(true, 204));
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'http://localhost:3000' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const response = await auth.signIn('test@example.com', 'password123');
+
+      await nextTick();
+
+      expect(response.success).toBe(true);
+      const consumer = wrapper.find('[data-testid="consumer"]');
+      expect(consumer.attributes('data-error')).toBe('UNKNOWN_ERROR');
+    });
+
+    it('should surface HTTP error codes for non-JSON failures', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockResolvedValueOnce(textResponse(false, 500));
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'http://localhost:3000' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const response = await auth.signIn('test@example.com', 'password123');
+
+      await nextTick();
+
+      expect(response.success).toBe(false);
+      const consumer = wrapper.find('[data-testid="consumer"]');
+      expect(consumer.attributes('data-error')).toBe('HTTP_500');
+    });
+
+    it('should surface fetch errors', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockRejectedValueOnce(new Error('Network down'));
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'http://localhost:3000' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const response = await auth.signIn('test@example.com', 'password123');
+
+      await nextTick();
+
+      expect(response.success).toBe(false);
+      const consumer = wrapper.find('[data-testid="consumer"]');
+      expect(consumer.attributes('data-error')).toBe('Network down');
+    });
+
+    it('should fall back to FETCH_ERROR for non-Error failures', async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse({ success: false }))
+        .mockRejectedValueOnce('boom');
+
+      const wrapper = mount(AuthProvider, {
+        props: { baseUrl: 'http://localhost:3000' },
+        slots: { default: () => h(TestConsumer) },
+      });
+
+      await flushPromises();
+
+      const auth = (wrapper.findComponent(TestConsumer).vm as { auth: ReturnType<typeof useAuth> })
+        .auth;
+      const response = await auth.signIn('test@example.com', 'password123');
+
+      await nextTick();
+
+      expect(response.success).toBe(false);
+      const consumer = wrapper.find('[data-testid="consumer"]');
+      expect(consumer.attributes('data-error')).toBe('FETCH_ERROR');
+    });
   });
 
   describe('signOut', () => {
@@ -361,14 +497,14 @@ describe('useUser', () => {
 
     const wrapper = mount(AuthProvider, {
       props: { baseUrl: 'http://localhost:3000' },
-      slots: { default: () => h(TestConsumer) },
+      slots: { default: () => h(TestUserConsumer) },
     });
 
     await flushPromises();
     await nextTick();
 
     // useUser just returns a subset of useAuth, we verify it works via TestConsumer
-    const consumer = wrapper.find('[data-testid="consumer"]');
+    const consumer = wrapper.find('[data-testid="user-consumer"]');
     expect(consumer.attributes('data-loading')).toBe('false');
     expect(JSON.parse(consumer.attributes('data-user') || 'null')).toEqual({
       id: '1',
