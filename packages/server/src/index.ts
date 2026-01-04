@@ -98,13 +98,17 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
   rateLimiter = new RedisRateLimiter(redisClient, {
     actions: {
       login: resolvedConfig.rateLimit.login,
+      signup: resolvedConfig.rateLimit.signup,
       passwordReset: resolvedConfig.rateLimit.passwordReset,
+      verifyEmail: resolvedConfig.rateLimit.verifyEmail,
     },
   });
 } else {
   rateLimiter = new MemoryRateLimiter({
     login: resolvedConfig.rateLimit.login,
+    signup: resolvedConfig.rateLimit.signup,
     passwordReset: resolvedConfig.rateLimit.passwordReset,
+    verifyEmail: resolvedConfig.rateLimit.verifyEmail,
   });
 }
 
@@ -430,7 +434,12 @@ app.get('/auth/me', async (c) => {
 app.post('/auth/verify-email', async (c) => {
   try {
     const body = await c.req.json();
-    const result = await fortress.verifyEmail(body.token);
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
+    const result = await fortress.verifyEmail(body.token, {
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
+    });
 
     if (!result.success) {
       const { response, status } = createError(result.error, 'Email verification failed');

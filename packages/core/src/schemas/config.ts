@@ -23,7 +23,19 @@ const RATE_LIMIT_LOGIN_DEFAULTS = {
   windowMs: 15 * 60 * 1000, // 15 minutes
 };
 
+const RATE_LIMIT_SIGNUP_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
 const RATE_LIMIT_PASSWORD_RESET_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
+const RATE_LIMIT_VERIFY_EMAIL_DEFAULTS = {
   maxTokens: 5,
   refillRateMs: 3 * 60 * 1000, // 3 minutes
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -33,7 +45,9 @@ const RATE_LIMIT_DEFAULTS = {
   enabled: true,
   backend: 'memory' as const,
   login: RATE_LIMIT_LOGIN_DEFAULTS,
+  signup: RATE_LIMIT_SIGNUP_DEFAULTS,
   passwordReset: RATE_LIMIT_PASSWORD_RESET_DEFAULTS,
+  verifyEmail: RATE_LIMIT_VERIFY_EMAIL_DEFAULTS,
 };
 
 const LOCKOUT_DEFAULTS = {
@@ -105,13 +119,17 @@ const RateLimitConfigSchema = z
     enabled: z.boolean().optional(),
     backend: z.enum(['memory', 'redis']).optional(),
     login: RateLimitActionConfigSchema.optional(),
+    signup: RateLimitActionConfigSchema.optional(),
     passwordReset: RateLimitActionConfigSchema.optional(),
+    verifyEmail: RateLimitActionConfigSchema.optional(),
   })
   .transform((val) => ({
     enabled: val.enabled ?? RATE_LIMIT_DEFAULTS.enabled,
     backend: val.backend ?? RATE_LIMIT_DEFAULTS.backend,
     login: applyRateLimitDefaults(val.login, RATE_LIMIT_LOGIN_DEFAULTS),
+    signup: applyRateLimitDefaults(val.signup, RATE_LIMIT_SIGNUP_DEFAULTS),
     passwordReset: applyRateLimitDefaults(val.passwordReset, RATE_LIMIT_PASSWORD_RESET_DEFAULTS),
+    verifyEmail: applyRateLimitDefaults(val.verifyEmail, RATE_LIMIT_VERIFY_EMAIL_DEFAULTS),
   }))
   .openapi('RateLimitConfig');
 
