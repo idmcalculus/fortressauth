@@ -31,6 +31,7 @@ function createMockRepository(): AuthRepository {
     deleteEmailVerification: vi.fn().mockResolvedValue(undefined),
     createPasswordResetToken: vi.fn().mockResolvedValue(undefined),
     findPasswordResetBySelector: vi.fn(),
+    findPasswordResetsByUserId: vi.fn().mockResolvedValue([]),
     deletePasswordReset: vi.fn().mockResolvedValue(undefined),
     recordLoginAttempt: vi.fn().mockResolvedValue(undefined),
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
@@ -53,6 +54,7 @@ function createMockRepository(): AuthRepository {
         deleteEmailVerification: vi.fn(),
         createPasswordResetToken: vi.fn(),
         findPasswordResetBySelector: vi.fn(),
+        findPasswordResetsByUserId: vi.fn().mockResolvedValue([]),
         deletePasswordReset: vi.fn(),
         recordLoginAttempt: vi.fn(),
         countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
@@ -377,6 +379,7 @@ describe('FortressAuth', () => {
     it('creates token and sends email when user exists', async () => {
       const user = User.create('test@example.com');
       vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
+      vi.mocked(repository.findPasswordResetsByUserId).mockResolvedValue([]);
 
       const result = await fortress.requestPasswordReset('test@example.com');
 
@@ -393,6 +396,30 @@ describe('FortressAuth', () => {
       expect(result.success).toBe(true);
       expect(repository.createPasswordResetToken).not.toHaveBeenCalled();
       expect(emailProvider.sendPasswordResetEmail).not.toHaveBeenCalled();
+    });
+
+    it('deletes oldest tokens when max active limit is exceeded', async () => {
+      const user = User.create('test@example.com');
+      vi.mocked(repository.findUserByEmail).mockResolvedValue(user);
+
+      vi.setSystemTime(new Date('2024-01-15T09:00:00.000Z'));
+      const { token: oldest } = PasswordResetToken.create(user.id, 3600000);
+      vi.setSystemTime(new Date('2024-01-15T10:00:00.000Z'));
+      const { token: middle } = PasswordResetToken.create(user.id, 3600000);
+      vi.setSystemTime(new Date('2024-01-15T11:00:00.000Z'));
+      const { token: newest } = PasswordResetToken.create(user.id, 3600000);
+
+      vi.mocked(repository.findPasswordResetsByUserId).mockResolvedValue([oldest, middle, newest]);
+
+      fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
+        urls: { baseUrl: 'http://localhost:3000' },
+        passwordReset: { maxActiveTokens: 2 },
+      });
+
+      const result = await fortress.requestPasswordReset('test@example.com');
+
+      expect(result.success).toBe(true);
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(oldest.id);
     });
   });
 
@@ -496,6 +523,7 @@ describe('FortressAuth', () => {
       if (!result.success) {
         expect(result.error).toBe('PASSWORD_TOO_WEAK');
       }
+      expect(repository.deletePasswordReset).toHaveBeenCalledWith(token.id);
     });
 
     it('should fail if token is expired', async () => {

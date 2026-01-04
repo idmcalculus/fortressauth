@@ -23,10 +23,17 @@ const RATE_LIMIT_LOGIN_DEFAULTS = {
   windowMs: 15 * 60 * 1000, // 15 minutes
 };
 
+const RATE_LIMIT_PASSWORD_RESET_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
 const RATE_LIMIT_DEFAULTS = {
   enabled: true,
   backend: 'memory' as const,
   login: RATE_LIMIT_LOGIN_DEFAULTS,
+  passwordReset: RATE_LIMIT_PASSWORD_RESET_DEFAULTS,
 };
 
 const LOCKOUT_DEFAULTS = {
@@ -41,6 +48,7 @@ const EMAIL_VERIFICATION_DEFAULTS = {
 
 const PASSWORD_RESET_DEFAULTS = {
   ttlMs: 60 * 60 * 1000, // 1 hour
+  maxActiveTokens: 3,
 };
 
 const URL_DEFAULTS = {
@@ -75,29 +83,35 @@ const PasswordConfigSchema = z
   }))
   .openapi('PasswordConfig');
 
-const RateLimitLoginConfigSchema = z
+const RateLimitActionConfigSchema = z
   .object({
     maxTokens: z.number().positive().optional(),
     refillRateMs: z.number().positive().optional(),
     windowMs: z.number().positive().optional(),
   })
-  .transform((val) => ({
-    maxTokens: val.maxTokens ?? RATE_LIMIT_LOGIN_DEFAULTS.maxTokens,
-    refillRateMs: val.refillRateMs ?? RATE_LIMIT_LOGIN_DEFAULTS.refillRateMs,
-    windowMs: val.windowMs ?? RATE_LIMIT_LOGIN_DEFAULTS.windowMs,
-  }))
-  .openapi('RateLimitLoginConfig');
+  .openapi('RateLimitActionConfig');
+
+const applyRateLimitDefaults = (
+  value: z.input<typeof RateLimitActionConfigSchema> | undefined,
+  defaults: { maxTokens: number; refillRateMs: number; windowMs: number },
+) => ({
+  maxTokens: value?.maxTokens ?? defaults.maxTokens,
+  refillRateMs: value?.refillRateMs ?? defaults.refillRateMs,
+  windowMs: value?.windowMs ?? defaults.windowMs,
+});
 
 const RateLimitConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
     backend: z.enum(['memory', 'redis']).optional(),
-    login: RateLimitLoginConfigSchema.optional(),
+    login: RateLimitActionConfigSchema.optional(),
+    passwordReset: RateLimitActionConfigSchema.optional(),
   })
   .transform((val) => ({
     enabled: val.enabled ?? RATE_LIMIT_DEFAULTS.enabled,
     backend: val.backend ?? RATE_LIMIT_DEFAULTS.backend,
-    login: val.login ?? RATE_LIMIT_DEFAULTS.login,
+    login: applyRateLimitDefaults(val.login, RATE_LIMIT_LOGIN_DEFAULTS),
+    passwordReset: applyRateLimitDefaults(val.passwordReset, RATE_LIMIT_PASSWORD_RESET_DEFAULTS),
   }))
   .openapi('RateLimitConfig');
 
@@ -126,9 +140,11 @@ const EmailVerificationConfigSchema = z
 const PasswordResetConfigSchema = z
   .object({
     ttlMs: z.number().positive().optional(),
+    maxActiveTokens: z.number().int().positive().optional(),
   })
   .transform((val) => ({
     ttlMs: val.ttlMs ?? PASSWORD_RESET_DEFAULTS.ttlMs,
+    maxActiveTokens: val.maxActiveTokens ?? PASSWORD_RESET_DEFAULTS.maxActiveTokens,
   }))
   .openapi('PasswordResetConfig');
 

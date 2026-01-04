@@ -1,7 +1,5 @@
 <script lang="ts">
 import { createAuthStore } from '@fortressauth/svelte-sdk';
-// biome-ignore lint/correctness/noUnusedImports: Used in Svelte template section
-import { base } from '$app/paths';
 import {
   type FormErrors,
   getErrorMessage,
@@ -14,8 +12,12 @@ import {
   validateVerifyEmailForm,
 } from '../../../shared/utils/validation';
 
+const env = (import.meta as { env?: Record<string, string> }).env;
+// base may be "/" or "/svelte-demo/" depending on kit.paths.base
+// biome-ignore lint/correctness/noUnusedVariables: Variables are used in Svelte template
+const base = (env?.BASE_URL ?? '').replace(/\/$/, '');
 // Use environment variable for API URL, with fallback for development
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const apiUrl = env?.VITE_API_URL ?? 'http://localhost:5001';
 const auth = createAuthStore({ baseUrl: apiUrl });
 // biome-ignore lint/correctness/noUnusedVariables: Variables are used in Svelte template as $user, $loading, $error
 const { user, loading, error } = auth;

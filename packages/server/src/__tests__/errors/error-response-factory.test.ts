@@ -99,26 +99,31 @@ describe('ErrorResponseFactory', () => {
   });
 
   describe('Environment Detection', () => {
-    const originalEnv = process.env.NODE_ENV;
+    const env = process.env as Record<string, string | undefined>;
+    const originalEnv = env.NODE_ENV;
 
     afterEach(() => {
-      process.env.NODE_ENV = originalEnv;
+      if (originalEnv === undefined) {
+        delete env.NODE_ENV;
+      } else {
+        env.NODE_ENV = originalEnv;
+      }
     });
 
     it('should default to production mode when NODE_ENV is production', () => {
-      process.env.NODE_ENV = 'production';
+      env.NODE_ENV = 'production';
       const factory = new ErrorResponseFactory();
       expect(factory.isProductionMode()).toBe(true);
     });
 
     it('should default to development mode when NODE_ENV is not production', () => {
-      process.env.NODE_ENV = 'development';
+      env.NODE_ENV = 'development';
       const factory = new ErrorResponseFactory();
       expect(factory.isProductionMode()).toBe(false);
     });
 
     it('should default to development mode when NODE_ENV is undefined', () => {
-      delete process.env.NODE_ENV;
+      delete env.NODE_ENV;
       const factory = new ErrorResponseFactory();
       expect(factory.isProductionMode()).toBe(false);
     });
