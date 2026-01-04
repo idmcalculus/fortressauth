@@ -54,6 +54,49 @@ describe('SqlAdapter', () => {
           expect(result.error).toBe('EMAIL_EXISTS');
         }
       });
+
+      it('should return EMAIL_EXISTS when database reports duplicate key', async () => {
+        const error = new Error('duplicate key value violates unique constraint');
+        const fakeDb = {
+          insertInto: () => ({
+            values: () => ({
+              execute: () => {
+                throw error;
+              },
+            }),
+          }),
+        };
+        const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+          dialect: 'sqlite',
+        });
+
+        const result = await failingAdapter.createUser(User.create('test@example.com'));
+
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error).toBe('EMAIL_EXISTS');
+        }
+      });
+
+      it('should rethrow non-unique database errors', async () => {
+        const error = new Error('connection lost');
+        const fakeDb = {
+          insertInto: () => ({
+            values: () => ({
+              execute: () => {
+                throw error;
+              },
+            }),
+          }),
+        };
+        const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+          dialect: 'sqlite',
+        });
+
+        await expect(failingAdapter.createUser(User.create('test@example.com'))).rejects.toThrow(
+          'connection lost',
+        );
+      });
     });
 
     describe('findUserByEmail()', () => {
@@ -307,6 +350,60 @@ describe('SqlAdapter', () => {
         const deleted = await adapter.findPasswordResetBySelector(token.selector);
         expect(deleted).toBeNull();
       }
+    });
+
+    it('should list password reset tokens ordered by creation time', async () => {
+      const { token: baseOld } = PasswordResetToken.create(user.id, 3600000);
+      const oldCreatedAt = new Date('2024-01-01T00:00:00.000Z');
+      const oldToken = PasswordResetToken.rehydrate({
+        id: baseOld.id,
+        userId: baseOld.userId,
+        selector: baseOld.selector,
+        verifierHash: baseOld.verifierHash,
+        expiresAt: new Date(oldCreatedAt.getTime() + 3600000),
+        createdAt: oldCreatedAt,
+      });
+
+      const { token: baseNew } = PasswordResetToken.create(user.id, 3600000);
+      const newCreatedAt = new Date('2024-02-01T00:00:00.000Z');
+      const newToken = PasswordResetToken.rehydrate({
+        id: baseNew.id,
+        userId: baseNew.userId,
+        selector: baseNew.selector,
+        verifierHash: baseNew.verifierHash,
+        expiresAt: new Date(newCreatedAt.getTime() + 3600000),
+        createdAt: newCreatedAt,
+      });
+
+      await adapter.createPasswordResetToken(newToken);
+      await adapter.createPasswordResetToken(oldToken);
+
+      const resets = await adapter.findPasswordResetsByUserId(user.id);
+
+      expect(resets).toHaveLength(2);
+      expect(resets[0]?.id).toBe(oldToken.id);
+      expect(resets[1]?.id).toBe(newToken.id);
+    });
+  });
+
+  describe('Dialect helpers', () => {
+    it('serializes booleans and dates for non-sqlite dialects', () => {
+      const adapterWithDialect = new SqlAdapter(db, { dialect: 'postgres' });
+      const helpers = adapterWithDialect as unknown as {
+        serializeBoolean: (value: boolean) => boolean | number;
+        parseBoolean: (value: boolean | number) => boolean;
+        serializeDate: (value: Date) => Date | string;
+        parseDate: (value: Date | string) => Date;
+      };
+
+      const date = new Date('2024-03-01T00:00:00.000Z');
+
+      expect(helpers.serializeBoolean(true)).toBe(true);
+      expect(helpers.serializeBoolean(false)).toBe(false);
+      expect(helpers.parseBoolean(true)).toBe(true);
+      expect(helpers.parseBoolean(false)).toBe(false);
+      expect(helpers.serializeDate(date)).toBe(date);
+      expect(helpers.parseDate(date)).toBe(date);
     });
   });
 

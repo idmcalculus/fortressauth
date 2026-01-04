@@ -119,4 +119,31 @@ describe('isBreachedPassword', () => {
 
     expect(result).toBe(false);
   });
+
+  it('fails open when the request times out via AbortController', async () => {
+    // Mock a slow fetch that will be aborted by the timeout
+    const fetchSpy = vi.fn().mockImplementation((_url, options) => {
+      return new Promise((_resolve, reject) => {
+        // Listen for abort signal
+        if (options?.signal) {
+          const signal = options.signal as AbortSignal;
+          signal.addEventListener('abort', () => {
+            reject(new DOMException('The operation was aborted.', 'AbortError'));
+          });
+        }
+        // Never resolve - simulates a slow request that will be aborted
+      });
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const result = await isBreachedPassword('TimeoutTest123!', {
+      enabled: true,
+      apiUrl: 'https://api.pwnedpasswords.com',
+      timeoutMs: 50, // Short timeout to trigger abort quickly
+    });
+
+    // Should fail open (return false) when timeout occurs
+    expect(result).toBe(false);
+    expect(fetchSpy).toHaveBeenCalled();
+  });
 });

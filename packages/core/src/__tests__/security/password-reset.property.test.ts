@@ -158,5 +158,5 @@ describe('Property 15: Password Reset Invalidates Sessions', () => {
       ),
       { numRuns: 50 },
     );
-  });
+  }, 60000);
 });

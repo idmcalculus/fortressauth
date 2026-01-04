@@ -255,4 +255,28 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.enabled).toBe(true);
     });
   });
+
+  describe('urls config', () => {
+    it('should provide default baseUrl when urls config is not provided', () => {
+      const config = FortressConfigSchema.parse({});
+
+      expect(config.urls.baseUrl).toBe('http://localhost:3000');
+    });
+
+    it('should provide default baseUrl when urls config is empty object', () => {
+      const config = FortressConfigSchema.parse({
+        urls: {},
+      });
+
+      expect(config.urls.baseUrl).toBe('http://localhost:3000');
+    });
+
+    it('should allow custom baseUrl', () => {
+      const config = FortressConfigSchema.parse({
+        urls: { baseUrl: 'https://myapp.example.com' },
+      });
+
+      expect(config.urls.baseUrl).toBe('https://myapp.example.com');
+    });
+  });
 });
