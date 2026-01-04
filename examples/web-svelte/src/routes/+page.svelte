@@ -12,7 +12,7 @@ import {
   validateSignInForm,
   validateSignUpForm,
   validateVerifyEmailForm,
-} from '$lib/validation';
+} from '../../../shared/utils/validation';
 
 // Use environment variable for API URL, with fallback for development
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';

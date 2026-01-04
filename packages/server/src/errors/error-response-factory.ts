@@ -67,11 +67,7 @@ export class ErrorResponseFactory {
    * @param error - Optional Error object for stack trace (only shown in development)
    * @returns An error response appropriate for the current environment
    */
-  createErrorResponse(
-    errorCode: AuthErrorCode,
-    details?: string,
-    error?: Error,
-  ): ErrorResponse {
+  createErrorResponse(errorCode: AuthErrorCode, details?: string, error?: Error): ErrorResponse {
     if (this.isProduction) {
       return this.createProductionResponse(errorCode);
     }
@@ -131,14 +127,14 @@ export class ErrorResponseFactory {
   /**
    * Check if an error response contains sensitive information.
    * Used for validation and testing.
-   * 
+   *
    * This method checks if a response contains information that should NOT
    * be exposed in production, such as:
    * - Stack traces
    * - Internal file paths
    * - Database error details
    * - Raw tokens or hashes
-   * 
+   *
    * Note: Production responses only contain: success, error, message, code
    * Development responses additionally contain: details, timestamp, stack
    */
@@ -153,7 +149,7 @@ export class ErrorResponseFactory {
     // contain actual sensitive data (not just the word "password" in a user message)
     const prodResponse = response as ProductionErrorResponse;
     const fieldsToCheck = [prodResponse.message, prodResponse.code];
-    
+
     // Patterns that indicate actual sensitive data leakage
     const sensitivePatterns = [
       /at\s+\w+\s*\(/i, // Stack trace pattern: "at functionName ("

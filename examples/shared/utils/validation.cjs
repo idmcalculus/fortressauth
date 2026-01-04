@@ -5,7 +5,7 @@
  * This is the compiled JavaScript version for use with Electron and other
  * environments that don't support TypeScript directly.
  * 
- * Usage: const validation = require('../../shared/utils/validation');
+ * Usage: const validation = require('../../shared/utils/validation.cjs');
  */
 
 "use strict";
