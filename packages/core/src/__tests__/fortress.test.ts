@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Account } from '../domain/entities/account.js';
 import { EmailVerificationToken } from '../domain/entities/email-verification-token.js';
@@ -468,6 +469,37 @@ describe('FortressAuth', () => {
       expect(result.success).toBe(true);
       expect(repository.updateEmailAccountPassword).toHaveBeenCalled();
       expect(repository.deleteSessionsByUserId).toHaveBeenCalledWith(user.id);
+    });
+
+    it('applies composite rate limits for password reset', async () => {
+      const user = User.create('test@example.com');
+      const { token, rawToken } = PasswordResetToken.create(user.id, 3600000);
+      const account = Account.createEmailAccount(user.id, 'test@example.com', 'old-hash');
+      const ipAddress = '203.0.113.10';
+      const userAgent = 'ExampleAgent/1.0';
+      const uaHash = createHash('sha256').update(userAgent).digest('hex').slice(0, 16);
+      const ipOnlyIdentifier = `ip:${ipAddress}`;
+      const ipUaIdentifier = `ip:${ipAddress}|ua:${uaHash}`;
+      const compositeIdentifier = `email:${user.email}|ip:${ipAddress}|ua:${uaHash}`;
+
+      vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
+      vi.mocked(repository.findUserById).mockResolvedValue(user);
+      vi.mocked(repository.findEmailAccountByUserId).mockResolvedValue(account);
+
+      const result = await fortress.resetPassword({
+        token: rawToken,
+        newPassword: 'NewPassword123!',
+        ipAddress,
+        userAgent,
+      });
+
+      expect(result.success).toBe(true);
+      expect(rateLimiter.check).toHaveBeenCalledWith(ipOnlyIdentifier, 'passwordReset');
+      expect(rateLimiter.check).toHaveBeenCalledWith(ipUaIdentifier, 'passwordReset');
+      expect(rateLimiter.check).toHaveBeenCalledWith(compositeIdentifier, 'passwordReset');
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipOnlyIdentifier, 'passwordReset');
+      expect(rateLimiter.consume).toHaveBeenCalledWith(ipUaIdentifier, 'passwordReset');
+      expect(rateLimiter.consume).toHaveBeenCalledWith(compositeIdentifier, 'passwordReset');
     });
 
     it('should fail if account not found', async () => {

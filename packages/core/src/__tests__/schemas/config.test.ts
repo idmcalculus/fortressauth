@@ -18,9 +18,15 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.login.maxTokens).toBe(5);
       expect(config.rateLimit.login.refillRateMs).toBe(3 * 60 * 1000);
       expect(config.rateLimit.login.windowMs).toBe(15 * 60 * 1000);
+      expect(config.rateLimit.signup.maxTokens).toBe(5);
+      expect(config.rateLimit.signup.refillRateMs).toBe(3 * 60 * 1000);
+      expect(config.rateLimit.signup.windowMs).toBe(15 * 60 * 1000);
       expect(config.rateLimit.passwordReset.maxTokens).toBe(5);
       expect(config.rateLimit.passwordReset.refillRateMs).toBe(3 * 60 * 1000);
       expect(config.rateLimit.passwordReset.windowMs).toBe(15 * 60 * 1000);
+      expect(config.rateLimit.verifyEmail.maxTokens).toBe(5);
+      expect(config.rateLimit.verifyEmail.refillRateMs).toBe(3 * 60 * 1000);
+      expect(config.rateLimit.verifyEmail.windowMs).toBe(15 * 60 * 1000);
 
       expect(config.lockout.enabled).toBe(true);
       expect(config.lockout.maxFailedAttempts).toBe(5);
@@ -129,6 +135,22 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.login.windowMs).toBe(600000);
     });
 
+    it('should allow custom signup rate limit settings', () => {
+      const config = FortressConfigSchema.parse({
+        rateLimit: {
+          signup: {
+            maxTokens: 4,
+            refillRateMs: 120000,
+            windowMs: 240000,
+          },
+        },
+      });
+
+      expect(config.rateLimit.signup.maxTokens).toBe(4);
+      expect(config.rateLimit.signup.refillRateMs).toBe(120000);
+      expect(config.rateLimit.signup.windowMs).toBe(240000);
+    });
+
     it('should allow custom password reset rate limit settings', () => {
       const config = FortressConfigSchema.parse({
         rateLimit: {
@@ -143,6 +165,22 @@ describe('FortressConfigSchema', () => {
       expect(config.rateLimit.passwordReset.maxTokens).toBe(3);
       expect(config.rateLimit.passwordReset.refillRateMs).toBe(120000);
       expect(config.rateLimit.passwordReset.windowMs).toBe(300000);
+    });
+
+    it('should allow custom verify email rate limit settings', () => {
+      const config = FortressConfigSchema.parse({
+        rateLimit: {
+          verifyEmail: {
+            maxTokens: 6,
+            refillRateMs: 90000,
+            windowMs: 180000,
+          },
+        },
+      });
+
+      expect(config.rateLimit.verifyEmail.maxTokens).toBe(6);
+      expect(config.rateLimit.verifyEmail.refillRateMs).toBe(90000);
+      expect(config.rateLimit.verifyEmail.windowMs).toBe(180000);
     });
   });
 
