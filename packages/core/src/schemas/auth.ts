@@ -5,7 +5,7 @@ extendZodWithOpenApi(z);
 
 export const SignupRequestSchema = z
   .object({
-    email: z.string().email().toLowerCase(),
+    email: z.email().toLowerCase(),
     password: z.string().min(8).max(128),
   })
   .openapi('SignupRequest', {
@@ -14,7 +14,7 @@ export const SignupRequestSchema = z
 
 export const LoginRequestSchema = z
   .object({
-    email: z.string().email().toLowerCase(),
+    email: z.email().toLowerCase(),
     password: z.string(),
   })
   .openapi('LoginRequest', {
@@ -31,7 +31,7 @@ export const VerifyEmailRequestSchema = z
 
 export const RequestPasswordResetSchema = z
   .object({
-    email: z.string().email().toLowerCase(),
+    email: z.email().toLowerCase(),
   })
   .openapi('RequestPasswordReset', {
     description: 'Request password reset via email',
@@ -48,10 +48,10 @@ export const ResetPasswordRequestSchema = z
 
 export const UserResponseSchema = z
   .object({
-    id: z.string().uuid(),
-    email: z.string().email(),
+    id: z.uuid(),
+    email: z.email(),
     emailVerified: z.boolean(),
-    createdAt: z.string().datetime(),
+    createdAt: z.iso.datetime(),
   })
   .openapi('UserResponse', {
     description: 'User information returned in responses',

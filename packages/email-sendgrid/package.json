@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@fortressauth/core": "workspace:*",
-    "@sendgrid/mail": "^8.1.1"
+    "@sendgrid/mail": "^8.1.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
