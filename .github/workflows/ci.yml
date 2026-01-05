@@ -116,3 +116,15 @@ jobs:
 
       - name: Build Vue example
         run: pnpm --filter fortressauth-web-vue build
+
+      - name: Build Svelte example
+        run: pnpm --filter fortressauth-web-svelte build
+
+      - name: Build Angular example
+        run: pnpm --filter fortressauth-web-angular build
+
+      - name: Build Expo example
+        run: pnpm --filter fortressauth-web-expo build
+
+      - name: Build Desktop Electron example
+        run: pnpm --filter fortressauth-desktop-electron build
