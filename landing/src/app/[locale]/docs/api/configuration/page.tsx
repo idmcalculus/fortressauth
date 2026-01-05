@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { routing } from '@/i18n/routing';
 
 export function generateStaticParams() {
-  return routing.locales.map((locale) => ({ locale }));
+  return routing.locales.map((locale: string) => ({ locale }));
 }
 
 export async function generateMetadata(): Promise<Metadata> {
