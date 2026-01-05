@@ -62,7 +62,7 @@ describe('InteractiveBackground', () => {
     // Mock getComputedStyle
     vi.spyOn(window, 'getComputedStyle').mockReturnValue({
       getPropertyValue: () => '#4ecdc4',
-    } as CSSStyleDeclaration);
+    } as unknown as CSSStyleDeclaration);
   });
 
   afterEach(() => {

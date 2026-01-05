@@ -9,6 +9,14 @@ export const metadata: Metadata = {
   title: 'FortressAuth - Secure-by-Default Authentication',
   description:
     'A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.',
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/apple-icon.svg', type: 'image/svg+xml' },
+    ],
+  },
 };
 
 export function generateStaticParams() {

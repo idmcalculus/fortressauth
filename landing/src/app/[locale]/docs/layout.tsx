@@ -3,7 +3,9 @@
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { useState, useCallback, useMemo } from 'react';
-import { Search, Menu, X, ChevronRight, Book, Rocket, Code } from 'lucide-react';
+import { Search, Menu, X, ChevronRight, Book, Rocket, Code, Home } from 'lucide-react';
+import Link from 'next/link';
+import { Footer } from '@/components/Footer';
 import styles from './docs.module.css';
 
 interface NavItem {
@@ -146,6 +148,9 @@ export default function DocsLayout({
       {/* Sidebar */}
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarHeader}>
+          <Link href="/" className={styles.homeLink} title={t('backToHome')}>
+            <Home size={20} />
+          </Link>
           <Book size={24} className={styles.sidebarIcon} />
           <span className={styles.sidebarTitle}>{t('title')}</span>
         </div>
@@ -213,6 +218,7 @@ export default function DocsLayout({
         <div className={styles.content}>
           {children}
         </div>
+        <Footer />
       </main>
     </div>
   );

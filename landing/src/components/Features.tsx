@@ -6,7 +6,6 @@ import {
   Database,
   FileText,
   Layers,
-  Lock,
   Mail,
   Package,
   Shield,
@@ -138,7 +137,7 @@ export function Features() {
       </div>
 
       {/* Active feature detail panel */}
-      {activeIndex !== null && (
+      {activeIndex !== null && features[activeIndex] && (
         <div className={styles.detailPanel}>
           <div className={styles.detailContent}>
             {(() => {
