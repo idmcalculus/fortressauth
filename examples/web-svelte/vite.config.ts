@@ -5,8 +5,10 @@ export default defineConfig({
   plugins: [sveltekit()],
   server: {
     port: 3003,
+    strictPort: true,
   },
   preview: {
     port: 3003,
+    strictPort: true,
   },
 });

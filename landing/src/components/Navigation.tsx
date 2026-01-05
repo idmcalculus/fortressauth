@@ -16,9 +16,9 @@ export function Navigation() {
 
   const navLinks = [
     { href: '#features', label: t('features') },
-    { href: '#docs', label: t('docs') },
     { href: '#examples', label: t('examples') },
-    { href: '#pricing', label: t('pricing') },
+    { href: '/docs', label: t('docs') },
+    // { href: '#pricing', label: t('pricing') },
   ];
 
   return (

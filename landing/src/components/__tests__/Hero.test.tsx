@@ -21,10 +21,23 @@ describe('Hero', () => {
     expect(viewDocsLink.closest('a')).toHaveAttribute('href', '#examples');
   });
 
-  it('renders stats', () => {
+  it('renders stats with translated labels', () => {
     render(<Hero />);
 
     expect(screen.getByText('100%')).toBeInTheDocument();
-    expect(screen.getByText('Type Safe')).toBeInTheDocument();
+    expect(screen.getByText('hero.stats.typeSafe')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('hero.stats.coreDeps')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('hero.stats.databases')).toBeInTheDocument();
+  });
+
+  it('renders feature highlights', () => {
+    render(<Hero />);
+
+    expect(screen.getByText('hero.highlights.secureByDefault.title')).toBeInTheDocument();
+    expect(screen.getByText('hero.highlights.databaseAgnostic.title')).toBeInTheDocument();
+    expect(screen.getByText('hero.highlights.fastIntegration.title')).toBeInTheDocument();
+    expect(screen.getByText('hero.highlights.productionReady.title')).toBeInTheDocument();
   });
 });

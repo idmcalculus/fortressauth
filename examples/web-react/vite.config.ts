@@ -6,8 +6,10 @@ export default defineConfig({
   base: '/react-demo/',
   server: {
     port: 3001,
+    strictPort: true,
   },
   preview: {
     port: 3001,
+    strictPort: true,
   },
 });

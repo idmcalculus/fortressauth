@@ -1,11 +1,20 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Documentation } from '../Documentation';
+
+// Store original env
+const originalEnv = process.env;
 
 describe('Documentation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
+    // Reset env
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   it('shows searching state initially', async () => {
@@ -58,8 +67,9 @@ describe('Documentation', () => {
       fireEvent.click(retryButton);
     });
 
+    // 11 ports tried twice (initial + retry) = 22 calls
     await waitFor(() => {
-      expect(fetchCalls.mock.calls.length).toBe(8);
+      expect(fetchCalls.mock.calls.length).toBe(22);
     });
   });
 
@@ -89,6 +99,62 @@ describe('Documentation', () => {
 
     await waitFor(() => {
       expect(screen.getByTitle('FortressAuth API Documentation')).toBeInTheDocument();
+    });
+  });
+
+  it('renders external link to docs', async () => {
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok' }),
+    });
+
+    render(<Documentation />);
+
+    await waitFor(() => {
+      const link = screen.getByText(/documentation.openFullDocs/);
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+  });
+
+  it('shows command to start server in fallback', async () => {
+    (global.fetch as any).mockRejectedValue(new Error('Failed'));
+
+    render(<Documentation />);
+
+    await waitFor(() => {
+      expect(screen.getByText('pnpm --filter @fortressauth/server dev')).toBeInTheDocument();
+    });
+  });
+
+  it('tries multiple ports when discovering server', async () => {
+    // First 3 ports fail, 4th succeeds
+    (global.fetch as any)
+      .mockRejectedValueOnce(new Error('Failed'))
+      .mockRejectedValueOnce(new Error('Failed'))
+      .mockRejectedValueOnce(new Error('Failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: 'ok' }),
+      });
+
+    render(<Documentation />);
+
+    await waitFor(() => {
+      expect(screen.getByTitle('FortressAuth API Documentation')).toBeInTheDocument();
+    });
+  });
+
+  it('handles server returning ok:false response', async () => {
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+    });
+
+    render(<Documentation />);
+
+    await waitFor(() => {
+      expect(screen.getByText('documentation.serverNotRunning')).toBeInTheDocument();
     });
   });
 });

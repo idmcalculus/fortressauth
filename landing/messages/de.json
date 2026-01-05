@@ -6,16 +6,221 @@
     "pricing": "Preise",
     "github": "GitHub"
   },
+  "docs": {
+    "title": "Documentation",
+    "searchPlaceholder": "Search docs...",
+    "nav": {
+      "gettingStarted": "Getting Started",
+      "introduction": "Introduction",
+      "installation": "Installation",
+      "quickStart": "Quick Start",
+      "apiReference": "API Reference",
+      "fortressAuth": "FortressAuth Class",
+      "configuration": "Configuration",
+      "errorCodes": "Error Codes",
+      "security": "Security",
+      "passwordHashing": "Password Hashing",
+      "sessionManagement": "Session Management",
+      "rateLimiting": "Rate Limiting",
+      "adapters": "Database Adapters",
+      "sqlAdapter": "SQL Adapter",
+      "customAdapters": "Custom Adapters",
+      "emailProviders": "Email Providers",
+      "consoleProvider": "Console Provider",
+      "resendProvider": "Resend",
+      "sesProvider": "AWS SES",
+      "sendgridProvider": "SendGrid",
+      "smtpProvider": "SMTP",
+      "sdks": "Client SDKs",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "deployment": "Deployment",
+      "docker": "Docker",
+      "railway": "Railway"
+    },
+    "introduction": {
+      "title": "Introduction to FortressAuth",
+      "description": "FortressAuth is a secure-by-default, database-agnostic authentication library built with TypeScript and hexagonal architecture.",
+      "whatIs": "What is FortressAuth?",
+      "whatIsDescription": "FortressAuth is a production-ready authentication library that provides secure user authentication, session management, email verification, and password reset functionality.",
+      "keyFeatures": "Key Features",
+      "features": {
+        "secureByDefault": "Secure by Default",
+        "secureByDefaultDesc": "Argon2id password hashing, split session tokens, timing-attack prevention, and rate limiting built-in.",
+        "databaseAgnostic": "Database Agnostic",
+        "databaseAgnosticDesc": "Works with PostgreSQL, MySQL, and SQLite via the SQL adapter.",
+        "emailAgnostic": "Email Provider Agnostic",
+        "emailAgnosticDesc": "Pluggable email providers including Console, Resend, AWS SES, SendGrid, and SMTP.",
+        "hexagonal": "Hexagonal Architecture",
+        "hexagonalDesc": "Clean separation between business logic and infrastructure with zero dependencies in core.",
+        "typeSafe": "Type Safe",
+        "typeSafeDesc": "Written in TypeScript with comprehensive type definitions."
+      },
+      "architecture": "Architecture Overview",
+      "architectureDescription": "FortressAuth follows a ports-and-adapters (hexagonal) architecture pattern.",
+      "coreComponents": "Core Components",
+      "components": {
+        "fortressAuth": "The main orchestrator class that coordinates all authentication operations.",
+        "authRepository": "The persistence layer interface for storing users, accounts, sessions, and tokens.",
+        "emailProvider": "A pluggable service for sending verification and password reset emails.",
+        "rateLimiter": "A component that limits authentication attempts."
+      },
+      "nextSteps": "Next Steps",
+      "links": {
+        "installation": "Install FortressAuth",
+        "quickStart": "Quick Start Guide",
+        "apiReference": "API Reference"
+      }
+    },
+    "installation": {
+      "title": "Installation",
+      "description": "Learn how to install FortressAuth and its dependencies.",
+      "prerequisites": "Prerequisites",
+      "prerequisitesDesc": "Before installing FortressAuth, ensure you have:",
+      "prereqNode": "Node.js 18 or later",
+      "prereqPackageManager": "npm, yarn, or pnpm",
+      "prereqDatabase": "A supported database (PostgreSQL, MySQL, or SQLite)",
+      "corePackage": "Install Core Package",
+      "corePackageDesc": "The core package contains the main authentication logic:",
+      "databaseAdapter": "Install Database Adapter",
+      "databaseAdapterDesc": "Install the SQL adapter for database support:",
+      "httpServer": "Install HTTP Server (Optional)",
+      "httpServerDesc": "If you want a standalone HTTP server:",
+      "clientSdks": "Install Client SDKs (Optional)",
+      "clientSdksDesc": "Install the SDK for your frontend framework:",
+      "nextSteps": "Next Steps",
+      "nextStepsDesc": "Now that you have FortressAuth installed, check out the Quick Start guide."
+    },
+    "quickStart": {
+      "title": "Quick Start",
+      "description": "Get up and running with FortressAuth in minutes.",
+      "overview": "Overview",
+      "overviewDesc": "This guide will walk you through setting up a basic authentication system with FortressAuth.",
+      "step1": "Step 1: Set Up the Database",
+      "step1Desc": "First, create a database adapter:",
+      "step2": "Step 2: Configure FortressAuth",
+      "step2Desc": "Create a FortressAuth instance with your configuration:",
+      "step3": "Step 3: Register a User",
+      "step3Desc": "Use the signUp method to create a new user:",
+      "step4": "Step 4: Sign In",
+      "step4Desc": "Authenticate users with the signIn method:",
+      "step5": "Step 5: Validate Sessions",
+      "step5Desc": "Validate session tokens to protect routes:",
+      "whatNext": "What's Next?",
+      "whatNextDesc": "Now that you have basic authentication working, explore these topics:",
+      "whatNextLinks": {
+        "emailVerification": "Set up email verification",
+        "passwordReset": "Implement password reset",
+        "rateLimiting": "Configure rate limiting",
+        "sdks": "Use client SDKs for React, Vue, or Angular"
+      }
+    },
+    "api": {
+      "title": "API Reference",
+      "description": "Complete API documentation for FortressAuth.",
+      "fortressAuth": {
+        "title": "FortressAuth Class",
+        "description": "The main orchestrator class for all authentication operations.",
+        "constructor": "Constructor",
+        "constructorDesc": "Creates a new FortressAuth instance with the provided configuration.",
+        "methods": "Methods",
+        "signUp": "signUp",
+        "signUpDesc": "Creates a new user account with email and password.",
+        "signIn": "signIn",
+        "signInDesc": "Authenticates a user and creates a new session.",
+        "signOut": "signOut",
+        "signOutDesc": "Invalidates a session token.",
+        "validateSession": "validateSession",
+        "validateSessionDesc": "Validates a session token and returns the user.",
+        "verifyEmail": "verifyEmail",
+        "verifyEmailDesc": "Verifies a user's email address.",
+        "requestPasswordReset": "requestPasswordReset",
+        "requestPasswordResetDesc": "Initiates a password reset flow.",
+        "resetPassword": "resetPassword",
+        "resetPasswordDesc": "Resets a user's password.",
+        "getConfig": "getConfig",
+        "getConfigDesc": "Returns the current configuration (read-only)."
+      },
+      "configuration": {
+        "title": "Configuration",
+        "description": "Configuration options for FortressAuth.",
+        "options": "Configuration Options",
+        "sessionTtl": "sessionTtlMs",
+        "sessionTtlDesc": "Session token time-to-live in milliseconds. Default: 7 days.",
+        "passwordMinLength": "passwordMinLength",
+        "passwordMinLengthDesc": "Minimum password length. Default: 8.",
+        "passwordMaxLength": "passwordMaxLength",
+        "passwordMaxLengthDesc": "Maximum password length. Default: 128.",
+        "emailVerificationTtl": "emailVerificationTtlMs",
+        "emailVerificationTtlDesc": "Email verification token TTL. Default: 24 hours.",
+        "passwordResetTtl": "passwordResetTtlMs",
+        "passwordResetTtlDesc": "Password reset token TTL. Default: 1 hour.",
+        "lockoutEnabled": "lockoutEnabled",
+        "lockoutEnabledDesc": "Enable account lockout. Default: true.",
+        "lockoutThreshold": "lockoutThreshold",
+        "lockoutThresholdDesc": "Number of failed attempts before lockout. Default: 5.",
+        "lockoutDuration": "lockoutDurationMs",
+        "lockoutDurationDesc": "Lockout duration. Default: 15 minutes.",
+        "requireEmailVerification": "requireEmailVerification",
+        "requireEmailVerificationDesc": "Require email verification. Default: true."
+      },
+      "errorCodes": {
+        "title": "Error Codes",
+        "description": "Error codes returned by FortressAuth operations.",
+        "codes": {
+          "EMAIL_EXISTS": "The email address is already registered.",
+          "INVALID_CREDENTIALS": "The email or password is incorrect.",
+          "PASSWORD_TOO_WEAK": "The password does not meet requirements.",
+          "ACCOUNT_LOCKED": "The account is temporarily locked.",
+          "EMAIL_NOT_VERIFIED": "The email address has not been verified.",
+          "SESSION_INVALID": "The session token is invalid.",
+          "SESSION_EXPIRED": "The session token has expired.",
+          "EMAIL_VERIFICATION_INVALID": "The email verification token is invalid.",
+          "EMAIL_VERIFICATION_EXPIRED": "The email verification token has expired.",
+          "PASSWORD_RESET_INVALID": "The password reset token is invalid.",
+          "PASSWORD_RESET_EXPIRED": "The password reset token has expired.",
+          "RATE_LIMIT_EXCEEDED": "Too many requests. Please try again later.",
+          "INTERNAL_ERROR": "An unexpected error occurred."
+        }
+      }
+    }
+  },
   "hero": {
     "title": "FortressAuth",
     "subtitle": "Sicher-durch-Standard Authentifizierung",
     "description": "Eine produktionsbereite Authentifizierungsbibliothek, entwickelt mit TypeScript und hexagonaler Architektur. Datenbank-agnostisch, E-Mail-Provider-agnostisch und standardmäßig sicher.",
     "getStarted": "Erste Schritte",
     "viewDocs": "Dokumentation ansehen",
-    "tryDemo": "Demo testen"
+    "tryDemo": "Demo testen",
+    "highlights": {
+      "secureByDefault": {
+        "title": "Standardmäßig Sicher",
+        "description": "Argon2id-Hashing, geteilte Token und Timing-Angriff-Schutz integriert"
+      },
+      "databaseAgnostic": {
+        "title": "Datenbank-agnostisch",
+        "description": "Funktioniert mit PostgreSQL, MySQL und SQLite sofort einsatzbereit"
+      },
+      "fastIntegration": {
+        "title": "Schnelle Integration",
+        "description": "In Minuten einsatzbereit mit React, Vue oder Angular SDKs"
+      },
+      "productionReady": {
+        "title": "Produktionsbereit",
+        "description": "Rate-Limiting, Kontosperrung und E-Mail-Verifizierung inklusive"
+      }
+    },
+    "stats": {
+      "typeSafe": "Typsicher",
+      "coreDeps": "Kern-Abhängigkeiten",
+      "databases": "Unterstützte Datenbanken"
+    }
   },
   "features": {
     "title": "Gebaut für Sicherheit & Flexibilität",
+    "subtitle": "Alles, was Sie brauchen, um sichere Authentifizierung zu implementieren, ohne die Entwicklererfahrung zu beeinträchtigen",
     "secureByDefault": {
       "title": "Standardmäßig sicher",
       "description": "Argon2id Passwort-Hashing mit OWASP-empfohlenen Parametern, geteilten Sitzungs-Token und Schutz vor Timing-Angriffen"
@@ -88,6 +293,9 @@
     "subtitle": "Entdecken Sie funktionierende Beispiele, um Ihre Integration zu beschleunigen",
     "viewCode": "Code ansehen",
     "viewDemo": "Live-Demo",
+    "prevSlide": "Vorherige Folie",
+    "nextSlide": "Nächste Folie",
+    "goToSlide": "Gehe zu Folie",
     "basic-usage": {
       "title": "Basis-Server",
       "description": "Vollständiges Node.js-Serverbeispiel mit SQLite-Datenbank, Sitzungsverwaltung und E-Mail-Verifizierung."
@@ -107,11 +315,21 @@
     "web-angular": {
       "title": "Angular Web-App",
       "description": "Angular Anwendung mit Authentifizierungsstatus und RxJS Integration."
+    },
+    "mobile-expo": {
+      "title": "Expo Mobile-App",
+      "description": "React Native Mobile-App mit Expo, sicherer Token-Speicherung und Deep Linking."
+    },
+    "desktop-electron": {
+      "title": "Electron Desktop-App",
+      "description": "Plattformübergreifende Desktop-Anwendung mit sicherer Anmeldedatenspeicherung über das Electron SDK."
     }
   },
   "codeShowcase": {
     "title": "Entwicklererlebnis an erster Stelle",
     "subtitle": "Saubere, typsichere APIs, die die Authentifizierung zum Kinderspiel machen",
+    "copy": "Kopieren",
+    "copied": "Kopiert!",
     "tabs": {
       "quickStart": "Schnellstart",
       "reactSdk": "React SDK",
@@ -119,12 +337,15 @@
       "angularSdk": "Angular SDK",
       "svelteSdk": "Svelte SDK",
       "reactNativeSdk": "React Native",
-      "expoSdk": "Expo"
+      "expoSdk": "Expo",
+      "electronSdk": "Electron"
     },
     "features": {
       "fast": "Schnelle Integration",
       "secure": "Standardmäßig sicher",
-      "typed": "Vollständig typisiert"
+      "typed": "Vollständig typisiert",
+      "pluggable": "Modulare Architektur",
+      "zeroDeps": "Keine Kern-Abhängigkeiten"
     }
   },
   "documentation": {

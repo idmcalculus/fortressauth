@@ -1,6 +1,7 @@
 .section {
+  position: relative;
   padding: var(--spacing-4xl) 0;
-  background: var(--color-bg-primary);
+  background: transparent;
 }
 
 .container {
@@ -36,13 +37,100 @@
   overflow: hidden;
 }
 
+.tabsWrapper {
+  position: relative;
+}
+
 .tabs {
   display: flex;
+  overflow-x: auto;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-primary);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollHint {
+  position: absolute;
+  top: 0;
+  bottom: 1px;
+  width: 48px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.scrollHintRight {
+  right: 0;
+  justify-content: flex-end;
+  padding-right: var(--spacing-sm);
+  background: linear-gradient(to right, transparent, var(--color-bg-primary) 50%);
+}
+
+.scrollHintLeft {
+  left: 0;
+  justify-content: flex-start;
+  padding-left: var(--spacing-sm);
+  background: linear-gradient(to left, transparent, var(--color-bg-primary) 50%);
+}
+
+.scrollHintVisible {
+  opacity: 1;
+}
+
+.scrollHintIcon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  animation: scrollPulse 1.5s ease-in-out infinite;
+}
+
+.scrollHintLeft .scrollHintIcon {
+  animation: scrollPulseLeft 1.5s ease-in-out infinite;
+}
+
+@keyframes scrollPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateX(3px);
+  }
+}
+
+@keyframes scrollPulseLeft {
+  0%, 100% {
+    opacity: 0.4;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateX(-3px);
+  }
+}
+
+/* On larger screens, only show on hover */
+@media (min-width: 1024px) {
+  .scrollHint {
+    opacity: 0;
+  }
+
+  .tabsWrapper:hover .scrollHintVisible {
+    opacity: 1;
+  }
 }
 
 .tab {
+  flex-shrink: 0;
   padding: var(--spacing-md) var(--spacing-xl);
   font-family: var(--font-heading);
   font-size: var(--font-size-sm);
@@ -50,6 +138,7 @@
   color: var(--color-text-secondary);
   background: transparent;
   border: none;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color var(--transition-fast),
@@ -93,6 +182,51 @@
   color: var(--color-text-secondary);
 }
 
+.copyButton {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  margin-left: auto;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.copyButton:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.copyButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.copyIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.copyText {
+  display: none;
+}
+
+@media (min-width: 640px) {
+  .copyText {
+    display: inline;
+  }
+}
+
 .code {
   padding: var(--spacing-xl);
   margin: 0;
@@ -126,14 +260,6 @@
 }
 
 @media (max-width: 768px) {
-  .tabs {
-    overflow-x: auto;
-  }
-
-  .tab {
-    white-space: nowrap;
-  }
-
   .features {
     flex-direction: column;
     align-items: center;

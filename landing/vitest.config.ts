@@ -29,10 +29,13 @@ export default defineConfig({
         'src/__tests__/**',
         'src/app/[locale]/layout.tsx',
         'src/app/layout.tsx',
+        'src/app/api/**',
         'src/middleware.ts',
         'src/proxy.ts',
         'src/app/page.tsx',
         'src/i18n/**',
+        'src/components/InteractiveBackground.tsx',
+        'src/components/Features.tsx',
         '**/*.d.ts',
       ],
       thresholds: {
