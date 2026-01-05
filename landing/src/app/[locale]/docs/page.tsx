@@ -1,5 +1,5 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 
 export function generateStaticParams() {
@@ -14,11 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function DocsPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function DocsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('docs');
@@ -33,11 +29,26 @@ export default async function DocsPage({
 
       <h3>{t('introduction.keyFeatures')}</h3>
       <ul>
-        <li><strong>{t('introduction.features.secureByDefault')}</strong> - {t('introduction.features.secureByDefaultDesc')}</li>
-        <li><strong>{t('introduction.features.databaseAgnostic')}</strong> - {t('introduction.features.databaseAgnosticDesc')}</li>
-        <li><strong>{t('introduction.features.emailAgnostic')}</strong> - {t('introduction.features.emailAgnosticDesc')}</li>
-        <li><strong>{t('introduction.features.hexagonal')}</strong> - {t('introduction.features.hexagonalDesc')}</li>
-        <li><strong>{t('introduction.features.typeSafe')}</strong> - {t('introduction.features.typeSafeDesc')}</li>
+        <li>
+          <strong>{t('introduction.features.secureByDefault')}</strong> -{' '}
+          {t('introduction.features.secureByDefaultDesc')}
+        </li>
+        <li>
+          <strong>{t('introduction.features.databaseAgnostic')}</strong> -{' '}
+          {t('introduction.features.databaseAgnosticDesc')}
+        </li>
+        <li>
+          <strong>{t('introduction.features.emailAgnostic')}</strong> -{' '}
+          {t('introduction.features.emailAgnosticDesc')}
+        </li>
+        <li>
+          <strong>{t('introduction.features.hexagonal')}</strong> -{' '}
+          {t('introduction.features.hexagonalDesc')}
+        </li>
+        <li>
+          <strong>{t('introduction.features.typeSafe')}</strong> -{' '}
+          {t('introduction.features.typeSafeDesc')}
+        </li>
       </ul>
 
       <h2>{t('introduction.architecture')}</h2>
@@ -45,17 +56,31 @@ export default async function DocsPage({
 
       <h3>{t('introduction.coreComponents')}</h3>
       <ul>
-        <li><strong>FortressAuth</strong> - {t('introduction.components.fortressAuth')}</li>
-        <li><strong>AuthRepository</strong> - {t('introduction.components.authRepository')}</li>
-        <li><strong>EmailProvider</strong> - {t('introduction.components.emailProvider')}</li>
-        <li><strong>RateLimiter</strong> - {t('introduction.components.rateLimiter')}</li>
+        <li>
+          <strong>FortressAuth</strong> - {t('introduction.components.fortressAuth')}
+        </li>
+        <li>
+          <strong>AuthRepository</strong> - {t('introduction.components.authRepository')}
+        </li>
+        <li>
+          <strong>EmailProvider</strong> - {t('introduction.components.emailProvider')}
+        </li>
+        <li>
+          <strong>RateLimiter</strong> - {t('introduction.components.rateLimiter')}
+        </li>
       </ul>
 
       <h2>{t('introduction.nextSteps')}</h2>
       <ul>
-        <li><a href="/docs/installation">{t('introduction.links.installation')}</a></li>
-        <li><a href="/docs/quick-start">{t('introduction.links.quickStart')}</a></li>
-        <li><a href="/docs/api/fortress-auth">{t('introduction.links.apiReference')}</a></li>
+        <li>
+          <a href="/docs/installation">{t('introduction.links.installation')}</a>
+        </li>
+        <li>
+          <a href="/docs/quick-start">{t('introduction.links.quickStart')}</a>
+        </li>
+        <li>
+          <a href="/docs/api/fortress-auth">{t('introduction.links.apiReference')}</a>
+        </li>
       </ul>
     </article>
   );

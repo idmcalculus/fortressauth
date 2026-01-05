@@ -1,5 +1,5 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 
 export function generateStaticParams() {
@@ -29,7 +29,8 @@ export default async function ConfigurationPage({
       <p>{t('api.configuration.description')}</p>
 
       <h2>Full Configuration Example</h2>
-      <pre><code>{`import { FortressAuth } from '@fortressauth/core';
+      <pre>
+        <code>{`import { FortressAuth } from '@fortressauth/core';
 
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
   // Session configuration
@@ -80,7 +81,8 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
   urls: {
     baseUrl: 'https://yourdomain.com',
   },
-});`}</code></pre>
+});`}</code>
+      </pre>
 
       <h2>{t('api.configuration.options')}</h2>
 
@@ -96,8 +98,12 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>session.ttlMs</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>session.ttlMs</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>604800000 (7 days)</td>
             <td>Session token time-to-live in milliseconds</td>
           </tr>
@@ -116,26 +122,42 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>password.minLength</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>password.minLength</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>8</td>
             <td>Minimum password length</td>
           </tr>
           <tr>
-            <td><code>password.maxLength</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>password.maxLength</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>128</td>
             <td>Maximum password length</td>
           </tr>
           <tr>
-            <td><code>password.breachedCheck.enabled</code></td>
-            <td><code>boolean</code></td>
+            <td>
+              <code>password.breachedCheck.enabled</code>
+            </td>
+            <td>
+              <code>boolean</code>
+            </td>
             <td>false</td>
             <td>Check passwords against Have I Been Pwned</td>
           </tr>
           <tr>
-            <td><code>password.breachedCheck.threshold</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>password.breachedCheck.threshold</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>1</td>
             <td>Reject if password found this many times in breaches</td>
           </tr>
@@ -154,8 +176,12 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>emailVerification.ttlMs</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>emailVerification.ttlMs</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>86400000 (24 hours)</td>
             <td>Email verification token TTL</td>
           </tr>
@@ -174,14 +200,22 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>passwordReset.ttlMs</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>passwordReset.ttlMs</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>3600000 (1 hour)</td>
             <td>Password reset token TTL</td>
           </tr>
           <tr>
-            <td><code>passwordReset.maxActiveTokens</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>passwordReset.maxActiveTokens</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>3</td>
             <td>Maximum active reset tokens per user</td>
           </tr>
@@ -200,20 +234,32 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>lockout.enabled</code></td>
-            <td><code>boolean</code></td>
+            <td>
+              <code>lockout.enabled</code>
+            </td>
+            <td>
+              <code>boolean</code>
+            </td>
             <td>true</td>
             <td>Enable account lockout after failed attempts</td>
           </tr>
           <tr>
-            <td><code>lockout.maxFailedAttempts</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>lockout.maxFailedAttempts</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>5</td>
             <td>Failed attempts before lockout</td>
           </tr>
           <tr>
-            <td><code>lockout.lockoutDurationMs</code></td>
-            <td><code>number</code></td>
+            <td>
+              <code>lockout.lockoutDurationMs</code>
+            </td>
+            <td>
+              <code>number</code>
+            </td>
             <td>900000 (15 min)</td>
             <td>Lockout duration in milliseconds</td>
           </tr>
@@ -232,20 +278,32 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>rateLimit.enabled</code></td>
-            <td><code>boolean</code></td>
+            <td>
+              <code>rateLimit.enabled</code>
+            </td>
+            <td>
+              <code>boolean</code>
+            </td>
             <td>true</td>
             <td>Enable rate limiting</td>
           </tr>
           <tr>
-            <td><code>rateLimit.endpoints.login</code></td>
-            <td><code>object</code></td>
+            <td>
+              <code>rateLimit.endpoints.login</code>
+            </td>
+            <td>
+              <code>object</code>
+            </td>
             <td>-</td>
             <td>Rate limit config for login endpoint</td>
           </tr>
           <tr>
-            <td><code>rateLimit.endpoints.signup</code></td>
-            <td><code>object</code></td>
+            <td>
+              <code>rateLimit.endpoints.signup</code>
+            </td>
+            <td>
+              <code>object</code>
+            </td>
             <td>-</td>
             <td>Rate limit config for signup endpoint</td>
           </tr>
@@ -264,8 +322,12 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
         </thead>
         <tbody>
           <tr>
-            <td><code>urls.baseUrl</code></td>
-            <td><code>string</code></td>
+            <td>
+              <code>urls.baseUrl</code>
+            </td>
+            <td>
+              <code>string</code>
+            </td>
             <td>http://localhost:3000</td>
             <td>Base URL for email links</td>
           </tr>
@@ -274,7 +336,8 @@ const fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
 
       <h2>Environment Variables</h2>
       <p>When using the HTTP server package, configuration can be set via environment variables:</p>
-      <pre><code>{`# Server
+      <pre>
+        <code>{`# Server
 PORT=5000
 HOST=0.0.0.0
 NODE_ENV=production
@@ -306,13 +369,16 @@ LOCKOUT_MAX_ATTEMPTS=5
 LOCKOUT_DURATION_MS=900000
 
 # Rate Limiting
-RATE_LIMIT_ENABLED=true`}</code></pre>
+RATE_LIMIT_ENABLED=true`}</code>
+      </pre>
 
       <h2>TypeScript Types</h2>
-      <pre><code>{`import type { FortressConfig, FortressConfigInput } from '@fortressauth/core';
+      <pre>
+        <code>{`import type { FortressConfig, FortressConfigInput } from '@fortressauth/core';
 
 // FortressConfigInput - what you pass to the constructor
-// FortressConfig - the resolved config with all defaults applied`}</code></pre>
+// FortressConfig - the resolved config with all defaults applied`}</code>
+      </pre>
     </article>
   );
 }

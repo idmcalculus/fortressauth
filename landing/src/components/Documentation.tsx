@@ -70,7 +70,10 @@ export function Documentation() {
               className={styles.externalLink}
             >
               {t('openFullDocs')}
-              <ExternalLink style={{ width: '16px', height: '16px', color: 'inherit' }} aria-hidden="true" />
+              <ExternalLink
+                style={{ width: '16px', height: '16px', color: 'inherit' }}
+                aria-hidden="true"
+              />
             </a>
           )}
         </div>
@@ -85,6 +88,7 @@ export function Documentation() {
                 <code>pnpm --filter @fortressauth/server dev</code>
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setStatus('loading');
                   discoverServer();

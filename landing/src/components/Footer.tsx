@@ -20,11 +20,13 @@ export function Footer() {
           <div className={styles.credits}>
             <span className={styles.madeWith}>
               Developed with{' '}
-              <span className={styles.loveEmoji} aria-label="love">💙</span>
-              {' '}by{' '}
-              <Link 
-                href="https://idmcalculus.cv" 
-                target="_blank" 
+              <span className={styles.loveEmoji} role="img" aria-label="love">
+                💙
+              </span>{' '}
+              by{' '}
+              <Link
+                href="https://idmcalculus.cv"
+                target="_blank"
                 rel="noopener noreferrer"
                 className={styles.creditLink}
               >
@@ -33,9 +35,9 @@ export function Footer() {
               </Link>
             </span>
             <span className={styles.separator}>•</span>
-            <Link 
-              href="https://buymeacoffee.com/idmcalculus" 
-              target="_blank" 
+            <Link
+              href="https://buymeacoffee.com/idmcalculus"
+              target="_blank"
               rel="noopener noreferrer"
               className={styles.coffeeLink}
               aria-label="Buy me a coffee"

@@ -184,7 +184,7 @@ auth.subscribe((state) => {
 await auth.signIn('user@example.com', 'password');
 
 // Sign out
-await auth.signOut();`
+await auth.signOut();`,
 };
 
 type TabKey = keyof typeof codeSnippets;
@@ -197,7 +197,7 @@ const tabFilenames: Record<TabKey, string> = {
   svelteSdk: 'Login.svelte',
   reactNativeSdk: 'App.tsx',
   expoSdk: 'App.tsx',
-  electronSdk: 'main.ts'
+  electronSdk: 'main.ts',
 };
 
 export function CodeShowcase() {
@@ -216,7 +216,7 @@ export function CodeShowcase() {
     { key: 'svelteSdk', label: t('tabs.svelteSdk') },
     { key: 'reactNativeSdk', label: t('tabs.reactNativeSdk') },
     { key: 'expoSdk', label: t('tabs.expoSdk') },
-    { key: 'electronSdk', label: t('tabs.electronSdk') }
+    { key: 'electronSdk', label: t('tabs.electronSdk') },
   ];
 
   // Check if tabs are scrollable and update hint visibility
@@ -250,9 +250,7 @@ export function CodeShowcase() {
 
   const handleCopy = useCallback(async () => {
     try {
-      await (navigator as Navigator).clipboard.writeText(
-        codeSnippets[activeTab],
-      );
+      await (navigator as Navigator).clipboard.writeText(codeSnippets[activeTab]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -281,6 +279,7 @@ export function CodeShowcase() {
             <div ref={tabsRef} className={styles.tabs} role="tablist" aria-label={t('title')}>
               {tabs.map((tab) => (
                 <button
+                  type="button"
                   key={tab.key}
                   role="tab"
                   aria-selected={activeTab === tab.key}

@@ -158,15 +158,15 @@ describe('CodeShowcase', () => {
     render(<CodeShowcase />);
 
     const tablist = screen.getByRole('tablist');
-    
+
     // Mock scrollWidth > clientWidth to simulate scrollable content
     Object.defineProperty(tablist, 'scrollWidth', { value: 1000, configurable: true });
     Object.defineProperty(tablist, 'clientWidth', { value: 500, configurable: true });
     Object.defineProperty(tablist, 'scrollLeft', { value: 100, configurable: true });
-    
+
     // Simulate scroll event
     fireEvent.scroll(tablist);
-    
+
     // The component should handle scroll without errors
     expect(tablist).toBeInTheDocument();
   });
@@ -187,15 +187,19 @@ describe('CodeShowcase', () => {
     render(<CodeShowcase />);
 
     const tablist = screen.getByRole('tablist');
-    
+
     // Mock scrollable state - scrolled to middle
     Object.defineProperty(tablist, 'scrollWidth', { value: 1000, configurable: true });
     Object.defineProperty(tablist, 'clientWidth', { value: 500, configurable: true });
-    Object.defineProperty(tablist, 'scrollLeft', { value: 200, writable: true, configurable: true });
-    
+    Object.defineProperty(tablist, 'scrollLeft', {
+      value: 200,
+      writable: true,
+      configurable: true,
+    });
+
     // Trigger scroll event to update state
     fireEvent.scroll(tablist);
-    
+
     expect(tablist).toBeInTheDocument();
   });
 
@@ -203,15 +207,15 @@ describe('CodeShowcase', () => {
     render(<CodeShowcase />);
 
     const tablist = screen.getByRole('tablist');
-    
+
     // Mock scrollable state - at start
     Object.defineProperty(tablist, 'scrollWidth', { value: 1000, configurable: true });
     Object.defineProperty(tablist, 'clientWidth', { value: 500, configurable: true });
     Object.defineProperty(tablist, 'scrollLeft', { value: 0, writable: true, configurable: true });
-    
+
     // Trigger scroll event
     fireEvent.scroll(tablist);
-    
+
     expect(tablist).toBeInTheDocument();
   });
 
@@ -219,15 +223,19 @@ describe('CodeShowcase', () => {
     render(<CodeShowcase />);
 
     const tablist = screen.getByRole('tablist');
-    
+
     // Mock scrollable state - at end
     Object.defineProperty(tablist, 'scrollWidth', { value: 1000, configurable: true });
     Object.defineProperty(tablist, 'clientWidth', { value: 500, configurable: true });
-    Object.defineProperty(tablist, 'scrollLeft', { value: 500, writable: true, configurable: true });
-    
+    Object.defineProperty(tablist, 'scrollLeft', {
+      value: 500,
+      writable: true,
+      configurable: true,
+    });
+
     // Trigger scroll event
     fireEvent.scroll(tablist);
-    
+
     expect(tablist).toBeInTheDocument();
   });
 
@@ -235,15 +243,15 @@ describe('CodeShowcase', () => {
     render(<CodeShowcase />);
 
     const tablist = screen.getByRole('tablist');
-    
+
     // Mock non-scrollable state
     Object.defineProperty(tablist, 'scrollWidth', { value: 500, configurable: true });
     Object.defineProperty(tablist, 'clientWidth', { value: 500, configurable: true });
     Object.defineProperty(tablist, 'scrollLeft', { value: 0, writable: true, configurable: true });
-    
+
     // Trigger scroll event
     fireEvent.scroll(tablist);
-    
+
     expect(tablist).toBeInTheDocument();
   });
 

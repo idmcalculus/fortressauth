@@ -10,12 +10,8 @@ export const metadata: Metadata = {
   description:
     'A production-ready authentication library built with TypeScript and hexagonal architecture. Database-agnostic, email provider-agnostic, and secure by default.',
   icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-    ],
-    apple: [
-      { url: '/apple-icon.svg', type: 'image/svg+xml' },
-    ],
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/apple-icon.svg', type: 'image/svg+xml' }],
   },
 };
 

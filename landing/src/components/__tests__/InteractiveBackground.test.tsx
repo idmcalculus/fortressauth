@@ -96,7 +96,7 @@ describe('InteractiveBackground', () => {
         width: 800,
         height: 600,
       });
-      
+
       fireEvent.mouseMove(canvas, { clientX: 100, clientY: 100 });
       expect(canvas).toBeInTheDocument();
     }
@@ -115,13 +115,13 @@ describe('InteractiveBackground', () => {
         width: 800,
         height: 600,
       });
-      
+
       // Simulate mouse move within canvas bounds (triggers hovering)
       fireEvent.mouseMove(document, { clientX: 100, clientY: 100 });
-      
+
       // Simulate mouse leaving the document
       fireEvent.mouseLeave(document);
-      
+
       // Canvas should still be in document
       expect(canvas).toBeInTheDocument();
     }
@@ -140,10 +140,10 @@ describe('InteractiveBackground', () => {
 
   it('cleans up on unmount', () => {
     const { unmount } = render(<InteractiveBackground />);
-    
+
     const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
     unmount();
-    
+
     expect(cancelSpy).toHaveBeenCalled();
   });
 
@@ -156,44 +156,44 @@ describe('InteractiveBackground', () => {
 
   it('runs animation frame', () => {
     render(<InteractiveBackground />);
-    
+
     // Trigger animation frame
     if (rafCallback) {
       act(() => {
-        rafCallback!(performance.now());
+        rafCallback?.(performance.now());
       });
     }
-    
+
     // Verify canvas operations were called
     expect(mockContext.clearRect).toHaveBeenCalled();
   });
 
   it('draws particles on canvas', () => {
     render(<InteractiveBackground />);
-    
+
     // Trigger animation frame
     if (rafCallback) {
       act(() => {
-        rafCallback!(performance.now());
+        rafCallback?.(performance.now());
       });
     }
-    
+
     // Verify drawing operations
     expect(mockContext.beginPath).toHaveBeenCalled();
   });
 
   it('handles particle types correctly', () => {
     render(<InteractiveBackground />);
-    
+
     // Trigger multiple animation frames to cover different particle types
     if (rafCallback) {
       act(() => {
-        rafCallback!(performance.now());
-        rafCallback!(performance.now() + 16);
-        rafCallback!(performance.now() + 32);
+        rafCallback?.(performance.now());
+        rafCallback?.(performance.now() + 16);
+        rafCallback?.(performance.now() + 32);
       });
     }
-    
+
     // Verify various drawing operations for different particle types
     expect(mockContext.save).toHaveBeenCalled();
     expect(mockContext.restore).toHaveBeenCalled();
@@ -201,13 +201,13 @@ describe('InteractiveBackground', () => {
 
   it('draws connections between particles', () => {
     render(<InteractiveBackground />);
-    
+
     if (rafCallback) {
       act(() => {
-        rafCallback!(performance.now());
+        rafCallback?.(performance.now());
       });
     }
-    
+
     // Verify line drawing for connections
     expect(mockContext.moveTo).toHaveBeenCalled();
     expect(mockContext.lineTo).toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe('InteractiveBackground', () => {
   it('responds to mouse proximity', () => {
     render(<InteractiveBackground />);
     const canvas = document.querySelector('canvas');
-    
+
     if (canvas) {
       canvas.getBoundingClientRect = vi.fn().mockReturnValue({
         left: 0,
@@ -225,16 +225,16 @@ describe('InteractiveBackground', () => {
         width: 800,
         height: 600,
       });
-      
+
       // Move mouse to trigger proximity effects
       fireEvent.mouseMove(canvas, { clientX: 400, clientY: 300 });
-      
+
       if (rafCallback) {
         act(() => {
-          rafCallback!(performance.now());
+          rafCallback?.(performance.now());
         });
       }
-      
+
       // Verify drawing operations occurred
       expect(mockContext.clearRect).toHaveBeenCalled();
     }
@@ -242,23 +242,23 @@ describe('InteractiveBackground', () => {
 
   it('handles canvas without context gracefully', () => {
     HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(null);
-    
+
     // Should not throw
     expect(() => render(<InteractiveBackground />)).not.toThrow();
   });
 
   it('draws glowing particles', () => {
     render(<InteractiveBackground />);
-    
+
     // Trigger multiple animation frames
     if (rafCallback) {
       for (let i = 0; i < 10; i++) {
         act(() => {
-          rafCallback!(performance.now() + i * 16);
+          rafCallback?.(performance.now() + i * 16);
         });
       }
     }
-    
+
     // Verify radial gradient was created for glow effect
     expect(mockContext.createRadialGradient).toHaveBeenCalled();
     // Verify arc was called for drawing particles
@@ -268,7 +268,7 @@ describe('InteractiveBackground', () => {
   it('handles mouse at different positions', () => {
     render(<InteractiveBackground />);
     const canvas = document.querySelector('canvas');
-    
+
     if (canvas) {
       canvas.getBoundingClientRect = vi.fn().mockReturnValue({
         left: 0,
@@ -276,18 +276,18 @@ describe('InteractiveBackground', () => {
         width: 800,
         height: 600,
       });
-      
+
       // Move mouse to different positions
       fireEvent.mouseMove(canvas, { clientX: 0, clientY: 0 });
       fireEvent.mouseMove(canvas, { clientX: 800, clientY: 600 });
       fireEvent.mouseMove(canvas, { clientX: 400, clientY: 300 });
-      
+
       if (rafCallback) {
         act(() => {
-          rafCallback!(performance.now());
+          rafCallback?.(performance.now());
         });
       }
-      
+
       expect(mockContext.clearRect).toHaveBeenCalled();
     }
   });
@@ -295,7 +295,7 @@ describe('InteractiveBackground', () => {
   it('handles negative mouse coordinates', () => {
     render(<InteractiveBackground />);
     const canvas = document.querySelector('canvas');
-    
+
     if (canvas) {
       canvas.getBoundingClientRect = vi.fn().mockReturnValue({
         left: 100,
@@ -303,18 +303,17 @@ describe('InteractiveBackground', () => {
         width: 800,
         height: 600,
       });
-      
+
       // Mouse outside canvas area
       fireEvent.mouseMove(canvas, { clientX: 50, clientY: 50 });
-      
+
       if (rafCallback) {
         act(() => {
-          rafCallback!(performance.now());
+          rafCallback?.(performance.now());
         });
       }
-      
+
       expect(mockContext.clearRect).toHaveBeenCalled();
     }
   });
 });
-

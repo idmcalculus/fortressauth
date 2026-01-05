@@ -5,10 +5,13 @@ import { Documentation } from '../Documentation';
 // Store original env
 const originalEnv = process.env;
 
+// Type for mocked fetch - use ReturnType of vi.fn() to properly type the mock
+type MockFetch = ReturnType<typeof vi.fn>;
+
 describe('Documentation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    global.fetch = vi.fn() as typeof global.fetch;
     // Reset env
     vi.resetModules();
   });
@@ -18,13 +21,13 @@ describe('Documentation', () => {
   });
 
   it('shows searching state initially', async () => {
-    (global.fetch as any).mockImplementation(() => new Promise(() => {})); // Hangs
+    (global.fetch as MockFetch).mockImplementation(() => new Promise(() => {})); // Hangs
     render(<Documentation />);
     expect(screen.getByText('Discovering API server...')).toBeInTheDocument();
   });
 
   it('renders iframe when server is found', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (global.fetch as MockFetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ status: 'ok' }),
     });
@@ -37,7 +40,7 @@ describe('Documentation', () => {
   });
 
   it('shows fallback when server returns non-ok status', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (global.fetch as MockFetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ status: 'error' }),
     });
@@ -75,7 +78,7 @@ describe('Documentation', () => {
 
   it('retries discovery when Retry button is clicked', async () => {
     // All initial discovery attempts fail
-    (global.fetch as any).mockRejectedValue(new Error('Failed'));
+    (global.fetch as MockFetch).mockRejectedValue(new Error('Failed'));
 
     render(<Documentation />);
 
@@ -87,7 +90,7 @@ describe('Documentation', () => {
     );
 
     // Mock success for the retry
-    (global.fetch as any).mockResolvedValueOnce({
+    (global.fetch as MockFetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ status: 'ok' }),
     });
@@ -103,7 +106,7 @@ describe('Documentation', () => {
   });
 
   it('renders external link to docs', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (global.fetch as MockFetch).mockResolvedValueOnce({
       ok: true,
       json: () => Promise.resolve({ status: 'ok' }),
     });
@@ -119,7 +122,7 @@ describe('Documentation', () => {
   });
 
   it('shows command to start server in fallback', async () => {
-    (global.fetch as any).mockRejectedValue(new Error('Failed'));
+    (global.fetch as MockFetch).mockRejectedValue(new Error('Failed'));
 
     render(<Documentation />);
 
@@ -130,7 +133,7 @@ describe('Documentation', () => {
 
   it('tries multiple ports when discovering server', async () => {
     // First 3 ports fail, 4th succeeds
-    (global.fetch as any)
+    (global.fetch as MockFetch)
       .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'))
       .mockRejectedValueOnce(new Error('Failed'))
@@ -147,7 +150,7 @@ describe('Documentation', () => {
   });
 
   it('handles server returning ok:false response', async () => {
-    (global.fetch as any).mockResolvedValue({
+    (global.fetch as MockFetch).mockResolvedValue({
       ok: false,
     });
 

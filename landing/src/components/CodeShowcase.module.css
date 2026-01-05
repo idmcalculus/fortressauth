@@ -97,7 +97,8 @@
 }
 
 @keyframes scrollPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.4;
     transform: translateX(0);
   }
@@ -108,7 +109,8 @@
 }
 
 @keyframes scrollPulseLeft {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.4;
     transform: translateX(0);
   }

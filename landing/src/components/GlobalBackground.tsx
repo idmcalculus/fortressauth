@@ -15,9 +15,7 @@ export function GlobalBackground({ children }: GlobalBackgroundProps) {
         <div className={styles.gridPattern} aria-hidden="true" />
         <div className={styles.gradient} aria-hidden="true" />
       </div>
-      <div className={styles.content}>
-        {children}
-      </div>
+      <div className={styles.content}>{children}</div>
     </div>
   );
 }

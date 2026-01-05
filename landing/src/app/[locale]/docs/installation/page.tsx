@@ -1,5 +1,5 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 
 export function generateStaticParams() {
@@ -38,61 +38,79 @@ export default async function InstallationPage({
 
       <h2>{t('installation.corePackage')}</h2>
       <p>{t('installation.corePackageDesc')}</p>
-      <pre><code>{`# Using npm
+      <pre>
+        <code>{`# Using npm
 npm install @fortressauth/core
 
 # Using yarn
 yarn add @fortressauth/core
 
 # Using pnpm
-pnpm add @fortressauth/core`}</code></pre>
+pnpm add @fortressauth/core`}</code>
+      </pre>
 
       <p>The core package includes:</p>
       <ul>
-        <li><code>FortressAuth</code> - Main authentication orchestrator</li>
-        <li><code>ConsoleEmailProvider</code> - Development email provider (logs to console)</li>
+        <li>
+          <code>FortressAuth</code> - Main authentication orchestrator
+        </li>
+        <li>
+          <code>ConsoleEmailProvider</code> - Development email provider (logs to console)
+        </li>
         <li>All domain entities and types</li>
         <li>Zod schemas for validation</li>
       </ul>
 
       <h2>{t('installation.databaseAdapter')}</h2>
       <p>{t('installation.databaseAdapterDesc')}</p>
-      <pre><code>{`# Using npm
+      <pre>
+        <code>{`# Using npm
 npm install @fortressauth/adapter-sql
 
 # Using yarn
 yarn add @fortressauth/adapter-sql
 
 # Using pnpm
-pnpm add @fortressauth/adapter-sql`}</code></pre>
+pnpm add @fortressauth/adapter-sql`}</code>
+      </pre>
 
       <p>The SQL adapter supports:</p>
       <ul>
-        <li><strong>PostgreSQL</strong> - Recommended for production</li>
-        <li><strong>MySQL</strong> - Full support with InnoDB</li>
-        <li><strong>SQLite</strong> - Great for development and small deployments</li>
+        <li>
+          <strong>PostgreSQL</strong> - Recommended for production
+        </li>
+        <li>
+          <strong>MySQL</strong> - Full support with InnoDB
+        </li>
+        <li>
+          <strong>SQLite</strong> - Great for development and small deployments
+        </li>
       </ul>
 
       <p>You&apos;ll also need to install a database driver:</p>
-      <pre><code>{`# For PostgreSQL
+      <pre>
+        <code>{`# For PostgreSQL
 npm install pg
 
 # For MySQL
 npm install mysql2
 
 # For SQLite
-npm install better-sqlite3`}</code></pre>
+npm install better-sqlite3`}</code>
+      </pre>
 
       <h2>{t('installation.httpServer')}</h2>
       <p>{t('installation.httpServerDesc')}</p>
-      <pre><code>{`# Using npm
+      <pre>
+        <code>{`# Using npm
 npm install @fortressauth/server
 
 # Using yarn
 yarn add @fortressauth/server
 
 # Using pnpm
-pnpm add @fortressauth/server`}</code></pre>
+pnpm add @fortressauth/server`}</code>
+      </pre>
 
       <p>The server package provides:</p>
       <ul>
@@ -105,7 +123,8 @@ pnpm add @fortressauth/server`}</code></pre>
 
       <h2>{t('installation.clientSdks')}</h2>
       <p>{t('installation.clientSdksDesc')}</p>
-      <pre><code>{`# React
+      <pre>
+        <code>{`# React
 npm install @fortressauth/react-sdk
 
 # Vue
@@ -121,22 +140,29 @@ npm install @fortressauth/svelte-sdk
 npm install @fortressauth/expo-sdk
 
 # Electron
-npm install @fortressauth/electron-sdk`}</code></pre>
+npm install @fortressauth/electron-sdk`}</code>
+      </pre>
 
       <h2>Email Providers (Optional)</h2>
       <p>For production email delivery, install one of the email provider packages:</p>
-      <pre><code>{`# AWS SES
+      <pre>
+        <code>{`# AWS SES
 npm install @fortressauth/email-ses
 
 # SendGrid
 npm install @fortressauth/email-sendgrid
 
 # SMTP (Nodemailer)
-npm install @fortressauth/email-smtp`}</code></pre>
+npm install @fortressauth/email-smtp`}</code>
+      </pre>
 
       <h2>TypeScript Configuration</h2>
-      <p>FortressAuth is written in TypeScript and provides full type definitions. Ensure your <code>tsconfig.json</code> includes:</p>
-      <pre><code>{`{
+      <p>
+        FortressAuth is written in TypeScript and provides full type definitions. Ensure your{' '}
+        <code>tsconfig.json</code> includes:
+      </p>
+      <pre>
+        <code>{`{
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -144,14 +170,23 @@ npm install @fortressauth/email-smtp`}</code></pre>
     "strict": true,
     "esModuleInterop": true
   }
-}`}</code></pre>
+}`}</code>
+      </pre>
 
       <h2>{t('installation.nextSteps')}</h2>
       <p>{t('installation.nextStepsDesc')}</p>
       <ul>
-        <li><a href="/docs/quick-start">{t('quickStart.title')}</a> - Set up your first authentication flow</li>
-        <li><a href="/docs/api/fortress-auth">API Reference</a> - Explore all available methods</li>
-        <li><a href="/docs/api/configuration">Configuration</a> - Customize FortressAuth for your needs</li>
+        <li>
+          <a href="/docs/quick-start">{t('quickStart.title')}</a> - Set up your first authentication
+          flow
+        </li>
+        <li>
+          <a href="/docs/api/fortress-auth">API Reference</a> - Explore all available methods
+        </li>
+        <li>
+          <a href="/docs/api/configuration">Configuration</a> - Customize FortressAuth for your
+          needs
+        </li>
       </ul>
     </article>
   );

@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Design Tokens */
 :root {
@@ -31,8 +31,8 @@
   --spacing-4xl: 4rem;
 
   /* Typography */
-  --font-heading: 'JetBrains Mono', monospace;
-  --font-body: 'Inter', sans-serif;
+  --font-heading: "JetBrains Mono", monospace;
+  --font-body: "Inter", sans-serif;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -72,7 +72,7 @@
 }
 
 /* Explicit light theme - overrides system preference when user selects light */
-[data-theme='light'] {
+[data-theme="light"] {
   color-scheme: light;
   --color-bg-primary: #f8f9fa;
   --color-bg-secondary: #ffffff;
@@ -92,7 +92,7 @@
 }
 
 /* Explicit dark theme - overrides system preference when user selects dark */
-[data-theme='dark'] {
+[data-theme="dark"] {
   color-scheme: dark;
   --color-bg-primary: #0a0e1a;
   --color-bg-secondary: #111827;
