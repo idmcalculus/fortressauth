@@ -3,4 +3,11 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react()],
+  base: '/react-demo/',
+  server: {
+    port: 3001,
+  },
+  preview: {
+    port: 3001,
+  },
 });

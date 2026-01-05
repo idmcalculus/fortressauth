@@ -24,6 +24,7 @@ describe('OpenAPI document generation', () => {
 
     expect(doc.paths).toBeDefined();
     expect(doc.paths?.['/health']).toBeDefined();
+    expect(doc.paths?.['/auth/csrf']).toBeDefined();
     expect(doc.paths?.['/auth/signup']).toBeDefined();
     expect(doc.paths?.['/auth/login']).toBeDefined();
     expect(doc.paths?.['/auth/logout']).toBeDefined();
@@ -49,6 +50,13 @@ describe('OpenAPI document generation', () => {
 
     expect(doc.paths?.['/auth/login']?.post).toBeDefined();
     expect(doc.paths?.['/auth/login']?.post?.tags).toContain('Authentication');
+  });
+
+  it('should define csrf endpoint as GET', () => {
+    const doc = generateOpenAPIDocument('1.0.0');
+
+    expect(doc.paths?.['/auth/csrf']?.get).toBeDefined();
+    expect(doc.paths?.['/auth/csrf']?.get?.tags).toContain('Authentication');
   });
 
   it('should define logout endpoint as POST', () => {

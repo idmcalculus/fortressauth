@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "features": "विशेषताएं",
+    "docs": "दस्तावेज़",
+    "examples": "उदाहरण",
+    "pricing": "कीमत",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "डिफ़ॉल्ट रूप से सुरक्षित प्रमाणीकरण",
+    "description": "TypeScript और हेक्सागोनल आर्किटेक्चर के साथ निर्मित एक प्रोडक्शन-रेडी प्रमाणीकरण लाइब्रेरी। डेटाबेस-एग्नोस्टिक, ईमेल प्रदाता-एग्नोस्टिक और डिफ़ॉल्ट रूप से सुरक्षित।",
+    "getStarted": "शुरू करें",
+    "viewDocs": "दस्तावेज़ देखें",
+    "tryDemo": "डेमो आज़माएं"
+  },
+  "features": {
+    "title": "सुरक्षा और लचीलेपन के लिए निर्मित",
+    "secureByDefault": {
+      "title": "डिफ़ॉल्ट रूप से सुरक्षित",
+      "description": "OWASP-अनुशंसित मापदंडों के साथ Argon2id पासवर्ड हैशिंग, स्प्लिट सेशन टोकन और टाइमिंग-अटैक रोकथाम"
+    },
+    "databaseAgnostic": {
+      "title": "डेटाबेस एग्नोस्टिक",
+      "description": "Kysely क्वेरी बिल्डर के माध्यम से PostgreSQL, MySQL और SQLite के साथ निर्बाध रूप से कार्य करता है"
+    },
+    "emailAgnostic": {
+      "title": "ईमेल प्रदाता एग्नोस्टिक",
+      "description": "प्लग करने योग्य ईमेल प्रदाता - विकास के लिए कंसोल, उत्पादन के लिए Resend, या अपना स्वयं का लाएं"
+    },
+    "productionReady": {
+      "title": "प्रोडक्शन रेडी",
+      "description": "ईमेल सत्यापन, पासवर्ड रीसेट, रेट लिमिटिंग (मेमोरी/Redis), अकाउंट लॉकआउट और सेशन प्रबंधन"
+    },
+    "openApiDocs": {
+      "title": "OpenAPI दस्तावेज़",
+      "description": "आसान एकीकरण के लिए इंटरैक्टिव Scalar UI के साथ ऑटो-जेनरेटेड API दस्तावेज़"
+    },
+    "dockerReady": {
+      "title": "डॉकर रेडी",
+      "description": "सुरक्षा सर्वोत्तम प्रथाओं और डॉकर कंपोज़ कॉन्फ़िगरेशन के साथ मल्टी-स्टेज Dockerfile"
+    },
+    "sdks": {
+      "title": "React और Vue SDK",
+      "description": "निर्बाध एकीकरण के लिए React hooks और Vue composables के साथ कुकी-जागरूक प्रमाणीकरण प्रवाह"
+    },
+    "hexagonal": {
+      "title": "हेक्सागोनल आर्किटेक्चर",
+      "description": "कोर में शून्य निर्भरता के साथ व्यावसायिक तर्क और बुनियादी ढांचे के बीच स्पष्ट पृथक्करण"
+    }
+  },
+  "code": {
+    "title": "सरल एकीकरण",
+    "description": "बस कुछ ही लाइनों के कोड के साथ शुरू करें",
+    "installation": "इंस्टॉलेशन",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "कॉपी",
+    "copied": "कॉपी हो गया!"
+  },
+  "demo": {
+    "title": "लाइव आज़माएं",
+    "description": "हमारे इंटरैक्टिव डेमो के साथ FortressAuth का अनुभव करें",
+    "tryNow": "अभी डेमो आज़माएं"
+  },
+  "resources": {
+    "title": "संसाधन और दस्तावेज़",
+    "apiDocs": {
+      "title": "API दस्तावेज़",
+      "description": "इंटरैक्टिव उदाहरणों के साथ पूर्ण API संदर्भ"
+    },
+    "quickStart": {
+      "title": "क्विक स्टार्ट गाइड",
+      "description": "मिनटों में सेटअप करें"
+    },
+    "examples": {
+      "title": "कोड उदाहरण",
+      "description": "React, Vue और Node.js एकीकरण उदाहरण"
+    },
+    "contributing": {
+      "title": "योगदान",
+      "description": "FortressAuth को बेहतर बनाने में हमारी सहायता करें"
+    }
+  },
+  "examples": {
+    "title": "एकीकरण उदाहरण",
+    "subtitle": "अपने एकीकरण को शुरू करने के लिए कार्यशील उदाहरण देखें",
+    "viewCode": "कोड देखें",
+    "viewDemo": "लाइव डेमो",
+    "basic-usage": {
+      "title": "बेसिक सर्वर",
+      "description": "SQLite डेटाबेस, सेशन प्रबंधन और ईमेल सत्यापन के साथ पूर्ण Node.js सर्वर उदाहरण।"
+    },
+    "web-react": {
+      "title": "React वेब ऐप",
+      "description": "@fortressauth/react-sdk का उपयोग करने वाला पूर्ण React एप्लिकेशन।"
+    },
+    "web-vue": {
+      "title": "Vue वेब ऐप",
+      "description": "प्रमाणीकरण स्थिति के लिए composables के साथ Vue 3 एप्लिकेशन।"
+    },
+    "web-svelte": {
+      "title": "Svelte वेब ऐप",
+      "description": "प्रमाणीकरण स्थिति के साथ Svelte 5 एप्लिकेशन।"
+    },
+    "web-angular": {
+      "title": "Angular वेब ऐप",
+      "description": "प्रमाणीकरण स्थिति और RxJS एकीकरण के साथ Angular एप्लिकेशन।"
+    }
+  },
+  "codeShowcase": {
+    "title": "डेवलपर अनुभव पहले",
+    "subtitle": "साफ़, टाइप-सुरक्षित API जो प्रमाणीकरण को आसान बनाते हैं",
+    "tabs": {
+      "quickStart": "क्विक स्टार्ट",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "त्वरित एकीकरण",
+      "secure": "डिफ़ॉल्ट रूप से सुरक्षित",
+      "typed": "पूरी तरह से टाइप किया हुआ"
+    }
+  },
+  "documentation": {
+    "title": "API दस्तावेज़",
+    "subtitle": "OpenAPI विनिर्देश द्वारा संचालित इंटरैक्टिव API संदर्भ",
+    "openFullDocs": "नए टैब में खोलें",
+    "serverNotRunning": "API सर्वर नहीं चल रहा है",
+    "fallbackMessage": "इंटरैक्टिव API दस्तावेज़ देखने के लिए FortressAuth सर्वर शुरू करें:",
+    "viewServerDocs": "सर्वर दस्तावेज़ देखें",
+    "openDocs": "दस्तावेज़ खोलें"
+  },
+  "footer": {
+    "tagline": "हेक्सागोनल आर्किटेक्चर के साथ निर्मित • कोर में बुनियादी ढांचे पर कोई निर्भरता नहीं",
+    "copyright": "© 2024 FortressAuth. MIT लाइसेंस।",
+    "links": {
+      "documentation": "दस्तावेज़",
+      "apiReference": "API संदर्भ",
+      "examples": "उदाहरण",
+      "contributing": "योगदान",
+      "github": "GitHub",
+      "license": "लाइसेंस"
+    }
+  }
+}

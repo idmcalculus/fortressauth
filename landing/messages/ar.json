@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "features": "المميزات",
+    "docs": "التوثيق",
+    "examples": "الأمثلة",
+    "pricing": "الأسعار",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "مصادقة آمنة افتراضياً",
+    "description": "مكتبة مصادقة جاهزة للإنتاج مبنية بلغة TypeScript وبنية سداسية. مستقلة عن قاعدة البيانات، ومستقلة عن مزود البريد الإلكتروني، وآمنة افتراضياً.",
+    "getStarted": "ابدأ الآن",
+    "viewDocs": "عرض التوثيق",
+    "tryDemo": "جرب العرض التجريبي"
+  },
+  "features": {
+    "title": "مبني للأمان والمرونة",
+    "secureByDefault": {
+      "title": "آمن افتراضياً",
+      "description": "تشفير كلمات المرور باستخدام Argon2id بمعايير موصى بها من OWASP، ورموز جلسات مقسمة، ومنع هجمات التوقيت"
+    },
+    "databaseAgnostic": {
+      "title": "مستقل عن قاعدة البيانات",
+      "description": "يعمل بسلاسة مع PostgreSQL و MySQL و SQLite عبر منشئ الاستعلامات Kysely"
+    },
+    "emailAgnostic": {
+      "title": "مستقل عن مزود البريد",
+      "description": "مزودو بريد إلكتروني قابلون للتوصيل - وحدة تحكم للتطوير، Resend للإنتاج، أو استخدم مزودك الخاص"
+    },
+    "productionReady": {
+      "title": "جاهز للإنتاج",
+      "description": "التحقق من البريد الإلكتروني، إعادة تعيين كلمة المرور، تحديد معدل الطلبات (memory/Redis)، قفل الحساب، وإدارة الجلسات"
+    },
+    "openApiDocs": {
+      "title": "توثيق OpenAPI",
+      "description": "توثيق API يتم إنشاؤه تلقائياً مع واجهة Scalar تفاعلية لسهولة التكامل"
+    },
+    "dockerReady": {
+      "title": "جاهز لـ Docker",
+      "description": "ملف Dockerfile متعدد المراحل مع أفضل ممارسات الأمان وإعدادات Docker Compose"
+    },
+    "sdks": {
+      "title": "SDK لـ React و Vue",
+      "description": "عمليات مصادقة تدعم الكوكيز مع React hooks و Vue composables لتكامل سلس"
+    },
+    "hexagonal": {
+      "title": "البنية السداسية",
+      "description": "فصل تام بين منطق العمل والبنية التحتية مع انعدام التبعيات في القلب"
+    }
+  },
+  "code": {
+    "title": "تكامل بسيط",
+    "description": "ابدأ ببضعة أسطر من الكود فقط",
+    "installation": "التثبيت",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "نسخ",
+    "copied": "تم النسخ!"
+  },
+  "demo": {
+    "title": "جربه الآن",
+    "description": "اختبر FortressAuth بشكل حي من خلال عرضنا التفاعلي",
+    "tryNow": "جرب العرض التجريبي الآن"
+  },
+  "resources": {
+    "title": "الموارد والتوثيق",
+    "apiDocs": {
+      "title": "توثيق الـ API",
+      "description": "مرجع API كامل مع أمثلة تفاعلية"
+    },
+    "quickStart": {
+      "title": "دليل البدء السريع",
+      "description": "ابدأ العمل في دقائق معدودة"
+    },
+    "examples": {
+      "title": "أمثلة الكود",
+      "description": "أمثلة تكامل لـ React و Vue و Node.js"
+    },
+    "contributing": {
+      "title": "المساهمة",
+      "description": "ساعدنا في تحسين FortressAuth"
+    }
+  },
+  "examples": {
+    "title": "أمثلة التكامل",
+    "subtitle": "استكشف أمثلة حية لتسريع عملية التكامل الخاصة بك",
+    "viewCode": "عرض الكود",
+    "viewDemo": "عرض حي",
+    "basic-usage": {
+      "title": "خادم أساسي",
+      "description": "مثال كامل لخادم Node.js مع قاعدة بيانات SQLite، وإدارة الجلسات، والتحقق من البريد الإلكتروني."
+    },
+    "web-react": {
+      "title": "تطبيق ويب React",
+      "description": "تطبيق React كامل يستخدم @fortressauth/react-sdk مع auth hooks ومسارات محمية."
+    },
+    "web-vue": {
+      "title": "تطبيق ويب Vue",
+      "description": "تطبيق Vue 3 مع composables لحالة المصادقة وتكامل سلس."
+    },
+    "web-svelte": {
+      "title": "تطبيق ويب Svelte",
+      "description": "تطبيق Svelte 5 مع حالة المصادقة وتكامل سلس."
+    },
+    "web-angular": {
+      "title": "تطبيق ويب Angular",
+      "description": "تطبيق Angular مع حالة المصادقة وتكامل RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "تجربة المطور أولاً",
+    "subtitle": "واجهات برمجة تطبيقات نظيفة وآمنة تجعل المصادقة أمراً سهلاً",
+    "tabs": {
+      "quickStart": "بدء سريع",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "تكامل سريع",
+      "secure": "آمن افتراضياً",
+      "typed": "مدعوم بالأنواع بالكامل"
+    }
+  },
+  "documentation": {
+    "title": "توثيق الـ API",
+    "subtitle": "مرجع API تفاعلي مدعوم بمواصفات OpenAPI",
+    "openFullDocs": "فتح في علامة تبويب جديدة",
+    "serverNotRunning": "خادم الـ API لا يعمل",
+    "fallbackMessage": "ابدأ خادم FortressAuth لعرض توثيق الـ API التفاعلي:",
+    "viewServerDocs": "عرض توثيق الخادم",
+    "openDocs": "افتح التوثيق"
+  },
+  "footer": {
+    "tagline": "مبني بالبنية السداسية • انعدام تبعيات البنية التحتية في القلب",
+    "copyright": "© 2024 FortressAuth. رخصة MIT.",
+    "links": {
+      "documentation": "التوثيق",
+      "apiReference": "مرجع الـ API",
+      "examples": "الأمثلة",
+      "contributing": "المساهمة",
+      "github": "GitHub",
+      "license": "الرخصة"
+    }
+  }
+}

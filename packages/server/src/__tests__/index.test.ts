@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { type Database as DatabaseSchema, down, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import { type EmailProviderPort, FortressAuth, MemoryRateLimiter } from '@fortressauth/core';
 import Database from 'better-sqlite3';
@@ -20,6 +21,9 @@ interface UserPayload {
     createdAt: string;
   };
 }
+
+const CSRF_COOKIE_NAME = 'fortress_csrf';
+const CSRF_HEADER_NAME = 'x-csrf-token';
 
 class TestEmailProvider implements EmailProviderPort {
   verificationTokens: string[] = [];
@@ -90,7 +94,47 @@ function createTestApp() {
     });
   }
 
+  function setCsrfCookie(c: Parameters<typeof setCookie>[0], token: string): void {
+    setCookie(c, CSRF_COOKIE_NAME, token, {
+      httpOnly: false,
+      secure: false,
+      sameSite: 'Lax',
+      path: '/',
+      maxAge: 2 * 60 * 60,
+    });
+  }
+
+  function generateCsrfToken(): string {
+    return randomBytes(32).toString('hex');
+  }
+
+  function isValidCsrfToken(headerToken: string, cookieToken: string): boolean {
+    const headerBuffer = Buffer.from(headerToken);
+    const cookieBuffer = Buffer.from(cookieToken);
+    if (headerBuffer.length !== cookieBuffer.length) {
+      return false;
+    }
+    return timingSafeEqual(headerBuffer, cookieBuffer);
+  }
+
   const respond = <T>(data: T) => ({ success: true, data });
+
+  app.use('/auth/*', async (c, next) => {
+    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+      const headerToken = c.req.header(CSRF_HEADER_NAME);
+      const cookieToken = getCookie(c, CSRF_COOKIE_NAME);
+      if (!headerToken || !cookieToken || !isValidCsrfToken(headerToken, cookieToken)) {
+        return c.json({ success: false, error: 'CSRF_TOKEN_INVALID' }, 403);
+      }
+    }
+    await next();
+  });
+
+  app.get('/auth/csrf', (c) => {
+    const token = generateCsrfToken();
+    setCsrfCookie(c, token);
+    return c.json(respond({ csrfToken: token }));
+  });
 
   app.post('/auth/signup', async (c) => {
     const body = await c.req.json();
@@ -204,6 +248,8 @@ describe('Server API', () => {
   let emailProvider: TestEmailProvider;
   let verificationToken: string | null = null;
   let resetToken: string | null = null;
+  let csrfToken: string | null = null;
+  let csrfCookie: string | null = null;
 
   beforeAll(async () => {
     const testApp = createTestApp();
@@ -212,6 +258,16 @@ describe('Server API', () => {
     sqlite = testApp.sqlite;
     emailProvider = testApp.emailProvider;
     await up(db);
+
+    const csrfRes = await app.request('/auth/csrf');
+    const csrfBody = (await csrfRes.json()) as ApiResponse<{ csrfToken: string }>;
+    csrfToken = csrfBody.data?.csrfToken ?? null;
+    const cookieHeader = csrfRes.headers.get('set-cookie');
+    csrfCookie = cookieHeader?.split(';')[0] ?? null;
+
+    if (!csrfToken || !csrfCookie) {
+      throw new Error('Failed to initialize CSRF test context');
+    }
   });
 
   afterAll(async () => {
@@ -220,10 +276,29 @@ describe('Server API', () => {
     sqlite.close();
   });
 
-  it('should signup and send verification email', async () => {
+  const csrfHeaders = () => ({
+    'Content-Type': 'application/json',
+    [CSRF_HEADER_NAME]: csrfToken ?? '',
+    Cookie: csrfCookie ?? '',
+  });
+
+  it('should reject signup without CSRF token', async () => {
     const res = await app.request('/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'nocrsf@example.com', password: 'SecurePass123!' }),
+    });
+
+    const body = (await res.json()) as ApiResponse<UserPayload>;
+    expect(res.status).toBe(403);
+    expect(body.success).toBe(false);
+    expect(body.error).toBe('CSRF_TOKEN_INVALID');
+  });
+
+  it('should signup and send verification email', async () => {
+    const res = await app.request('/auth/signup', {
+      method: 'POST',
+      headers: csrfHeaders(),
       body: JSON.stringify({ email: 'newuser@example.com', password: 'SecurePass123!' }),
     });
 
@@ -237,7 +312,7 @@ describe('Server API', () => {
   it('should verify email', async () => {
     const res = await app.request('/auth/verify-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders(),
       body: JSON.stringify({ token: verificationToken }),
     });
 
@@ -249,7 +324,7 @@ describe('Server API', () => {
   it('should login after verification and return cookie', async () => {
     const res = await app.request('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders(),
       body: JSON.stringify({ email: 'newuser@example.com', password: 'SecurePass123!' }),
     });
 
@@ -270,7 +345,7 @@ describe('Server API', () => {
   it('should request password reset and capture token', async () => {
     const res = await app.request('/auth/request-password-reset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders(),
       body: JSON.stringify({ email: 'newuser@example.com' }),
     });
 
@@ -284,7 +359,7 @@ describe('Server API', () => {
   it('should reset password and allow login with new password', async () => {
     const res = await app.request('/auth/reset-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders(),
       body: JSON.stringify({ token: resetToken, newPassword: 'NewStrongPass!234' }),
     });
 
@@ -294,7 +369,7 @@ describe('Server API', () => {
 
     const loginRes = await app.request('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: csrfHeaders(),
       body: JSON.stringify({ email: 'newuser@example.com', password: 'NewStrongPass!234' }),
     });
 

@@ -4,12 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "node index.js"
+    "dev": "tsx index.ts",
+    "lint": "biome check ."
   },
   "dependencies": {
     "@fortressauth/core": "workspace:*",
     "@fortressauth/adapter-sql": "workspace:*",
     "better-sqlite3": "^12.5.0",
-    "kysely": "^0.28.8"
+    "kysely": "^0.28.9"
   }
 }

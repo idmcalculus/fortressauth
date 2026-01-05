@@ -12,12 +12,37 @@ const SESSION_DEFAULTS = {
   cookieDomain: undefined as string | undefined,
 };
 
+const BREACHED_PASSWORD_DEFAULTS = {
+  enabled: false,
+  apiUrl: 'https://api.pwnedpasswords.com',
+  timeoutMs: 5000,
+};
+
 const PASSWORD_DEFAULTS = {
   minLength: 8,
   maxLength: 128,
+  breachedCheck: BREACHED_PASSWORD_DEFAULTS,
 };
 
 const RATE_LIMIT_LOGIN_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
+const RATE_LIMIT_SIGNUP_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
+const RATE_LIMIT_PASSWORD_RESET_DEFAULTS = {
+  maxTokens: 5,
+  refillRateMs: 3 * 60 * 1000, // 3 minutes
+  windowMs: 15 * 60 * 1000, // 15 minutes
+};
+
+const RATE_LIMIT_VERIFY_EMAIL_DEFAULTS = {
   maxTokens: 5,
   refillRateMs: 3 * 60 * 1000, // 3 minutes
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -27,6 +52,9 @@ const RATE_LIMIT_DEFAULTS = {
   enabled: true,
   backend: 'memory' as const,
   login: RATE_LIMIT_LOGIN_DEFAULTS,
+  signup: RATE_LIMIT_SIGNUP_DEFAULTS,
+  passwordReset: RATE_LIMIT_PASSWORD_RESET_DEFAULTS,
+  verifyEmail: RATE_LIMIT_VERIFY_EMAIL_DEFAULTS,
 };
 
 const LOCKOUT_DEFAULTS = {
@@ -41,6 +69,7 @@ const EMAIL_VERIFICATION_DEFAULTS = {
 
 const PASSWORD_RESET_DEFAULTS = {
   ttlMs: 60 * 60 * 1000, // 1 hour
+  maxActiveTokens: 3,
 };
 
 const URL_DEFAULTS = {
@@ -64,40 +93,65 @@ const SessionConfigSchema = z
   }))
   .openapi('SessionConfig');
 
+const BreachedPasswordConfigSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    apiUrl: z.url().optional(),
+    timeoutMs: z.number().positive().optional(),
+  })
+  .transform((val) => ({
+    enabled: val.enabled ?? BREACHED_PASSWORD_DEFAULTS.enabled,
+    apiUrl: val.apiUrl ?? BREACHED_PASSWORD_DEFAULTS.apiUrl,
+    timeoutMs: val.timeoutMs ?? BREACHED_PASSWORD_DEFAULTS.timeoutMs,
+  }))
+  .openapi('BreachedPasswordConfig');
+
 const PasswordConfigSchema = z
   .object({
     minLength: z.number().min(8).optional(),
     maxLength: z.number().max(128).optional(),
+    breachedCheck: BreachedPasswordConfigSchema.optional(),
   })
   .transform((val) => ({
     minLength: val.minLength ?? PASSWORD_DEFAULTS.minLength,
     maxLength: val.maxLength ?? PASSWORD_DEFAULTS.maxLength,
+    breachedCheck: val.breachedCheck ?? PASSWORD_DEFAULTS.breachedCheck,
   }))
   .openapi('PasswordConfig');
 
-const RateLimitLoginConfigSchema = z
+const RateLimitActionConfigSchema = z
   .object({
     maxTokens: z.number().positive().optional(),
     refillRateMs: z.number().positive().optional(),
     windowMs: z.number().positive().optional(),
   })
-  .transform((val) => ({
-    maxTokens: val.maxTokens ?? RATE_LIMIT_LOGIN_DEFAULTS.maxTokens,
-    refillRateMs: val.refillRateMs ?? RATE_LIMIT_LOGIN_DEFAULTS.refillRateMs,
-    windowMs: val.windowMs ?? RATE_LIMIT_LOGIN_DEFAULTS.windowMs,
-  }))
-  .openapi('RateLimitLoginConfig');
+  .openapi('RateLimitActionConfig');
+
+const applyRateLimitDefaults = (
+  value: z.input<typeof RateLimitActionConfigSchema> | undefined,
+  defaults: { maxTokens: number; refillRateMs: number; windowMs: number },
+) => ({
+  maxTokens: value?.maxTokens ?? defaults.maxTokens,
+  refillRateMs: value?.refillRateMs ?? defaults.refillRateMs,
+  windowMs: value?.windowMs ?? defaults.windowMs,
+});
 
 const RateLimitConfigSchema = z
   .object({
     enabled: z.boolean().optional(),
     backend: z.enum(['memory', 'redis']).optional(),
-    login: RateLimitLoginConfigSchema.optional(),
+    login: RateLimitActionConfigSchema.optional(),
+    signup: RateLimitActionConfigSchema.optional(),
+    passwordReset: RateLimitActionConfigSchema.optional(),
+    verifyEmail: RateLimitActionConfigSchema.optional(),
   })
   .transform((val) => ({
     enabled: val.enabled ?? RATE_LIMIT_DEFAULTS.enabled,
     backend: val.backend ?? RATE_LIMIT_DEFAULTS.backend,
-    login: val.login ?? RATE_LIMIT_DEFAULTS.login,
+    login: applyRateLimitDefaults(val.login, RATE_LIMIT_LOGIN_DEFAULTS),
+    signup: applyRateLimitDefaults(val.signup, RATE_LIMIT_SIGNUP_DEFAULTS),
+    passwordReset: applyRateLimitDefaults(val.passwordReset, RATE_LIMIT_PASSWORD_RESET_DEFAULTS),
+    verifyEmail: applyRateLimitDefaults(val.verifyEmail, RATE_LIMIT_VERIFY_EMAIL_DEFAULTS),
   }))
   .openapi('RateLimitConfig');
 
@@ -126,15 +180,17 @@ const EmailVerificationConfigSchema = z
 const PasswordResetConfigSchema = z
   .object({
     ttlMs: z.number().positive().optional(),
+    maxActiveTokens: z.number().int().positive().optional(),
   })
   .transform((val) => ({
     ttlMs: val.ttlMs ?? PASSWORD_RESET_DEFAULTS.ttlMs,
+    maxActiveTokens: val.maxActiveTokens ?? PASSWORD_RESET_DEFAULTS.maxActiveTokens,
   }))
   .openapi('PasswordResetConfig');
 
 const UrlConfigSchema = z
   .object({
-    baseUrl: z.string().url().optional(),
+    baseUrl: z.url().optional(),
   })
   .transform((val) => ({
     baseUrl: val.baseUrl ?? URL_DEFAULTS.baseUrl,
@@ -164,3 +220,4 @@ export const FortressConfigSchema = z
 
 export type FortressConfig = z.infer<typeof FortressConfigSchema>;
 export type FortressConfigInput = z.input<typeof FortressConfigSchema>;
+export type BreachedPasswordConfig = z.infer<typeof BreachedPasswordConfigSchema>;

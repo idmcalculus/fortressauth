@@ -1,0 +1,8 @@
+/**
+ * FortressAuth Angular Example - App Styles
+ * Imports shared design system and adds any Angular-specific overrides.
+ */
+
+@import "../../shared/styles/index.css";
+
+/* Angular-specific styles can be added below if needed */

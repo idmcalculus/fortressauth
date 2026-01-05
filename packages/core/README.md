@@ -7,7 +7,7 @@ Secure-by-default, database-agnostic authentication library built with hexagonal
 - Secure by Default: Argon2id password hashing, SHA-256 session tokens, timing-attack prevention
 - Hexagonal Architecture: Clean separation of business logic from infrastructure
 - Database Agnostic: Works with any database through adapter pattern
-- Email Provider Agnostic: Pluggable email providers (console, Resend, or custom)
+- Email Provider Agnostic: Pluggable email providers (console, Resend, SES, SendGrid, SMTP, or custom)
 - Type Safe: Built with TypeScript 5.7+ in strict mode
 - Zero Dependencies: Core logic has minimal dependencies
 - Rate Limiting: Built-in token bucket rate limiter

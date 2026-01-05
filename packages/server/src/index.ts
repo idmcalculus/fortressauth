@@ -1,5 +1,7 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import {
+  type AuthErrorCode,
   FortressAuth,
   type FortressConfigInput,
   FortressConfigSchema,
@@ -18,10 +20,14 @@ import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { createEmailProvider } from './email-provider.js';
 import { env } from './env.js';
+import { ErrorResponseFactory } from './errors/error-response-factory.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
 const VERSION = '0.1.9';
+
+// Initialize error response factory based on NODE_ENV
+const errorFactory = new ErrorResponseFactory();
 
 if (env.METRICS_ENABLED) {
   collectDefaultMetrics({ register: metricsRegistry, prefix: 'fortress_' });
@@ -75,6 +81,13 @@ const fortressConfigInput: FortressConfigInput = {
     cookieSameSite: env.COOKIE_SAMESITE,
     cookieDomain: env.COOKIE_DOMAIN,
   },
+  password: {
+    breachedCheck: {
+      enabled: env.BREACHED_PASSWORD_CHECK,
+      apiUrl: env.BREACHED_PASSWORD_API_URL,
+      timeoutMs: env.BREACHED_PASSWORD_TIMEOUT_MS,
+    },
+  },
   rateLimit: {
     backend: env.REDIS_URL ? 'redis' : 'memory',
   },
@@ -91,14 +104,43 @@ let rateLimiter: RateLimiterPort;
 if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
   redisClient = new Redis(env.REDIS_URL);
   rateLimiter = new RedisRateLimiter(redisClient, {
-    actions: { login: resolvedConfig.rateLimit.login },
+    actions: {
+      login: resolvedConfig.rateLimit.login,
+      signup: resolvedConfig.rateLimit.signup,
+      passwordReset: resolvedConfig.rateLimit.passwordReset,
+      verifyEmail: resolvedConfig.rateLimit.verifyEmail,
+    },
   });
 } else {
-  rateLimiter = new MemoryRateLimiter({ login: resolvedConfig.rateLimit.login });
+  rateLimiter = new MemoryRateLimiter({
+    login: resolvedConfig.rateLimit.login,
+    signup: resolvedConfig.rateLimit.signup,
+    passwordReset: resolvedConfig.rateLimit.passwordReset,
+    verifyEmail: resolvedConfig.rateLimit.verifyEmail,
+  });
 }
 
 // Initialize FortressAuth
 const repository = new SqlAdapter(db, { dialect });
+const sesCredentials =
+  env.SES_ACCESS_KEY_ID && env.SES_SECRET_ACCESS_KEY
+    ? {
+        accessKeyId: env.SES_ACCESS_KEY_ID,
+        secretAccessKey: env.SES_SECRET_ACCESS_KEY,
+        ...(env.SES_SESSION_TOKEN ? { sessionToken: env.SES_SESSION_TOKEN } : {}),
+      }
+    : undefined;
+const smtpAuth =
+  env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined;
+const smtpTls =
+  env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined || env.SMTP_TLS_SERVERNAME
+    ? {
+        ...(env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined
+          ? { rejectUnauthorized: env.SMTP_TLS_REJECT_UNAUTHORIZED }
+          : {}),
+        ...(env.SMTP_TLS_SERVERNAME ? { servername: env.SMTP_TLS_SERVERNAME } : {}),
+      }
+    : undefined;
 const emailProvider = createEmailProvider({
   provider: env.EMAIL_PROVIDER,
   resend:
@@ -107,6 +149,35 @@ const emailProvider = createEmailProvider({
           apiKey: env.RESEND_API_KEY,
           fromEmail: env.EMAIL_FROM_ADDRESS,
           fromName: env.EMAIL_FROM_NAME,
+        }
+      : undefined,
+  ses:
+    env.SES_REGION && env.SES_FROM_ADDRESS
+      ? {
+          region: env.SES_REGION,
+          fromEmail: env.SES_FROM_ADDRESS,
+          ...(env.SES_FROM_NAME ? { fromName: env.SES_FROM_NAME } : {}),
+          ...(sesCredentials ? { credentials: sesCredentials } : {}),
+        }
+      : undefined,
+  sendgrid:
+    env.SENDGRID_API_KEY && env.SENDGRID_FROM_ADDRESS
+      ? {
+          apiKey: env.SENDGRID_API_KEY,
+          fromEmail: env.SENDGRID_FROM_ADDRESS,
+          fromName: env.SENDGRID_FROM_NAME,
+        }
+      : undefined,
+  smtp:
+    env.SMTP_HOST && env.SMTP_PORT && env.SMTP_FROM_ADDRESS
+      ? {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_SECURE,
+          ...(smtpAuth ? { auth: smtpAuth } : {}),
+          ...(smtpTls ? { tls: smtpTls } : {}),
+          fromEmail: env.SMTP_FROM_ADDRESS,
+          ...(env.SMTP_FROM_NAME ? { fromName: env.SMTP_FROM_NAME } : {}),
         }
       : undefined,
 });
@@ -119,9 +190,20 @@ const app = new Hono();
 
 // Middleware
 app.use('*', logger());
-app.use('*', secureHeaders());
+// Configure security headers - allow iframe embedding for docs from localhost
+app.use(
+  '*',
+  secureHeaders({
+    xFrameOptions: false, // Disable X-Frame-Options to allow embedding in iframe
+    contentSecurityPolicy: {
+      frameAncestors: ["'self'", 'http://localhost:*', 'http://0.0.0.0:*'],
+    },
+  }),
+);
 const allowedOrigins = env.CORS_ORIGINS ?? [
   new URL(env.BASE_URL).origin,
+  'http://localhost:3000',
+  'http://localhost:3001',
   'http://localhost:5173',
   'http://localhost:5174',
   'http://0.0.0.0:5173',
@@ -138,6 +220,21 @@ app.use(
     credentials: true,
   }),
 );
+
+app.use('/auth/*', async (c, next) => {
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
+    const headerToken = c.req.header(env.CSRF_HEADER_NAME);
+    const cookieToken = getCookie(c, env.CSRF_COOKIE_NAME);
+    if (!headerToken || !cookieToken || !isValidCsrfToken(headerToken, cookieToken)) {
+      const { response, status } = createError(
+        'CSRF_TOKEN_INVALID',
+        'Missing or invalid CSRF token',
+      );
+      return c.json(response, status);
+    }
+  }
+  return next();
+});
 
 // Health check
 app.get('/health', async (c) => {
@@ -205,6 +302,17 @@ function getSameSite(): 'Strict' | 'Lax' | 'None' {
   }
 }
 
+function getCsrfSameSite(): 'Strict' | 'Lax' | 'None' {
+  switch (env.CSRF_COOKIE_SAMESITE) {
+    case 'strict':
+      return 'Strict';
+    case 'none':
+      return 'None';
+    default:
+      return 'Lax';
+  }
+}
+
 // Helper to set session cookie
 function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): void {
   const cookieOptions: {
@@ -227,6 +335,28 @@ function setSessionCookie(c: Parameters<typeof setCookie>[0], token: string): vo
   setCookie(c, config.session.cookieName, token, cookieOptions);
 }
 
+function setCsrfCookie(c: Parameters<typeof setCookie>[0], token: string): void {
+  const cookieOptions: {
+    httpOnly: false;
+    secure: boolean;
+    sameSite: 'Strict' | 'Lax' | 'None';
+    domain?: string;
+    path: string;
+    maxAge: number;
+  } = {
+    httpOnly: false,
+    secure: env.CSRF_COOKIE_SECURE,
+    sameSite: getCsrfSameSite(),
+    path: '/',
+    maxAge: Math.floor(env.CSRF_TOKEN_TTL_MS / 1000),
+  };
+  const domain = env.CSRF_COOKIE_DOMAIN ?? config.session.cookieDomain;
+  if (domain) {
+    cookieOptions.domain = domain;
+  }
+  setCookie(c, env.CSRF_COOKIE_NAME, token, cookieOptions);
+}
+
 // Helper to clear session cookie
 function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
   const cookieOptions: {
@@ -247,9 +377,30 @@ function clearSessionCookie(c: Parameters<typeof deleteCookie>[0]): void {
   deleteCookie(c, config.session.cookieName, cookieOptions);
 }
 
+function generateCsrfToken(): string {
+  return randomBytes(32).toString('hex');
+}
+
+function isValidCsrfToken(headerToken: string, cookieToken: string): boolean {
+  const headerBuffer = Buffer.from(headerToken);
+  const cookieBuffer = Buffer.from(cookieToken);
+  if (headerBuffer.length !== cookieBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(headerBuffer, cookieBuffer);
+}
+
 // Unified success response helper
 function success<T>(data: T) {
   return { success: true, data };
+}
+
+// Unified error response helper using ErrorResponseFactory
+function createError(errorCode: AuthErrorCode, details?: string, error?: Error) {
+  return {
+    response: errorFactory.createErrorResponse(errorCode, details, error),
+    status: errorFactory.getHttpStatus(errorCode) as 400 | 401 | 403 | 410 | 429 | 500,
+  };
 }
 
 // Auth routes
@@ -267,8 +418,8 @@ app.post('/auth/signup', async (c) => {
     });
 
     if (!result.success) {
-      const statusCode = result.error === 'RATE_LIMIT_EXCEEDED' ? 429 : 400;
-      return c.json({ success: false, error: result.error }, statusCode);
+      const { response, status } = createError(result.error, `Signup failed for ${body.email}`);
+      return c.json(response, status);
     }
 
     const { user, token } = result.data;
@@ -286,7 +437,12 @@ app.post('/auth/signup', async (c) => {
     );
   } catch (error) {
     console.error('Signup error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during signup',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -304,15 +460,8 @@ app.post('/auth/login', async (c) => {
     });
 
     if (!result.success) {
-      const statusCode =
-        result.error === 'RATE_LIMIT_EXCEEDED'
-          ? 429
-          : result.error === 'INVALID_CREDENTIALS' || result.error === 'ACCOUNT_LOCKED'
-            ? 401
-            : result.error === 'EMAIL_NOT_VERIFIED'
-              ? 403
-              : 400;
-      return c.json({ success: false, error: result.error }, statusCode);
+      const { response, status } = createError(result.error, `Login failed for ${body.email}`);
+      return c.json(response, status);
     }
 
     const { user, token } = result.data;
@@ -330,7 +479,12 @@ app.post('/auth/login', async (c) => {
     );
   } catch (error) {
     console.error('Login error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during login',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -346,7 +500,12 @@ app.post('/auth/logout', async (c) => {
     return c.json({ success: true });
   } catch (error) {
     console.error('Logout error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during logout',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -355,13 +514,15 @@ app.get('/auth/me', async (c) => {
     const token = getCookie(c, config.session.cookieName);
 
     if (!token) {
-      return c.json({ success: false, error: 'SESSION_INVALID' }, 401);
+      const { response, status } = createError('SESSION_INVALID', 'No session token provided');
+      return c.json(response, status);
     }
 
     const result = await fortress.validateSession(token);
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 401);
+      const { response, status } = createError(result.error, 'Session validation failed');
+      return c.json(response, status);
     }
 
     const { user } = result.data;
@@ -378,29 +539,45 @@ app.get('/auth/me', async (c) => {
     );
   } catch (error) {
     console.error('Me error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error fetching user',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
+});
+
+app.get('/auth/csrf', (c) => {
+  const token = generateCsrfToken();
+  setCsrfCookie(c, token);
+  return c.json(success({ csrfToken: token }));
 });
 
 app.post('/auth/verify-email', async (c) => {
   try {
     const body = await c.req.json();
-    const result = await fortress.verifyEmail(body.token);
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
+    const result = await fortress.verifyEmail(body.token, {
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
+    });
 
     if (!result.success) {
-      const status =
-        result.error === 'EMAIL_VERIFICATION_EXPIRED'
-          ? 410
-          : result.error === 'EMAIL_VERIFICATION_INVALID'
-            ? 400
-            : 400;
-      return c.json({ success: false, error: result.error }, status);
+      const { response, status } = createError(result.error, 'Email verification failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ verified: true }));
   } catch (error) {
     console.error('Verify email error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during email verification',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -410,38 +587,48 @@ app.post('/auth/request-password-reset', async (c) => {
     const result = await fortress.requestPasswordReset(body.email);
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      const { response, status } = createError(result.error, 'Password reset request failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ requested: true }));
   } catch (error) {
     console.error('Request password reset error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during password reset request',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
 app.post('/auth/reset-password', async (c) => {
   try {
     const body = await c.req.json();
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
     const result = await fortress.resetPassword({
       token: body.token,
       newPassword: body.newPassword,
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
     });
 
     if (!result.success) {
-      const status =
-        result.error === 'PASSWORD_RESET_EXPIRED'
-          ? 410
-          : result.error === 'PASSWORD_TOO_WEAK'
-            ? 400
-            : 400;
-      return c.json({ success: false, error: result.error }, status);
+      const { response, status } = createError(result.error, 'Password reset failed');
+      return c.json(response, status);
     }
 
     return c.json(success({ reset: true }));
   } catch (error) {
     console.error('Reset password error:', error);
-    return c.json({ success: false, error: 'INTERNAL_ERROR' }, 500);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during password reset',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
   }
 });
 
@@ -459,6 +646,39 @@ function gracefulShutdown(signal: string): void {
   process.exit(0);
 }
 
+// Utility to check if a port is available
+async function isPortAvailable(port: number, hostname: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    import('node:net').then(({ createServer }) => {
+      const server = createServer();
+      server.once('error', () => resolve(false));
+      server.once('listening', () => {
+        server.close();
+        resolve(true);
+      });
+      server.listen(port, hostname);
+    });
+  });
+}
+
+// Find an available port starting from the given port
+async function findAvailablePort(startPort: number, hostname: string): Promise<number> {
+  let port = startPort;
+  const maxAttempts = 10;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    if (await isPortAvailable(port, hostname)) {
+      return port;
+    }
+    console.log(`⚠ Port ${port} is in use, trying ${port + 1}...`);
+    port++;
+  }
+
+  throw new Error(
+    `Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`,
+  );
+}
+
 // Start server if running as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Register shutdown handlers
@@ -467,17 +687,30 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   console.log(`🚀 FortressAuth server v${VERSION} starting...`);
   console.log(`📊 Database: ${env.DATABASE_URL}`);
-  console.log(`🌐 Server: http://${env.HOST}:${env.PORT}`);
-  console.log(`📖 API Docs: http://${env.HOST}:${env.PORT}/docs`);
 
-  const server = { port: env.PORT, hostname: env.HOST } as const;
+  // Find available port
+  findAvailablePort(env.PORT, env.HOST)
+    .then((availablePort) => {
+      if (availablePort !== env.PORT) {
+        console.log(
+          `⚠ Port ${env.PORT} is in use by another process, using available port ${availablePort} instead.`,
+        );
+      }
 
-  // Use @hono/node-server for Node.js runtime
-  import('@hono/node-server').then(({ serve }) => {
-    serve({
-      fetch: app.fetch,
-      port: server.port,
-      hostname: server.hostname,
+      console.log(`🌐 Server: http://${env.HOST}:${availablePort}`);
+      console.log(`📖 API Docs: http://${env.HOST}:${availablePort}/docs`);
+
+      // Use @hono/node-server for Node.js runtime
+      import('@hono/node-server').then(({ serve }) => {
+        serve({
+          fetch: app.fetch,
+          port: availablePort,
+          hostname: env.HOST,
+        });
+      });
+    })
+    .catch((error) => {
+      console.error('Failed to start server:', error);
+      process.exit(1);
     });
-  });
 }

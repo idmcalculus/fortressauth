@@ -1,0 +1,13 @@
+const proxy = new Proxy(
+  {},
+  {
+    get: (target, key) => {
+      if (key === '__esModule') {
+        return false;
+      }
+      return key;
+    },
+  },
+);
+
+export default proxy;

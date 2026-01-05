@@ -19,6 +19,24 @@ services:
       # - RESEND_API_KEY=
       # - EMAIL_FROM_ADDRESS=
       # - EMAIL_FROM_NAME=
+      # - SES_REGION=
+      # - SES_ACCESS_KEY_ID=
+      # - SES_SECRET_ACCESS_KEY=
+      # - SES_SESSION_TOKEN=
+      # - SES_FROM_ADDRESS=
+      # - SES_FROM_NAME=
+      # - SENDGRID_API_KEY=
+      # - SENDGRID_FROM_ADDRESS=
+      # - SENDGRID_FROM_NAME=
+      # - SMTP_HOST=
+      # - SMTP_PORT=
+      # - SMTP_SECURE=false
+      # - SMTP_USER=
+      # - SMTP_PASS=
+      # - SMTP_FROM_ADDRESS=
+      # - SMTP_FROM_NAME=
+      # - SMTP_TLS_REJECT_UNAUTHORIZED=false
+      # - SMTP_TLS_SERVERNAME=
     volumes:
       - fortress-data:/data
     healthcheck:

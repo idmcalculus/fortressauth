@@ -8,6 +8,17 @@ export { LoginAttempt } from './domain/entities/login-attempt.js';
 export { PasswordResetToken } from './domain/entities/password-reset-token.js';
 export { Session } from './domain/entities/session.js';
 export { User } from './domain/entities/user.js';
+export type {
+  EmailTemplate,
+  EmailTemplateParams,
+  EmailTemplateSet,
+  EmailTemplateValue,
+} from './email-templates.js';
+export {
+  DEFAULT_EMAIL_TEMPLATES,
+  mergeEmailTemplates,
+  renderEmailTemplate,
+} from './email-templates.js';
 export type { AuthResult, ResetPasswordInput, SignInInput, SignUpInput } from './fortress.js';
 export { FortressAuth } from './fortress.js';
 
@@ -40,6 +51,13 @@ export {
 export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 export { FortressConfigSchema } from './schemas/config.js';
 
+export {
+  containsControlCharacters,
+  MAX_EMAIL_LENGTH,
+  normalizeEmail,
+  validateEmailInput,
+  validatePasswordInput,
+} from './security/input-validation.js';
 // Security utilities
 export { hashPassword, verifyPassword } from './security/password.js';
 export { MemoryRateLimiter } from './security/rate-limiter.js';
@@ -53,6 +71,7 @@ export type { PasswordConfig } from './security/validation.js';
 export { validatePassword } from './security/validation.js';
 
 // Types
-export type { AuthErrorCode } from './types/errors.js';
+export type { AuthErrorCode, ErrorCodeMapping } from './types/errors.js';
+export { ERROR_CODE_MAP, getErrorCodeMapping } from './types/errors.js';
 export type { Result } from './types/result.js';
 export { err, isErr, isOk, ok } from './types/result.js';

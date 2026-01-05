@@ -28,6 +28,7 @@ export interface AuthRepository {
 
   createPasswordResetToken(token: PasswordResetToken): Promise<void>;
   findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null>;
+  findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]>;
   deletePasswordReset(id: string): Promise<void>;
 
   recordLoginAttempt(attempt: LoginAttempt): Promise<void>;
