@@ -1,11 +1,12 @@
 'use client';
 
+import { ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import styles from './Documentation.module.css';
 
-// Ports to try - 3001 first since server often falls back there when landing uses 3000
-const PORTS_TO_TRY = [3001, 3000, 3002, 3003];
+// Ports to try - server starts at 5000 and increments if port is busy (up to +10)
+const PORTS_TO_TRY = [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010];
 const BASE_URL = process.env.NEXT_PUBLIC_DOCS_URL || null;
 
 export function Documentation() {
@@ -35,7 +36,7 @@ export function Documentation() {
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          const data = await response.json();
+          const data = (await response.json()) as { status?: string };
           // Verify it's our FortressAuth server by checking the response
           if (data.status === 'ok') {
             setDocsUrl(`http://localhost:${port}/docs`);
@@ -46,9 +47,9 @@ export function Documentation() {
       } catch {}
     }
 
-    // No server found
+    // No server found - default to port 5000
     setStatus('not-found');
-    setDocsUrl(`http://localhost:3001/docs`);
+    setDocsUrl(`http://localhost:5000/docs`);
   }, []);
 
   useEffect(() => {
@@ -68,7 +69,8 @@ export function Documentation() {
               rel="noopener noreferrer"
               className={styles.externalLink}
             >
-              {t('openFullDocs')} ↗
+              {t('openFullDocs')}
+              <ExternalLink style={{ width: '16px', height: '16px', color: 'inherit' }} aria-hidden="true" />
             </a>
           )}
         </div>

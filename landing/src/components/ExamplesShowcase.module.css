@@ -1,6 +1,7 @@
 .section {
+  position: relative;
   padding: var(--spacing-4xl) 0;
-  background: var(--color-bg-secondary);
+  background: transparent;
 }
 
 .container {
@@ -29,12 +30,101 @@
   margin: 0 auto;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--spacing-xl);
+/* Carousel styles */
+.carouselWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
 }
 
+.carousel {
+  overflow: hidden;
+  flex: 1;
+  padding: var(--spacing-sm);
+  margin: calc(-1 * var(--spacing-sm));
+}
+
+.carouselContainer {
+  display: flex;
+  gap: var(--spacing-lg);
+}
+
+.carouselSlide {
+  flex: 0 0 calc(33.333% - var(--spacing-lg) * 2 / 3);
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .carouselSlide {
+    flex: 0 0 calc(50% - var(--spacing-lg) / 2);
+  }
+}
+
+/* Navigation buttons */
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.navButton:hover:not(:disabled) {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+  transform: scale(1.05);
+}
+
+.navButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.navButtonPrev,
+.navButtonNext {
+  z-index: 2;
+}
+
+/* Dots navigation */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xl);
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-border);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-base);
+}
+
+.dot:hover {
+  background: var(--color-accent);
+  transform: scale(1.2);
+}
+
+.dotActive {
+  background: var(--color-accent);
+  transform: scale(1.2);
+}
+
+/* Card styles */
 .card {
   display: flex;
   flex-direction: column;
@@ -43,6 +133,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   text-decoration: none;
+  height: 100%;
   transition:
     transform var(--transition-base),
     box-shadow var(--transition-base),
@@ -100,17 +191,6 @@
   color: var(--color-text-secondary);
 }
 
-.viewCode {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-accent);
-  transition: color var(--transition-fast);
-}
-
-.card:hover .viewCode {
-  color: var(--color-accent-dark);
-}
-
 .cardActions {
   display: flex;
   gap: var(--spacing-md);
@@ -123,16 +203,23 @@
   color: white;
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   padding: var(--spacing-sm) var(--spacing-md);
+  border: 2px solid transparent;
   border-radius: var(--radius-md);
   text-decoration: none;
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: all var(--transition-base);
 }
 
 .demoLink:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: transparent;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* When demoLink is hovered, make adjacent codeLink look filled */
+.demoLink:hover + .codeLink {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  color: white;
+  border-color: transparent;
 }
 
 .codeLink {
@@ -141,24 +228,138 @@
   color: var(--color-accent);
   text-decoration: none;
   padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--color-accent);
+  border: 2px solid var(--color-accent);
   border-radius: var(--radius-md);
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
+  background: transparent;
+  transition: all var(--transition-base);
 }
 
 .codeLink:hover {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   color: white;
+  border-color: transparent;
 }
 
-@media (max-width: 768px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
+/* When codeLink is hovered, make previous demoLink look outlined */
+.cardActions:has(.codeLink:hover) .demoLink:not(:hover) {
+  background: transparent;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
 
+/* Tablet: Vertical scroll with 3 visible cards */
+@media (max-width: 768px) {
   .title {
     font-size: var(--font-size-3xl);
+  }
+
+  .carouselWrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .navButton {
+    display: none;
+  }
+
+  .carousel {
+    overflow: visible;
+    padding: 0;
+    margin: 0;
+  }
+
+  .carouselContainer {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-height: 520px;
+    overflow-y: auto;
+    padding: var(--spacing-sm);
+    margin: calc(-1 * var(--spacing-sm));
+    scroll-snap-type: y mandatory;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-accent) var(--color-bg-secondary);
+  }
+
+  .carouselContainer::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .carouselContainer::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+    border-radius: 3px;
+  }
+
+  .carouselContainer::-webkit-scrollbar-thumb {
+    background: var(--color-accent);
+    border-radius: 3px;
+  }
+
+  .carouselSlide {
+    flex: 0 0 auto;
+    width: 100%;
+    scroll-snap-align: start;
+  }
+
+  .card {
+    padding: var(--spacing-lg);
+  }
+
+  .cardIcon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .cardIcon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .cardTitle {
+    font-size: var(--font-size-lg);
+  }
+
+  .cardDescription {
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .techStack {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .dots {
+    display: none;
+  }
+}
+
+/* Mobile: Single card view */
+@media (max-width: 480px) {
+  .carouselContainer {
+    max-height: 400px;
+  }
+
+  .card {
+    padding: var(--spacing-md);
+  }
+
+  .cardIcon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .cardIcon svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .cardActions {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .demoLink,
+  .codeLink {
+    text-align: center;
   }
 }

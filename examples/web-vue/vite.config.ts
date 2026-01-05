@@ -6,8 +6,10 @@ export default defineConfig({
   base: '/vue-demo/',
   server: {
     port: 3002,
+    strictPort: true,
   },
   preview: {
     port: 3002,
+    strictPort: true,
   },
 });

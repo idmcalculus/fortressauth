@@ -1,0 +1,65 @@
+.wrapper {
+  position: relative;
+  min-height: 100vh;
+  /* Custom key cursor for the entire page */
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none'%3E%3Ccircle cx='8' cy='8' r='5' stroke='%234ecdc4' stroke-width='2' fill='none'/%3E%3Cline x1='12' y1='10' x2='22' y2='20' stroke='%234ecdc4' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='18' y1='16' x2='20' y2='14' stroke='%234ecdc4' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='15' y1='19' x2='17' y2='17' stroke='%234ecdc4' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") 8 8, auto;
+}
+
+.background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.gridPattern {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.gradient {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 30%, rgba(78, 205, 196, 0.08) 0%, transparent 50%);
+  animation: pulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+/* Ensure interactive elements have proper cursor */
+.wrapper a,
+.wrapper button,
+.wrapper [role="button"],
+.wrapper input,
+.wrapper select,
+.wrapper textarea {
+  cursor: pointer;
+}
+
+.wrapper input[type="text"],
+.wrapper input[type="email"],
+.wrapper input[type="password"],
+.wrapper textarea {
+  cursor: text;
+}

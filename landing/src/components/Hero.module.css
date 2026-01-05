@@ -7,39 +7,6 @@
   overflow: hidden;
 }
 
-.background {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
-.gridPattern {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(to right, var(--color-border) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--color-border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.3;
-}
-
-.gradient {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(78, 205, 196, 0.1) 0%, transparent 50%);
-  animation: pulse 8s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.8;
-  }
-}
-
 .container {
   position: relative;
   z-index: 1;
@@ -124,35 +91,54 @@
 .primaryButton {
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   color: var(--color-primary-dark);
-  border: none;
+  border: 2px solid transparent;
   box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
 }
 
 .primaryButton:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 30px rgba(78, 205, 196, 0.4);
+  background: transparent;
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: none;
+}
+
+/* When primary is hovered, make adjacent secondary look filled */
+.primaryButton:hover + .secondaryButton {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  color: var(--color-primary-dark);
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
 }
 
 .secondaryButton {
-  background: var(--color-bg-secondary);
+  background: transparent;
   color: var(--color-text-primary);
   border: 2px solid var(--color-border);
 }
 
 .secondaryButton:hover {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  color: var(--color-primary-dark);
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
+}
+
+/* When secondary is hovered, make previous primary look outlined */
+.actions:has(.secondaryButton:hover) .primaryButton:not(:hover) {
+  background: transparent;
+  color: var(--color-accent);
   border-color: var(--color-accent);
-  background: var(--color-bg-primary);
+  box-shadow: none;
 }
 
 .tertiaryButton {
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   border: 2px solid transparent;
 }
 
 .tertiaryButton:hover {
   color: var(--color-accent);
-  border-color: var(--color-accent);
 }
 
 .stats {
@@ -161,7 +147,7 @@
   gap: var(--spacing-2xl);
   max-width: 600px;
   margin: 0 auto;
-  animation: fadeInUp 0.8s ease-out 1s both;
+  animation: fadeInUp 0.8s ease-out 1.2s both;
 }
 
 .stat {
@@ -181,6 +167,63 @@
   color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+/* Feature Highlights Grid */
+.highlights {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-xl);
+  max-width: 800px;
+  margin: 0 auto var(--spacing-4xl);
+  animation: fadeInUp 0.8s ease-out 1s both;
+}
+
+.highlight {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
+  text-align: left;
+}
+
+.highlight:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.highlightIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.1));
+  border-radius: var(--radius-md);
+}
+
+.highlightContent {
+  flex: 1;
+}
+
+.highlightTitle {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.highlightDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
 }
 
 @keyframes fadeInUp {
@@ -205,5 +248,28 @@
   .tertiaryButton {
     width: 100%;
     justify-content: center;
+  }
+
+  .highlights {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .highlight {
+    padding: var(--spacing-md);
+  }
+
+  .highlightIcon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+  }
+
+  .statValue {
+    font-size: var(--font-size-2xl);
   }
 }

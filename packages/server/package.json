@@ -8,6 +8,7 @@
     "dist"
   ],
   "scripts": {
+    "postinstall": "npm rebuild better-sqlite3 2>/dev/null || true",
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",

@@ -40,9 +40,10 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
+      // Auth requests go through the dynamic proxy
       {
         source: '/auth/:path*',
-        destination: 'http://localhost:5001/auth/:path*',
+        destination: '/api/proxy/auth/:path*',
       },
       {
         source: '/react-demo',
