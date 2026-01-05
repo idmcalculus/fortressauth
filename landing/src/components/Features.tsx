@@ -1,15 +1,6 @@
 'use client';
 
-import {
-  BadgeCheck,
-  Code,
-  Database,
-  FileText,
-  Layers,
-  Mail,
-  Package,
-  Shield,
-} from 'lucide-react';
+import { BadgeCheck, Code, Database, FileText, Layers, Mail, Package, Shield } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef, useState } from 'react';
@@ -73,7 +64,6 @@ export function Features() {
       aria-labelledby="features-title"
       ref={containerRef}
     >
-
       <div className={styles.header}>
         <h2 id="features-title" className={styles.title}>
           {t('title')}
@@ -83,7 +73,9 @@ export function Features() {
 
       <div className={styles.orbitContainer}>
         {/* Center logo */}
-        <div className={`${styles.centerLogo} ${activeIndex !== null ? styles.centerLogoShrink : ''}`}>
+        <div
+          className={`${styles.centerLogo} ${activeIndex !== null ? styles.centerLogoShrink : ''}`}
+        >
           <Image
             src="/logo.svg"
             alt="FortressAuth"
@@ -103,7 +95,8 @@ export function Features() {
           const isActive = activeIndex === index;
 
           return (
-            <div
+            <button
+              type="button"
               key={feature.key}
               className={`${styles.featureCard} ${isActive ? styles.featureCardActive : ''}`}
               style={{
@@ -114,6 +107,8 @@ export function Features() {
               }}
               onMouseEnter={() => handleCardHover(index)}
               onMouseLeave={() => handleCardHover(null)}
+              onFocus={() => handleCardHover(index)}
+              onBlur={() => handleCardHover(null)}
             >
               <div className={styles.cardInner}>
                 <div className={styles.iconWrapper} style={{ background: `${feature.color}20` }}>
@@ -131,14 +126,18 @@ export function Features() {
                   <p className={styles.cardDescription}>{t(`${feature.key}.description`)}</p>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
 
       {/* Active feature detail panel */}
       {activeIndex !== null && features[activeIndex] && (
-        <div className={styles.detailPanel}>
+        <div
+          className={`${styles.detailPanel} ${
+            getCardPosition(activeIndex, features.length).y > 50 ? styles.detailPanelTop : ''
+          }`}
+        >
           <div className={styles.detailContent}>
             {(() => {
               const feature = features[activeIndex];

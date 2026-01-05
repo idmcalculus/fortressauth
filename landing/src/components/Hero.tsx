@@ -17,7 +17,6 @@ export function Hero() {
 
   return (
     <section className={styles.hero} aria-labelledby="hero-title">
-
       <div className={styles.container}>
         <div className={styles.content}>
           <div className={styles.logoContainer}>
@@ -42,7 +41,10 @@ export function Hero() {
           <div className={styles.actions}>
             <a href="#docs" className={styles.primaryButton}>
               {t('getStarted')}
-              <ArrowRight style={{ width: '20px', height: '20px', color: 'inherit' }} aria-hidden="true" />
+              <ArrowRight
+                style={{ width: '20px', height: '20px', color: 'inherit' }}
+                aria-hidden="true"
+              />
             </a>
 
             <a href="#examples" className={styles.secondaryButton}>
@@ -56,7 +58,10 @@ export function Hero() {
               className={styles.tertiaryButton}
             >
               {t('tryDemo')}
-              <ExternalLink style={{ width: '18px', height: '18px', color: 'inherit' }} aria-hidden="true" />
+              <ExternalLink
+                style={{ width: '18px', height: '18px', color: 'inherit' }}
+                aria-hidden="true"
+              />
             </a>
           </div>
 
@@ -72,7 +77,9 @@ export function Hero() {
                 </div>
                 <div className={styles.highlightContent}>
                   <h3 className={styles.highlightTitle}>{t(`highlights.${key}.title`)}</h3>
-                  <p className={styles.highlightDescription}>{t(`highlights.${key}.description`)}</p>
+                  <p className={styles.highlightDescription}>
+                    {t(`highlights.${key}.description`)}
+                  </p>
                 </div>
               </div>
             ))}

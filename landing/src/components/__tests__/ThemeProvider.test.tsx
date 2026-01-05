@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider, useTheme } from '../ThemeProvider';
 
@@ -7,7 +7,9 @@ const TestComponent = () => {
   return (
     <div>
       <span data-testid="theme">{theme}</span>
-      <button onClick={toggleTheme}>Toggle</button>
+      <button type="button" onClick={toggleTheme}>
+        Toggle
+      </button>
     </div>
   );
 };

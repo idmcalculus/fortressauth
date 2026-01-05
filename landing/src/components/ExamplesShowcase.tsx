@@ -142,10 +142,7 @@ export function ExamplesShowcase() {
                       </div>
                       <div className={styles.cardActions}>
                         {example.demoUrl && (
-                          <a
-                            href={`${example.demoUrl}/`}
-                            className={styles.demoLink}
-                          >
+                          <a href={`${example.demoUrl}/`} className={styles.demoLink}>
                             {t('viewDemo')} →
                           </a>
                         )}

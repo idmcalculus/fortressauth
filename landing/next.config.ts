@@ -3,10 +3,19 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
+interface WebpackRule {
+  test?: { test?: (ext: string) => boolean };
+  issuer?: unknown;
+  resourceQuery?: { not?: unknown[] };
+  exclude?: RegExp;
+}
+
 const nextConfig: NextConfig = {
   trailingSlash: true,
   webpack(config) {
-    const fileLoaderRule = config.module.rules.find((rule: any) => rule.test?.test?.('.svg'));
+    const fileLoaderRule = config.module.rules.find((rule: WebpackRule) =>
+      rule.test?.test?.('.svg'),
+    );
 
     config.module.rules.push(
       {

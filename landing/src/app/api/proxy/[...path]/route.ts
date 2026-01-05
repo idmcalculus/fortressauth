@@ -80,24 +80,15 @@ async function proxyRequest(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ path: string[] }> },
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxyRequest(request, context.params);
 }
 
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ path: string[] }> },
-) {
+export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxyRequest(request, context.params);
 }
 
-export async function PUT(
-  request: NextRequest,
-  context: { params: Promise<{ path: string[] }> },
-) {
+export async function PUT(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxyRequest(request, context.params);
 }
 

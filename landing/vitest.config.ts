@@ -1,10 +1,10 @@
+import path from 'node:path';
 import react from '@vitejs/plugin-react';
-import path from 'path';
 import { defineConfig } from 'vitest/config';
 
 const cssMockPlugin = {
   name: 'css-mock',
-  transform(code: string, id: string) {
+  transform(_code: string, id: string) {
     if (id.endsWith('.css') || id.endsWith('.module.css')) {
       return {
         code: 'export default new Proxy({}, { get: (target, prop) => prop });',

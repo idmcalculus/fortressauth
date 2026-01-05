@@ -5,9 +5,9 @@ import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { SiGithub } from 'react-icons/si';
+import { LocaleSwitcher } from './LocaleSwitcher';
 import styles from './Navigation.module.css';
 import { useTheme } from './ThemeProvider';
-import { LocaleSwitcher } from './LocaleSwitcher';
 
 export function Navigation() {
   const t = useTranslations('nav');
@@ -50,7 +50,12 @@ export function Navigation() {
             <div className={styles.desktopOnly}>
               <LocaleSwitcher />
             </div>
-            <button onClick={toggleTheme} className={styles.themeToggle} aria-label="Toggle theme">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={styles.themeToggle}
+              aria-label="Toggle theme"
+            >
               {theme === 'light' ? (
                 <Moon style={{ width: '20px', height: '20px' }} />
               ) : (
@@ -69,6 +74,7 @@ export function Navigation() {
             </a>
 
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className={styles.mobileMenuButton}
               aria-label="Toggle menu"

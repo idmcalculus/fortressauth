@@ -62,7 +62,8 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 1;
   }
@@ -83,7 +84,7 @@
 }
 
 .creditLink::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;
@@ -103,7 +104,9 @@
 
 .externalIcon {
   opacity: 0.7;
-  transition: opacity var(--transition-base), transform var(--transition-base);
+  transition:
+    opacity var(--transition-base),
+    transform var(--transition-base);
 }
 
 .creditLink:hover .externalIcon {
@@ -179,12 +182,12 @@
   .content {
     text-align: center;
   }
-  
+
   .credits {
     flex-direction: column;
     gap: var(--spacing-sm);
   }
-  
+
   .separator {
     display: none;
   }

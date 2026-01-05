@@ -1,5 +1,5 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
 
 export function generateStaticParams() {
@@ -14,11 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ErrorCodesPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function ErrorCodesPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('docs');
@@ -29,8 +25,10 @@ export default async function ErrorCodesPage({
       <p>{t('api.errorCodes.description')}</p>
 
       <h2>Error Code Reference</h2>
-      <p>All FortressAuth operations return a <code>Result</code> type. When an operation fails, 
-      the <code>error</code> field contains one of the following error codes:</p>
+      <p>
+        All FortressAuth operations return a <code>Result</code> type. When an operation fails, the{' '}
+        <code>error</code> field contains one of the following error codes:
+      </p>
 
       <h3>Authentication Errors</h3>
       <table>
@@ -43,17 +41,23 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>INVALID_CREDENTIALS</code></td>
+            <td>
+              <code>INVALID_CREDENTIALS</code>
+            </td>
             <td>401</td>
             <td>The email or password is incorrect</td>
           </tr>
           <tr>
-            <td><code>ACCOUNT_LOCKED</code></td>
+            <td>
+              <code>ACCOUNT_LOCKED</code>
+            </td>
             <td>401</td>
             <td>Account is temporarily locked due to failed login attempts</td>
           </tr>
           <tr>
-            <td><code>EMAIL_NOT_VERIFIED</code></td>
+            <td>
+              <code>EMAIL_NOT_VERIFIED</code>
+            </td>
             <td>403</td>
             <td>Email address has not been verified</td>
           </tr>
@@ -71,17 +75,23 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>EMAIL_EXISTS</code></td>
+            <td>
+              <code>EMAIL_EXISTS</code>
+            </td>
             <td>400</td>
             <td>Email address is already registered</td>
           </tr>
           <tr>
-            <td><code>PASSWORD_TOO_WEAK</code></td>
+            <td>
+              <code>PASSWORD_TOO_WEAK</code>
+            </td>
             <td>400</td>
             <td>Password does not meet requirements (length, breached check)</td>
           </tr>
           <tr>
-            <td><code>INVALID_INPUT</code></td>
+            <td>
+              <code>INVALID_INPUT</code>
+            </td>
             <td>400</td>
             <td>Invalid email format or input contains forbidden characters</td>
           </tr>
@@ -99,12 +109,16 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>SESSION_INVALID</code></td>
+            <td>
+              <code>SESSION_INVALID</code>
+            </td>
             <td>401</td>
             <td>Session token is malformed or does not exist</td>
           </tr>
           <tr>
-            <td><code>SESSION_EXPIRED</code></td>
+            <td>
+              <code>SESSION_EXPIRED</code>
+            </td>
             <td>401</td>
             <td>Session token has expired</td>
           </tr>
@@ -122,12 +136,16 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>EMAIL_VERIFICATION_INVALID</code></td>
+            <td>
+              <code>EMAIL_VERIFICATION_INVALID</code>
+            </td>
             <td>400</td>
             <td>Verification token is invalid or has been used</td>
           </tr>
           <tr>
-            <td><code>EMAIL_VERIFICATION_EXPIRED</code></td>
+            <td>
+              <code>EMAIL_VERIFICATION_EXPIRED</code>
+            </td>
             <td>410</td>
             <td>Verification token has expired</td>
           </tr>
@@ -145,12 +163,16 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>PASSWORD_RESET_INVALID</code></td>
+            <td>
+              <code>PASSWORD_RESET_INVALID</code>
+            </td>
             <td>400</td>
             <td>Reset token is invalid or has been used</td>
           </tr>
           <tr>
-            <td><code>PASSWORD_RESET_EXPIRED</code></td>
+            <td>
+              <code>PASSWORD_RESET_EXPIRED</code>
+            </td>
             <td>410</td>
             <td>Reset token has expired</td>
           </tr>
@@ -168,7 +190,9 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>RATE_LIMIT_EXCEEDED</code></td>
+            <td>
+              <code>RATE_LIMIT_EXCEEDED</code>
+            </td>
             <td>429</td>
             <td>Too many requests, try again later</td>
           </tr>
@@ -186,7 +210,9 @@ export default async function ErrorCodesPage({
         </thead>
         <tbody>
           <tr>
-            <td><code>INTERNAL_ERROR</code></td>
+            <td>
+              <code>INTERNAL_ERROR</code>
+            </td>
             <td>500</td>
             <td>An unexpected error occurred</td>
           </tr>
@@ -195,7 +221,8 @@ export default async function ErrorCodesPage({
 
       <h2>Handling Errors</h2>
       <p>Use TypeScript&apos;s type narrowing to handle errors:</p>
-      <pre><code>{`const result = await fortress.signIn({ email, password });
+      <pre>
+        <code>{`const result = await fortress.signIn({ email, password });
 
 if (!result.success) {
   switch (result.error) {
@@ -227,11 +254,13 @@ if (!result.success) {
 }
 
 // Success - result.data is available
-const { user, token } = result.data;`}</code></pre>
+const { user, token } = result.data;`}</code>
+      </pre>
 
       <h2>Production Error Messages</h2>
       <p>In production, error messages should be generic to prevent information leakage:</p>
-      <pre><code>{`// Development - detailed errors
+      <pre>
+        <code>{`// Development - detailed errors
 {
   "success": false,
   "error": "INVALID_CREDENTIALS",
@@ -244,10 +273,12 @@ const { user, token } = result.data;`}</code></pre>
   "error": "INVALID_CREDENTIALS",
   "message": "Authentication failed. Please check your credentials.",
   "code": "AUTH_001"
-}`}</code></pre>
+}`}</code>
+      </pre>
 
       <h2>Error Code to HTTP Status Mapping</h2>
-      <pre><code>{`const errorStatusMap: Record<AuthErrorCode, number> = {
+      <pre>
+        <code>{`const errorStatusMap: Record<AuthErrorCode, number> = {
   EMAIL_EXISTS: 400,
   INVALID_CREDENTIALS: 401,
   PASSWORD_TOO_WEAK: 400,
@@ -262,10 +293,12 @@ const { user, token } = result.data;`}</code></pre>
   RATE_LIMIT_EXCEEDED: 429,
   INVALID_INPUT: 400,
   INTERNAL_ERROR: 500,
-};`}</code></pre>
+};`}</code>
+      </pre>
 
       <h2>TypeScript Type</h2>
-      <pre><code>{`type AuthErrorCode =
+      <pre>
+        <code>{`type AuthErrorCode =
   | 'EMAIL_EXISTS'
   | 'INVALID_CREDENTIALS'
   | 'PASSWORD_TOO_WEAK'
@@ -279,7 +312,8 @@ const { user, token } = result.data;`}</code></pre>
   | 'PASSWORD_RESET_EXPIRED'
   | 'RATE_LIMIT_EXCEEDED'
   | 'INVALID_INPUT'
-  | 'INTERNAL_ERROR';`}</code></pre>
+  | 'INTERNAL_ERROR';`}</code>
+      </pre>
     </article>
   );
 }

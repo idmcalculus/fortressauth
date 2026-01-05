@@ -30,7 +30,7 @@ export function InteractiveBackground() {
 
   const initParticles = useCallback((width: number, height: number) => {
     const particles: Particle[] = [];
-    
+
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       particles.push({
         x: Math.random() * width,
@@ -59,9 +59,9 @@ export function InteractiveBackground() {
     ctx.clearRect(0, 0, width, height);
 
     // Get accent color
-    const accentColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--color-accent')
-      .trim() || '#4ecdc4';
+    const accentColor =
+      getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() ||
+      '#4ecdc4';
 
     // Update and draw particles
     for (let i = 0; i < particles.length; i++) {
@@ -98,31 +98,43 @@ export function InteractiveBackground() {
       p.vy += (Math.random() - 0.5) * 0.03;
 
       // Soft boundary bounce
-      if (p.x < 0) { p.x = 0; p.vx *= -0.5; }
-      if (p.x > width) { p.x = width; p.vx *= -0.5; }
-      if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
-      if (p.y > height) { p.y = height; p.vy *= -0.5; }
+      if (p.x < 0) {
+        p.x = 0;
+        p.vx *= -0.5;
+      }
+      if (p.x > width) {
+        p.x = width;
+        p.vx *= -0.5;
+      }
+      if (p.y < 0) {
+        p.y = 0;
+        p.vy *= -0.5;
+      }
+      if (p.y > height) {
+        p.y = height;
+        p.vy *= -0.5;
+      }
 
       // Draw particle as glowing dot
       ctx.save();
       ctx.globalAlpha = p.opacity;
-      
+
       // Outer glow
       const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 3);
       gradient.addColorStop(0, accentColor);
-      gradient.addColorStop(0.4, accentColor + '80');
+      gradient.addColorStop(0.4, `${accentColor}80`);
       gradient.addColorStop(1, 'transparent');
       ctx.fillStyle = gradient;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
       ctx.fill();
-      
+
       // Core dot
       ctx.fillStyle = accentColor;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
-      
+
       ctx.restore();
     }
 
@@ -165,7 +177,7 @@ export function InteractiveBackground() {
           ctx.stroke();
         }
       }
-      
+
       // Draw cursor glow
       ctx.globalAlpha = 0.3;
       const cursorGradient = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 30);
@@ -198,7 +210,7 @@ export function InteractiveBackground() {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
+
       // Check if mouse is within canvas bounds
       if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
         mouseRef.current = { x, y };
@@ -236,6 +248,7 @@ export function InteractiveBackground() {
         ref={canvasRef}
         className={`${styles.canvas} ${isHovering ? styles.hovering : ''}`}
         aria-hidden="true"
+        tabIndex={-1}
       />
       {/* Floating glow orbs */}
       <div className={styles.orb1} aria-hidden="true" />
