@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "features": "Àwọn ẹya",
+    "docs": "Ìwé-àkọsílẹ̀",
+    "examples": "Àwọn àpẹẹrẹ",
+    "pricing": "Iye owó",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "Ìfọwọ́sí Tó Ní Àbò Látọwọ́dọwọ́",
+    "description": "Ilé-iṣẹ́ ìfọwọ́sí tó ṣetán fún iṣẹ́ tí a kọ́ pẹ̀lú TypeScript àti àgbékalẹ̀ hexagonal. Kò ní ìbátan pẹ̀lú ẹ̀rọ ìpamọ́ dátà, kò ní ìbátan pẹ̀lú olùpèsè ímeèlì, ó sì ní àbò látọwọ́dọwọ́.",
+    "getStarted": "Bẹ̀rẹ̀",
+    "viewDocs": "Wo Ìwé-àkọsílẹ̀",
+    "tryDemo": "Gbìyànjú Demo"
+  },
+  "features": {
+    "title": "Tí A Kọ́ Fún Àbò Àti Ìrọ̀rùn",
+    "secureByDefault": {
+      "title": "Ó Ní Àbò Látọwọ́dọwọ́",
+      "description": "Ọ̀rọ̀ aṣínà Argon2id pẹ̀lú àwọn ìlànà tí OWASP ṣe ìdámọ̀ràn, àwọn àmì ìgbàdúró tí a pín, àti ìdènà ìkọlù àkókò"
+    },
+    "databaseAgnostic": {
+      "title": "Kò Ní Ìbátan Pẹ̀lú Ẹ̀rọ Ìpamọ́ Dátà",
+      "description": "Ó ń ṣiṣẹ́ dáadáa pẹ̀lú PostgreSQL, MySQL, àti SQLite nípasẹ̀ olùkọ́ ìbéèrè Kysely"
+    },
+    "emailAgnostic": {
+      "title": "Kò Ní Ìbátan Pẹ̀lú Olùpèsè Ímeèlì",
+      "description": "Àwọn olùpèsè ímeèlì tó lè sopọ̀: console fún ìdàgbàsókè, Resend fún iṣẹ́, tàbí mú tìrẹ wá"
+    },
+    "productionReady": {
+      "title": "Ó Ṣetán Fún Iṣẹ́",
+      "description": "Ìfọwọ́sí ímeèlì, àtúnṣe ọ̀rọ̀ aṣínà, ìdíwọ̀n oṣùwọ̀n (ìrántí/Redis), títì àkáǹtì, àti ìṣàkóso ìgbàdúró"
+    },
+    "openApiDocs": {
+      "title": "Ìwé-àkọsílẹ̀ OpenAPI",
+      "description": "Ìwé-àkọsílẹ̀ API tí a ṣe láìfọwọ́yí pẹ̀lú ìwòye Scalar tó lè ṣe fún ìsopọ̀ tó rọrùn"
+    },
+    "dockerReady": {
+      "title": "Ó Ṣetán Fún Docker",
+      "description": "Dockerfile oríṣiríṣi pẹ̀lú àwọn ìlànà àbò tó dára jùlọ àti àtòpọ̀ Docker Compose"
+    },
+    "sdks": {
+      "title": "Àwọn SDK React & Vue",
+      "description": "Àwọn ìlànà ìfọwọ́sí tó mọ̀ nípa kúkì pẹ̀lú àwọn hooks React àti composables Vue fún ìsopọ̀ tó dára"
+    },
+    "hexagonal": {
+      "title": "Àgbékalẹ̀ Hexagonal",
+      "description": "Ìpínyà tó mọ́ láàárín ìmọ̀ iṣẹ́ àti amayederun pẹ̀lú àìsí ìgbẹ́kẹ̀lé nínú àárín"
+    }
+  },
+  "code": {
+    "title": "Ìsopọ̀ Tó Rọrùn",
+    "description": "Bẹ̀rẹ̀ pẹ̀lú àwọn ìlà kóòdù díẹ̀ péré",
+    "installation": "Ìgbékalẹ̀",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "Ṣe àdàkọ",
+    "copied": "Tí a ṣe àdàkọ!"
+  },
+  "demo": {
+    "title": "Gbìyànjú Láààyè",
+    "description": "Ní ìrírí FortressAuth nínú iṣẹ́ pẹ̀lú demo wa tó lè ṣe",
+    "tryNow": "Gbìyànjú Demo Báyìí"
+  },
+  "resources": {
+    "title": "Àwọn Ohun Èlò & Ìwé-àkọsílẹ̀",
+    "apiDocs": {
+      "title": "Ìwé-àkọsílẹ̀ API",
+      "description": "Ìtọ́kasí API tó pé pẹ̀lú àwọn àpẹẹrẹ tó lè ṣe"
+    },
+    "quickStart": {
+      "title": "Ìtọ́sọ́nà Ìbẹ̀rẹ̀ Kíákíá",
+      "description": "Bẹ̀rẹ̀ ṣíṣe nínú ìṣẹ́jú díẹ̀"
+    },
+    "examples": {
+      "title": "Àwọn Àpẹẹrẹ Kóòdù",
+      "description": "Àwọn àpẹẹrẹ ìsopọ̀ React, Vue, àti Node.js"
+    },
+    "contributing": {
+      "title": "Ìdásí",
+      "description": "Ràn wá lọ́wọ́ láti mú FortressAuth dára sí i"
+    }
+  },
+  "examples": {
+    "title": "Àwọn Àpẹẹrẹ Ítìgrésọ́nù",
+    "subtitle": "Ṣàwárí àwọn àpẹẹrẹ iṣẹ́ láti bẹ̀rẹ̀",
+    "viewCode": "Wo Kóòdù",
+    "viewDemo": "Demo Láààyè",
+    "basic-usage": {
+      "title": "Sárfà Kékeré",
+      "description": "Àpẹẹrẹ sárfà Node.js tó pé pẹ̀lú SQLite, ìṣàkóso ìgbàdúró àti ìfọwọ́sí ímeèlì."
+    },
+    "web-react": {
+      "title": "React Web App",
+      "description": "Àpèlìkéṣọ́nù React tó pé pẹ̀lú @fortressauth/react-sdk."
+    },
+    "web-vue": {
+      "title": "Vue Web App",
+      "description": "Àpèlìkéṣọ́nù Vue 3 pẹ̀lú àwọn composables fún ìfọwọ́sí."
+    },
+    "web-svelte": {
+      "title": "Svelte Web App",
+      "description": "Àpèlìkéṣọ́nù Svelte 5 pẹ̀lú ìfọwọ́sí."
+    },
+    "web-angular": {
+      "title": "Angular Web App",
+      "description": "Àpèlìkéṣọ́nù Angular pẹ̀lú RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "Ìrírí Olùgbékalẹ̀ Lákọ̀ọ́kọ́",
+    "subtitle": "Àwọn API tó mọ́ tí ó mú ìfọwọ́sí rọrùn",
+    "tabs": {
+      "quickStart": "Ìbẹ̀rẹ̀ Kíákíá",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Ìsopọ̀ Kíákíá",
+      "secure": "Ó Ní Àbò Látọwọ́dọwọ́",
+      "typed": "Tí A Kọ́ Ni Kikun"
+    }
+  },
+  "documentation": {
+    "title": "Ìwé-àkọsílẹ̀ API",
+    "subtitle": "Ìtọ́kasí API tó lè ṣe láti OpenAPI",
+    "openFullDocs": "Ṣí i nínú táàbù tuntun",
+    "serverNotRunning": "Sárfà API Kò Ṣiṣẹ́",
+    "fallbackMessage": "Bẹ̀rẹ̀ sárfà FortressAuth láti wo ìwé-àkọsílẹ̀ API:",
+    "viewServerDocs": "Wo Ìwé-àkọsílẹ̀ Sárfà",
+    "openDocs": "Ṣí Ìwé-àkọsílẹ̀"
+  },
+  "footer": {
+    "tagline": "Tí a kọ́ pẹ̀lú àgbékalẹ̀ hexagonal • Kò sí ìgbẹ́kẹ̀lé amayederun nínú àárín",
+    "copyright": "© 2024 FortressAuth. Ìwé-àṣẹ MIT.",
+    "links": {
+      "documentation": "Ìwé-àkọsílẹ̀",
+      "apiReference": "Ìtọ́kasí API",
+      "examples": "Àwọn Àpẹẹrẹ",
+      "contributing": "Ìdásí",
+      "github": "GitHub",
+      "license": "Ìwé-àṣẹ"
+    }
+  }
+}

@@ -25,5 +25,13 @@
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "**/node_modules",
+    "**/dist",
+    "**/.turbo",
+    "**/.next",
+    "**/coverage"
+  ]
 }

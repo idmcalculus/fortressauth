@@ -1,0 +1,8 @@
+/**
+ * FortressAuth Svelte Example - App Styles
+ * Imports shared design system and adds any Svelte-specific overrides.
+ */
+
+@import "../../shared/styles/index.css";
+
+/* Svelte-specific styles can be added below if needed */

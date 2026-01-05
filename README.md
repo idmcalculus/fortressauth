@@ -7,11 +7,11 @@ A secure-by-default, database-agnostic authentication library built with TypeScr
 - Secure by Default: Argon2id password hashing, split session tokens (selector + hashed verifier), timing-attack prevention
 - Hexagonal Architecture: Clean separation between business logic and infrastructure
 - Database Agnostic: Works with PostgreSQL, MySQL, and SQLite via Kysely
-- Email Provider Agnostic: Pluggable email providers (console, Resend, or custom)
+- Email Provider Agnostic: Pluggable email providers (console, Resend, SES, SendGrid, SMTP, or custom)
 - Production Ready: Email verification, password reset, rate limiting (memory/Redis), account lockout, session management
 - OpenAPI Documentation: Auto-generated API docs with Scalar UI
 - Docker Ready: Multi-stage Dockerfile with security best practices
-- SDKs: React and Vue SDKs with cookie-aware flows and example apps
+- SDKs: React, Vue, Angular, Svelte, React Native, Expo, Electron SDKs with example apps
 
 ## Packages
 
@@ -22,6 +22,14 @@ A secure-by-default, database-agnostic authentication library built with TypeScr
 | [@fortressauth/server](./packages/server) | Standalone HTTP server |
 | [@fortressauth/react-sdk](./packages/react-sdk) | React hooks & context |
 | [@fortressauth/vue-sdk](./packages/vue-sdk) | Vue composables & provider |
+| [@fortressauth/angular-sdk](./packages/angular-sdk) | Angular service wrapper |
+| [@fortressauth/svelte-sdk](./packages/svelte-sdk) | Svelte stores and helpers |
+| [@fortressauth/react-native-sdk](./packages/react-native-sdk) | React Native hooks & provider (token-based) |
+| [@fortressauth/expo-sdk](./packages/expo-sdk) | Expo wrapper with SecureStore |
+| [@fortressauth/electron-sdk](./packages/electron-sdk) | Electron client (token-based) |
+| [@fortressauth/email-ses](./packages/email-ses) | AWS SES email provider |
+| [@fortressauth/email-sendgrid](./packages/email-sendgrid) | SendGrid email provider |
+| [@fortressauth/email-smtp](./packages/email-smtp) | SMTP email provider |
 
 ## Quick Start
 
@@ -79,10 +87,28 @@ COOKIE_SECURE=false
 COOKIE_SAMESITE=strict
 
 # Email Provider
-EMAIL_PROVIDER=console   # or 'resend'
+EMAIL_PROVIDER=console   # or 'resend', 'ses', 'sendgrid', 'smtp'
 RESEND_API_KEY=          # required for resend
 EMAIL_FROM_ADDRESS=      # required for resend
 EMAIL_FROM_NAME=         # optional
+SES_REGION=              # required for ses
+SES_ACCESS_KEY_ID=       # required for ses
+SES_SECRET_ACCESS_KEY=   # required for ses
+SES_SESSION_TOKEN=       # optional for ses
+SES_FROM_ADDRESS=        # required for ses
+SES_FROM_NAME=           # optional for ses
+SENDGRID_API_KEY=        # required for sendgrid
+SENDGRID_FROM_ADDRESS=   # required for sendgrid
+SENDGRID_FROM_NAME=      # optional for sendgrid
+SMTP_HOST=               # required for smtp
+SMTP_PORT=               # required for smtp
+SMTP_SECURE=false        # optional for smtp
+SMTP_USER=               # optional for smtp
+SMTP_PASS=               # optional for smtp
+SMTP_FROM_ADDRESS=       # required for smtp
+SMTP_FROM_NAME=          # optional for smtp
+SMTP_TLS_REJECT_UNAUTHORIZED= # optional for smtp
+SMTP_TLS_SERVERNAME=     # optional for smtp
 
 # Optional
 REDIS_URL=               # for distributed rate limiting
@@ -142,6 +168,39 @@ EMAIL_FROM_ADDRESS=noreply@yourdomain.com
 EMAIL_FROM_NAME=Your App
 ```
 
+### AWS SES
+```bash
+EMAIL_PROVIDER=ses
+SES_REGION=us-east-1
+SES_ACCESS_KEY_ID=...
+SES_SECRET_ACCESS_KEY=...
+SES_SESSION_TOKEN=        # optional
+SES_FROM_ADDRESS=noreply@yourdomain.com
+SES_FROM_NAME=Your App
+```
+
+### SendGrid
+```bash
+EMAIL_PROVIDER=sendgrid
+SENDGRID_API_KEY=...
+SENDGRID_FROM_ADDRESS=noreply@yourdomain.com
+SENDGRID_FROM_NAME=Your App
+```
+
+### SMTP
+```bash
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=...
+SMTP_PASS=...
+SMTP_FROM_ADDRESS=noreply@yourdomain.com
+SMTP_FROM_NAME=Your App
+SMTP_TLS_REJECT_UNAUTHORIZED=false
+SMTP_TLS_SERVERNAME=smtp.example.com
+```
+
 ### Custom Provider
 Implement the `EmailProviderPort` interface from `@fortressauth/core`.
 
@@ -157,6 +216,10 @@ FortressAuth follows hexagonal architecture principles:
 
 - `examples/web-react` - React + Vite example app
 - `examples/web-vue` - Vue + Vite example app
+- `examples/web-angular` - Angular example app
+- `examples/web-svelte` - Svelte example app
+- `examples/mobile-expo` - Expo example app
+- `examples/desktop-electron` - Electron example app
 - `examples/basic-usage` - Basic Node.js usage
 
 ## License

@@ -322,6 +322,26 @@ export class SqlAdapter implements AuthRepository {
     });
   }
 
+  async findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]> {
+    const rows = await this.db
+      .selectFrom('password_resets')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .orderBy('created_at', 'asc')
+      .execute();
+
+    return rows.map((row) =>
+      PasswordResetToken.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        selector: row.selector,
+        verifierHash: row.verifier_hash,
+        expiresAt: this.parseDate(row.expires_at),
+        createdAt: this.parseDate(row.created_at),
+      }),
+    );
+  }
+
   async deletePasswordReset(id: string): Promise<void> {
     await this.db.deleteFrom('password_resets').where('id', '=', id).execute();
   }

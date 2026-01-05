@@ -1,6 +1,17 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.8/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -18,9 +29,19 @@
     "formatter": {
       "quoteStyle": "single",
       "semicolons": "always"
+    },
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
     }
   },
   "files": {
-    "includes": ["**", "!!**/coverage", "!!**/dist", "!!**/node_modules"]
+    "includes": [
+      "**",
+      "!!**/coverage",
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!**/.angular",
+      "!!**/.turbo"
+    ]
   }
 }

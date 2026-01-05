@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "features": "Funcionalidades",
+    "docs": "Documentação",
+    "examples": "Exemplos",
+    "pricing": "Preços",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "Autenticação Segura por Padrão",
+    "description": "Uma biblioteca de autenticação pronta para produção construida com TypeScript e arquitetura hexagonal. Agnóstica de banco de dados, agnóstica de provedor de e-mail e segura por padrão.",
+    "getStarted": "Começar",
+    "viewDocs": "Ver Documentação",
+    "tryDemo": "Testar Demo"
+  },
+  "features": {
+    "title": "Construído para Segurança e Flexibilidade",
+    "secureByDefault": {
+      "title": "Seguro por Padrão",
+      "description": "Hash de senha Argon2id com parâmetros recomendados pela OWASP, tokens de sessão divididos e prevenção de ataques de temporização"
+    },
+    "databaseAgnostic": {
+      "title": "Banco de Dados Agnóstico",
+      "description": "Funciona perfeitamente com PostgreSQL, MySQL e SQLite via construtor de consultas Kysely"
+    },
+    "emailAgnostic": {
+      "title": "Provedor de E-mail Agnóstico",
+      "description": "Provedores de e-mail plugáveis - console para desenvolvimento, Resend para produção, ou traga o seu próprio"
+    },
+    "productionReady": {
+      "title": "Pronto para Produção",
+      "description": "Verificação de e-mail, redefinição de senha, limitação de taxa (memória/Redis), bloqueio de conta e gerenciamento de sessão"
+    },
+    "openApiDocs": {
+      "title": "Documentação OpenAPI",
+      "description": "Documentação da API gerada automaticamente com interface Scalar interativa para fácil integração"
+    },
+    "dockerReady": {
+      "title": "Pronto para Docker",
+      "description": "Dockerfile multi-estágio com as melhores práticas de segurança e configuração do Docker Compose"
+    },
+    "sdks": {
+      "title": "SDKs para React & Vue",
+      "description": "Fluxos de autenticação cientes de cookies com hooks React e composables Vue para integração perfeita"
+    },
+    "hexagonal": {
+      "title": "Arquitetura Hexagonal",
+      "description": "Separação limpa entre lógica de negócio e infraestrutura com zero dependências no núcleo"
+    }
+  },
+  "code": {
+    "title": "Integração Simples",
+    "description": "Comece com apenas algumas linhas de código",
+    "installation": "Instalação",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "Copiar",
+    "copied": "Copiado!"
+  },
+  "demo": {
+    "title": "Experimente ao Vivo",
+    "description": "Experimente o FortressAuth em ação com nossa demonstração interativa",
+    "tryNow": "Experimentar Demo Agora"
+  },
+  "resources": {
+    "title": "Recursos e Documentação",
+    "apiDocs": {
+      "title": "Documentação da API",
+      "description": "Referência completa da API com exemplos interativos"
+    },
+    "quickStart": {
+      "title": "Guia de Início Rápido",
+      "description": "Comece a rodar em minutos"
+    },
+    "examples": {
+      "title": "Exemplos de Código",
+      "description": "Exemplos de integração para React, Vue e Node.js"
+    },
+    "contributing": {
+      "title": "Contribuição",
+      "description": "Ajude-nos a melhorar o FortressAuth"
+    }
+  },
+  "examples": {
+    "title": "Exemplos de Integração",
+    "subtitle": "Explore exemplos funcionais para acelerar sua integração",
+    "viewCode": "Ver Código",
+    "viewDemo": "Demo ao Vivo",
+    "basic-usage": {
+      "title": "Servidor Básico",
+      "description": "Exemplo completo de servidor Node.js com banco de dados SQLite, gerenciamento de sessão e verificação de e-mail."
+    },
+    "web-react": {
+      "title": "App Web React",
+      "description": "Aplicação React completa usando @fortressauth/react-sdk com hooks de autenticação e rotas protegidas."
+    },
+    "web-vue": {
+      "title": "App Web Vue",
+      "description": "Aplicação Vue 3 com composables para estado de autenticação e integração perfeita."
+    },
+    "web-svelte": {
+      "title": "App Web Svelte",
+      "description": "Aplicação Svelte 5 com estado de autenticação e integração perfeita."
+    },
+    "web-angular": {
+      "title": "App Web Angular",
+      "description": "Aplicação Angular com estado de autenticação e integração RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "Experiência do Desenvolvedor em Primeiro Lugar",
+    "subtitle": "APIs limpas e seguras que tornam a autenticação uma brisa",
+    "tabs": {
+      "quickStart": "Início Rápido",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Integração Rápida",
+      "secure": "Seguro por Padrão",
+      "typed": "Totalmente Tipado"
+    }
+  },
+  "documentation": {
+    "title": "Documentação da API",
+    "subtitle": "Referência interativa da API alimentada pela especificação OpenAPI",
+    "openFullDocs": "Abrir em nova aba",
+    "serverNotRunning": "Servidor da API Não Está Rodando",
+    "fallbackMessage": "Inicie o servidor FortressAuth para visualizar a documentação interativa da API:",
+    "viewServerDocs": "Ver Documentação do Servidor",
+    "openDocs": "Abrir Documentação"
+  },
+  "footer": {
+    "tagline": "Construído com arquitetura hexagonal • Zero dependências de infraestrutura no núcleo",
+    "copyright": "© 2024 FortressAuth. Licença MIT.",
+    "links": {
+      "documentation": "Documentação",
+      "apiReference": "Referência da API",
+      "examples": "Exemplos",
+      "contributing": "Contribuição",
+      "github": "GitHub",
+      "license": "Licença"
+    }
+  }
+}

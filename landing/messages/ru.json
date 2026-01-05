@@ -1,0 +1,151 @@
+{
+  "nav": {
+    "features": "Возможности",
+    "docs": "Документация",
+    "examples": "Примеры",
+    "pricing": "Цены",
+    "github": "GitHub"
+  },
+  "hero": {
+    "title": "FortressAuth",
+    "subtitle": "Безопасная аутентификация по умолчанию",
+    "description": "Готовая к использованию библиотека аутентификации, созданная на TypeScript с использованием гексагональной архитектуры. Независима от БД и почтовых провайдеров, безопасна по умолчанию.",
+    "getStarted": "Начать",
+    "viewDocs": "Посмотреть документацию",
+    "tryDemo": "Попробовать демо"
+  },
+  "features": {
+    "title": "Создано для безопасности и гибкости",
+    "secureByDefault": {
+      "title": "Безопасно по умолчанию",
+      "description": "Хеширование паролей Argon2id с параметрами, рекомендованными OWASP, разделенные сессионные токены и защита от атак по времени"
+    },
+    "databaseAgnostic": {
+      "title": "Независимость от БД",
+      "description": "Бесшовная работа с PostgreSQL, MySQL и SQLite через конструктор запросов Kysely"
+    },
+    "emailAgnostic": {
+      "title": "Независимость от почты",
+      "description": "Подключаемые почтовые провайдеры: консоль для разработки, Resend для продакшена или ваш собственный вариант"
+    },
+    "productionReady": {
+      "title": "Готово к продакшену",
+      "description": "Верификация почты, сброс пароля, ограничение частоты запросов (memory/Redis), блокировка аккаунта и управление сессиями"
+    },
+    "openApiDocs": {
+      "title": "Документация OpenAPI",
+      "description": "Автоматически генерируемая документация API с интерактивным интерфейсом Scalar для легкой интеграции"
+    },
+    "dockerReady": {
+      "title": "Готово к Docker",
+      "description": "Многоэтапный Dockerfile с лучшими практиками безопасности и конфигурация Docker Compose"
+    },
+    "sdks": {
+      "title": "React и Vue SDK",
+      "description": "Потоки аутентификации с поддержкой cookie, хуки React и composables Vue для бесшовной интеграции"
+    },
+    "hexagonal": {
+      "title": "Гексагональная архитектура",
+      "description": "Четкое разделение бизнес-логики и инфраструктуры, отсутствие зависимостей в ядре"
+    }
+  },
+  "code": {
+    "title": "Простая интеграция",
+    "description": "Начните всего с нескольких строк кода",
+    "installation": "Установка",
+    "react": "React",
+    "vue": "Vue",
+    "node": "Node.js",
+    "copy": "Копировать",
+    "copied": "Скопировано!"
+  },
+  "demo": {
+    "title": "Попробуйте вживую",
+    "description": "Испытайте FortressAuth в действии с помощью нашей интерактивной демонстрации",
+    "tryNow": "Попробовать демо сейчас"
+  },
+  "resources": {
+    "title": "Ресурсы и документация",
+    "apiDocs": {
+      "title": "Документация API",
+      "description": "Полный справочник API с интерактивными примерами"
+    },
+    "quickStart": {
+      "title": "Быстрый старт",
+      "description": "Запуск за считанные минуты"
+    },
+    "examples": {
+      "title": "Примеры кода",
+      "description": "Примеры интеграции для React, Vue и Node.js"
+    },
+    "contributing": {
+      "title": "Участие в разработке",
+      "description": "Помогите нам сделать FortressAuth лучше"
+    }
+  },
+  "examples": {
+    "title": "Примеры интеграции",
+    "subtitle": "Изучите рабочие примеры, чтобы ускорить свою интеграцию",
+    "viewCode": "Посмотреть код",
+    "viewDemo": "Живое демо",
+    "basic-usage": {
+      "title": "Базовый сервер",
+      "description": "Полный пример сервера Node.js с базой данных SQLite, управлением сессиями и верификацией почты."
+    },
+    "web-react": {
+      "title": "Веб-приложение React",
+      "description": "Полное приложение на React с использованием @fortressauth/react-sdk, хуками аутентификации и защищенными роутами."
+    },
+    "web-vue": {
+      "title": "Веб-приложение Vue",
+      "description": "Приложение на Vue 3 с composables для состояния аутентификации и бесшовной интеграцией."
+    },
+    "web-svelte": {
+      "title": "Веб-приложение Svelte",
+      "description": "Приложение на Svelte 5 с состоянием аутентификации и бесшовной интеграцией."
+    },
+    "web-angular": {
+      "title": "Веб-приложение Angular",
+      "description": "Приложение на Angular с состоянием аутентификации и интеграцией RxJS."
+    }
+  },
+  "codeShowcase": {
+    "title": "Удобство для разработчиков прежде всего",
+    "subtitle": "Чистые и типизированные API, с которыми аутентификация становится проще простого",
+    "tabs": {
+      "quickStart": "Быстрый старт",
+      "reactSdk": "React SDK",
+      "vueSdk": "Vue SDK",
+      "angularSdk": "Angular SDK",
+      "svelteSdk": "Svelte SDK",
+      "reactNativeSdk": "React Native",
+      "expoSdk": "Expo"
+    },
+    "features": {
+      "fast": "Быстрая интеграция",
+      "secure": "Безопасно по умолчанию",
+      "typed": "Полная типизация"
+    }
+  },
+  "documentation": {
+    "title": "Документация API",
+    "subtitle": "Интерактивный справочник API на основе спецификации OpenAPI",
+    "openFullDocs": "Открыть в новой вкладке",
+    "serverNotRunning": "Сервер API не запущен",
+    "fallbackMessage": "Запустите сервер FortressAuth, чтобы просмотреть интерактивную документацию API:",
+    "viewServerDocs": "Посмотреть документацию сервера",
+    "openDocs": "Открыть документацию"
+  },
+  "footer": {
+    "tagline": "Создано с гексагональной архитектурой • Без зависимостей от инфраструктуры в ядре",
+    "copyright": "© 2024 FortressAuth. Лицензия MIT.",
+    "links": {
+      "documentation": "Документация",
+      "apiReference": "API справочник",
+      "examples": "Примеры",
+      "contributing": "Участие",
+      "github": "GitHub",
+      "license": "Лицензия"
+    }
+  }
+}
