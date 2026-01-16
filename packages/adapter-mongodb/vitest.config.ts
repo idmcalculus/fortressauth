@@ -15,18 +15,18 @@ export default defineConfig({
       thresholds:
         process.env.MONGODB_TEST_URL || process.env.MONGODB_URL
           ? {
-            lines: 90,
-            functions: 90,
-            branches: 80,
-            statements: 90,
-          }
+              lines: 90,
+              functions: 90,
+              branches: 80,
+              statements: 90,
+            }
           : {
-            // No thresholds when MongoDB is unavailable (tests skipped)
-            lines: 0,
-            functions: 0,
-            branches: 0,
-            statements: 0,
-          },
+              // No thresholds when MongoDB is unavailable (tests skipped)
+              lines: 0,
+              functions: 0,
+              branches: 0,
+              statements: 0,
+            },
     },
   },
 });
