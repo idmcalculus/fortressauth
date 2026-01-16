@@ -3,9 +3,33 @@ import { down as down001, up as up001 } from './001_initial.js';
 import { down as down002, up as up002 } from './002_email_verification.js';
 import { down as down003, up as up003 } from './003_password_resets.js';
 import { down as down004, up as up004 } from './004_session_split_token.js';
+import {
+  type MigrationColumnTypes,
+  MYSQL_COLUMN_TYPES,
+  POSTGRES_COLUMN_TYPES,
+  SQLITE_COLUMN_TYPES,
+} from './types.js';
+
+export type MigrationDialect = 'sqlite' | 'postgres' | 'mysql';
+
+export interface MigrationOptions {
+  dialect?: MigrationDialect;
+}
 
 function isAlreadyExistsError(error: unknown): boolean {
-  return error instanceof Error && /already exists/i.test(error.message);
+  return error instanceof Error && /already exists|duplicate key name/i.test(error.message);
+}
+
+function resolveColumnTypes(options?: MigrationOptions): MigrationColumnTypes {
+  const dialect = options?.dialect ?? 'sqlite';
+  switch (dialect) {
+    case 'postgres':
+      return POSTGRES_COLUMN_TYPES;
+    case 'mysql':
+      return MYSQL_COLUMN_TYPES;
+    default:
+      return SQLITE_COLUMN_TYPES;
+  }
 }
 
 export async function safeExecute(promise: Promise<unknown>): Promise<void> {
@@ -18,16 +42,18 @@ export async function safeExecute(promise: Promise<unknown>): Promise<void> {
   }
 }
 
-export async function up<T>(db: Kysely<T>): Promise<void> {
-  await up001(db);
-  await up002(db);
-  await up003(db);
-  await up004(db);
+export async function up<T>(db: Kysely<T>, options: MigrationOptions = {}): Promise<void> {
+  const columnTypes = resolveColumnTypes(options);
+  await up001(db, columnTypes);
+  await up002(db, columnTypes);
+  await up003(db, columnTypes);
+  await up004(db, columnTypes);
 }
 
-export async function down<T>(db: Kysely<T>): Promise<void> {
-  await down004(db);
-  await down003(db);
-  await down002(db);
-  await down001(db);
+export async function down<T>(db: Kysely<T>, options: MigrationOptions = {}): Promise<void> {
+  const columnTypes = resolveColumnTypes(options);
+  await down004(db, columnTypes);
+  await down003(db, columnTypes);
+  await down002(db, columnTypes);
+  await down001(db, columnTypes);
 }

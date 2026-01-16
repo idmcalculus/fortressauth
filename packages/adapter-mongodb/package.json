@@ -1,5 +1,5 @@
 {
-  "name": "@fortressauth/adapter-sql",
+  "name": "@fortressauth/adapter-mongodb",
   "version": "0.1.9",
   "type": "module",
   "main": "./dist/index.js",
@@ -26,15 +26,16 @@
   },
   "dependencies": {
     "@fortressauth/core": "workspace:*",
-    "kysely": "^0.28.9"
+    "mongodb": "^7.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "@fortressauth/adapter-sql": "workspace:*",
     "@types/better-sqlite3": "^7.6.13",
     "@vitest/coverage-v8": "^4.0.16",
     "better-sqlite3": "^12.5.0",
-    "mysql2": "^3.16.0",
-    "pg": "^8.17.1",
+    "fast-check": "^4.5.3",
+    "kysely": "^0.28.9",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }

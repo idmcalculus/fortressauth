@@ -1,18 +1,22 @@
 import type { Kysely } from 'kysely';
 import { safeExecute } from './index.js';
+import { type MigrationColumnTypes, SQLITE_COLUMN_TYPES } from './types.js';
 
 // Generic type parameter allows any database schema since migrations only use schema builder
-export async function up<T>(db: Kysely<T>): Promise<void> {
+export async function up<T>(
+  db: Kysely<T>,
+  columnTypes: MigrationColumnTypes = SQLITE_COLUMN_TYPES,
+): Promise<void> {
   await safeExecute(
     db.schema
       .createTable('users')
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('email', 'text', (col) => col.notNull().unique())
-      .addColumn('email_verified', 'boolean', (col) => col.notNull().defaultTo(false))
-      .addColumn('created_at', 'timestamp', (col) => col.notNull())
-      .addColumn('updated_at', 'timestamp', (col) => col.notNull())
-      .addColumn('locked_until', 'timestamp')
+      .addColumn('email_verified', columnTypes.boolean, (col) => col.notNull().defaultTo(false))
+      .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
+      .addColumn('updated_at', columnTypes.timestamp, (col) => col.notNull())
+      .addColumn('locked_until', columnTypes.timestamp)
       .execute(),
   );
 
@@ -29,7 +33,7 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .addColumn('provider_id', 'text', (col) => col.notNull())
       .addColumn('provider_user_id', 'text', (col) => col.notNull())
       .addColumn('password_hash', 'text')
-      .addColumn('created_at', 'timestamp', (col) => col.notNull())
+      .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
@@ -61,10 +65,10 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
         col.notNull().references('users.id').onDelete('cascade'),
       )
       .addColumn('token_hash', 'text', (col) => col.notNull().unique())
-      .addColumn('expires_at', 'timestamp', (col) => col.notNull())
+      .addColumn('expires_at', columnTypes.timestamp, (col) => col.notNull())
       .addColumn('ip_address', 'text')
       .addColumn('user_agent', 'text')
-      .addColumn('created_at', 'timestamp', (col) => col.notNull())
+      .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
@@ -87,8 +91,8 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .addColumn('user_id', 'text', (col) => col.references('users.id').onDelete('set null'))
       .addColumn('email', 'text', (col) => col.notNull())
       .addColumn('ip_address', 'text', (col) => col.notNull())
-      .addColumn('success', 'boolean', (col) => col.notNull())
-      .addColumn('created_at', 'timestamp', (col) => col.notNull())
+      .addColumn('success', columnTypes.boolean, (col) => col.notNull())
+      .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
@@ -102,7 +106,10 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
   );
 }
 
-export async function down<T>(db: Kysely<T>): Promise<void> {
+export async function down<T>(
+  db: Kysely<T>,
+  _columnTypes: MigrationColumnTypes = SQLITE_COLUMN_TYPES,
+): Promise<void> {
   await db.schema.dropTable('login_attempts').ifExists().execute();
   await db.schema.dropTable('sessions').ifExists().execute();
   await db.schema.dropTable('accounts').ifExists().execute();

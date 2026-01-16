@@ -60,7 +60,7 @@ const db = new Kysely({
 });
 
 // Run migrations
-await up(db);
+await up(db, { dialect: 'sqlite' });
 
 // Create adapter
 const adapter = new SqlAdapter(db, { dialect: 'sqlite' });
@@ -81,7 +81,7 @@ const db = new Kysely({
   }),
 });
 
-await up(db);
+await up(db, { dialect: 'postgres' });
 const adapter = new SqlAdapter(db, { dialect: 'postgres' });
 ```
 
@@ -98,7 +98,7 @@ const db = new Kysely({
   }),
 });
 
-await up(db);
+await up(db, { dialect: 'mysql' });
 const adapter = new SqlAdapter(db, { dialect: 'mysql' });
 ```
 
@@ -116,12 +116,44 @@ The adapter creates four tables:
 ```typescript
 import { up, down } from '@fortressauth/adapter-sql';
 
-// Apply migrations
-await up(db);
+// Apply migrations with the correct dialect
+await up(db, { dialect: 'postgres' });
 
 // Rollback migrations
-await down(db);
+await down(db, { dialect: 'postgres' });
 ```
+
+## Database Setup
+
+### PostgreSQL
+
+Connection string example:
+
+```bash
+postgresql://user:password@localhost:5432/fortressauth
+```
+
+Required permissions for the database user:
+
+- CREATE, ALTER, DROP tables
+- CREATE, DROP indexes
+- SELECT, INSERT, UPDATE, DELETE
+
+### MySQL
+
+Connection string example:
+
+```bash
+mysql://user:password@localhost:3306/fortressauth
+```
+
+Required permissions for the database user:
+
+- CREATE, ALTER, DROP tables
+- CREATE, DROP indexes
+- SELECT, INSERT, UPDATE, DELETE
+
+MySQL migrations use `TINYINT` for boolean fields and `DATETIME` for timestamps.
 
 ## Transactions
 

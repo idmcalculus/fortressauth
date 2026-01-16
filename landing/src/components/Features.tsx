@@ -23,7 +23,19 @@ export function Features() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [rotation, setRotation] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const animationRef = useRef<number | null>(null);
+
+  // Check for mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia('(max-width: 768px)').matches);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Rotation animation
   useEffect(() => {
@@ -48,6 +60,14 @@ export function Features() {
     setIsPaused(index !== null);
   };
 
+  const handleCardClick = (index: number) => {
+    if (activeIndex === index) {
+      handleCardHover(null);
+    } else {
+      handleCardHover(index);
+    }
+  };
+
   const getCardPosition = (index: number, total: number) => {
     const angle = (index / total) * 360 + rotation;
     const radian = (angle * Math.PI) / 180;
@@ -63,6 +83,7 @@ export function Features() {
       className={styles.features}
       aria-labelledby="features-title"
       ref={containerRef}
+      onMouseLeave={() => handleCardHover(null)}
     >
       <div className={styles.header}>
         <h2 id="features-title" className={styles.title}>
@@ -106,9 +127,10 @@ export function Features() {
                 zIndex: isActive ? 10 : 1,
               }}
               onMouseEnter={() => handleCardHover(index)}
-              onMouseLeave={() => handleCardHover(null)}
+              onMouseLeave={() => !isMobile && handleCardHover(null)}
               onFocus={() => handleCardHover(index)}
-              onBlur={() => handleCardHover(null)}
+              onClick={() => handleCardClick(index)}
+              onBlur={() => {}} // blur shouldn't close it immediately to allow clicking links/details if needed, let section leave handle it or click outside
             >
               <div className={styles.cardInner}>
                 <div className={styles.iconWrapper} style={{ background: `${feature.color}20` }}>

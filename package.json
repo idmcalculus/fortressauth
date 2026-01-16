@@ -9,6 +9,7 @@
     "test:coverage": "turbo run test:coverage --filter=./packages/** --filter=!./examples/** --filter=!./landing/**",
     "test:coverage:all": "turbo run test:coverage",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
     "dev": "turbo run dev"
   },

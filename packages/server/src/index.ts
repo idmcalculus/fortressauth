@@ -15,7 +15,8 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { secureHeaders } from 'hono/secure-headers';
 import { Redis } from 'ioredis';
-import { Kysely, PostgresDialect, SqliteDialect } from 'kysely';
+import { Kysely, MysqlDialect, PostgresDialect, SqliteDialect } from 'kysely';
+import { createPool } from 'mysql2';
 import { Pool } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { createEmailProvider } from './email-provider.js';
@@ -36,13 +37,14 @@ if (env.METRICS_ENABLED) {
 // Initialize database with proper typing and dialect
 type DatabaseContext = {
   db: Kysely<Database>;
-  dialect: 'sqlite' | 'postgres';
+  dialect: 'sqlite' | 'postgres' | 'mysql';
   close: () => Promise<void>;
 };
 
 function createDatabase(): DatabaseContext {
   const url = env.DATABASE_URL;
   const isPostgres = url.startsWith('postgres://') || url.startsWith('postgresql://');
+  const isMysql = url.startsWith('mysql://') || url.startsWith('mysql2://');
 
   if (isPostgres) {
     const pool = new Pool({ connectionString: url });
@@ -51,6 +53,20 @@ function createDatabase(): DatabaseContext {
       db,
       dialect: 'postgres',
       close: () => pool.end(),
+    };
+  }
+
+  if (isMysql) {
+    const pool = createPool(url);
+    const db = new Kysely<Database>({ dialect: new MysqlDialect({ pool }) });
+    return {
+      db,
+      dialect: 'mysql',
+      close: async () => {
+        await new Promise<void>((resolve, reject) =>
+          pool.end((error) => (error ? reject(error) : resolve())),
+        );
+      },
     };
   }
 
@@ -69,7 +85,7 @@ const { db, dialect, close } = createDatabase();
 
 // Run migrations with error handling
 try {
-  await up(db);
+  await up(db, { dialect });
 } catch (error) {
   console.error('Failed to run database migrations:', error);
   process.exit(1);

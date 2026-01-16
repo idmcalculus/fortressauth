@@ -20,6 +20,41 @@ export interface SqlAdapterOptions {
   dialect?: DatabaseDialect;
 }
 
+/**
+ * Checks if an error is a duplicate key/unique constraint violation.
+ * Handles SQLite, PostgreSQL, and MySQL error formats.
+ */
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  // Check error codes for different database drivers
+  const errorWithCode = error as Error & { code?: string; errno?: number };
+
+  // SQLite: SQLITE_CONSTRAINT
+  // PostgreSQL: 23505 (unique_violation)
+  // MySQL: ER_DUP_ENTRY
+  if (
+    errorWithCode.code === 'SQLITE_CONSTRAINT' ||
+    errorWithCode.code === '23505' ||
+    errorWithCode.code === 'ER_DUP_ENTRY'
+  ) {
+    return true;
+  }
+
+  // MySQL errno 1062 = Duplicate entry
+  if (errorWithCode.errno === 1062) {
+    return true;
+  }
+
+  // Fallback: check error message patterns
+  const message = error.message ?? '';
+  return (
+    message.includes('UNIQUE constraint failed') || /duplicate key|duplicate entry/i.test(message)
+  );
+}
+
 export class SqlAdapter implements AuthRepository {
   private readonly dialect: DatabaseDialect;
 
@@ -108,13 +143,7 @@ export class SqlAdapter implements AuthRepository {
 
       return ok(undefined);
     } catch (error: unknown) {
-      // Check for unique constraint violation across different database drivers
-      const isUniqueViolation =
-        error instanceof Error &&
-        (('code' in error && (error.code === 'SQLITE_CONSTRAINT' || error.code === '23505')) ||
-          error.message?.includes('UNIQUE constraint failed') ||
-          error.message?.includes('duplicate key'));
-      if (isUniqueViolation) {
+      if (isDuplicateKeyError(error)) {
         return err('EMAIL_EXISTS');
       }
       throw error;

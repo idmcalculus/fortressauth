@@ -34,7 +34,7 @@ pnpm start
 ```bash
 PORT=3000                          # Server port
 HOST=0.0.0.0                       # Server host
-DATABASE_URL=./fortress.db         # SQLite database path (or PostgreSQL URL)
+DATABASE_URL=./fortress.db         # SQLite database path (or PostgreSQL/MySQL URL)
 BASE_URL=http://localhost:3000     # Public URL for email links
 COOKIE_SECURE=false                # Use secure cookies (true in production)
 COOKIE_SAMESITE=strict             # Cookie SameSite attribute
@@ -65,6 +65,36 @@ SMTP_FROM_NAME=                    # Optional when EMAIL_PROVIDER=smtp
 SMTP_TLS_REJECT_UNAUTHORIZED=      # Optional when EMAIL_PROVIDER=smtp
 SMTP_TLS_SERVERNAME=               # Optional when EMAIL_PROVIDER=smtp
 ```
+
+## Database Setup
+
+### PostgreSQL
+
+Connection string example:
+
+```bash
+postgresql://user:password@localhost:5432/fortressauth
+```
+
+Required permissions for the database user:
+
+- CREATE, ALTER, DROP tables
+- CREATE, DROP indexes
+- SELECT, INSERT, UPDATE, DELETE
+
+### MySQL
+
+Connection string example:
+
+```bash
+mysql://user:password@localhost:3306/fortressauth
+```
+
+Required permissions for the database user:
+
+- CREATE, ALTER, DROP tables
+- CREATE, DROP indexes
+- SELECT, INSERT, UPDATE, DELETE
 
 ## CORS Configuration
 

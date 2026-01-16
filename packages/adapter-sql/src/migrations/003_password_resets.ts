@@ -1,7 +1,11 @@
 import type { Kysely } from 'kysely';
 import { safeExecute } from './index.js';
+import { type MigrationColumnTypes, SQLITE_COLUMN_TYPES } from './types.js';
 
-export async function up<T>(db: Kysely<T>): Promise<void> {
+export async function up<T>(
+  db: Kysely<T>,
+  columnTypes: MigrationColumnTypes = SQLITE_COLUMN_TYPES,
+): Promise<void> {
   await safeExecute(
     db.schema
       .createTable('password_resets')
@@ -10,8 +14,8 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
       .addColumn('user_id', 'text', (col) => col.references('users.id').onDelete('cascade'))
       .addColumn('selector', 'text', (col) => col.notNull())
       .addColumn('verifier_hash', 'text', (col) => col.notNull())
-      .addColumn('expires_at', 'timestamp', (col) => col.notNull())
-      .addColumn('created_at', 'timestamp', (col) => col.notNull())
+      .addColumn('expires_at', columnTypes.timestamp, (col) => col.notNull())
+      .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
@@ -35,6 +39,9 @@ export async function up<T>(db: Kysely<T>): Promise<void> {
   );
 }
 
-export async function down<T>(db: Kysely<T>): Promise<void> {
+export async function down<T>(
+  db: Kysely<T>,
+  _columnTypes: MigrationColumnTypes = SQLITE_COLUMN_TYPES,
+): Promise<void> {
   await db.schema.dropTable('password_resets').ifExists().execute();
 }

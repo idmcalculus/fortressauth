@@ -23,6 +23,7 @@
       ]
     },
     "lint": {},
+    "lint:fix": {},
     "typecheck": {
       "dependsOn": [
         "^build"
