@@ -9,12 +9,24 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.d.ts', 'src/index.ts', 'src/schema.ts'],
-      thresholds: {
-        lines: 85,
-        functions: 80,
-        branches: 65,
-        statements: 85,
-      },
+      // Thresholds are only validated when MongoDB is available.
+      // When MONGODB_URL is not set, tests are skipped and coverage is not meaningful.
+      // CI should run with a MongoDB service to enforce thresholds.
+      thresholds:
+        process.env.MONGODB_TEST_URL || process.env.MONGODB_URL
+          ? {
+            lines: 90,
+            functions: 90,
+            branches: 80,
+            statements: 90,
+          }
+          : {
+            // No thresholds when MongoDB is unavailable (tests skipped)
+            lines: 0,
+            functions: 0,
+            branches: 0,
+            statements: 0,
+          },
     },
   },
 });

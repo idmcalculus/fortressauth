@@ -11,6 +11,17 @@ jobs:
       contents: read
       id-token: write
 
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v5
 
@@ -36,6 +47,8 @@ jobs:
 
       - name: Test
         run: pnpm test
+        env:
+          MONGODB_TEST_URL: mongodb://localhost:27017/fortressauth_test
 
       - name: Publish @fortressauth/core
         run: cd packages/core && pnpm publish --access public --no-git-checks
@@ -44,6 +57,11 @@ jobs:
 
       - name: Publish @fortressauth/adapter-sql
         run: cd packages/adapter-sql && pnpm publish --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @fortressauth/adapter-mongodb
+        run: cd packages/adapter-mongodb && pnpm publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

@@ -85,6 +85,75 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
           }
         });
 
+        it('should return EMAIL_EXISTS for PostgreSQL unique violation (code 23505)', async () => {
+          const error = Object.assign(new Error('unique violation'), { code: '23505' });
+          const fakeDb = {
+            insertInto: () => ({
+              values: () => ({
+                execute: () => {
+                  throw error;
+                },
+              }),
+            }),
+          };
+          const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+            dialect: options.dialect,
+          });
+
+          const result = await failingAdapter.createUser(User.create('test@example.com'));
+
+          expect(result.success).toBe(false);
+          if (!result.success) {
+            expect(result.error).toBe('EMAIL_EXISTS');
+          }
+        });
+
+        it('should return EMAIL_EXISTS for MySQL duplicate entry (code ER_DUP_ENTRY)', async () => {
+          const error = Object.assign(new Error('Duplicate entry'), { code: 'ER_DUP_ENTRY' });
+          const fakeDb = {
+            insertInto: () => ({
+              values: () => ({
+                execute: () => {
+                  throw error;
+                },
+              }),
+            }),
+          };
+          const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+            dialect: options.dialect,
+          });
+
+          const result = await failingAdapter.createUser(User.create('test@example.com'));
+
+          expect(result.success).toBe(false);
+          if (!result.success) {
+            expect(result.error).toBe('EMAIL_EXISTS');
+          }
+        });
+
+        it('should return EMAIL_EXISTS for MySQL duplicate entry (errno 1062)', async () => {
+          const error = Object.assign(new Error('Duplicate entry'), { errno: 1062 });
+          const fakeDb = {
+            insertInto: () => ({
+              values: () => ({
+                execute: () => {
+                  throw error;
+                },
+              }),
+            }),
+          };
+          const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+            dialect: options.dialect,
+          });
+
+          const result = await failingAdapter.createUser(User.create('test@example.com'));
+
+          expect(result.success).toBe(false);
+          if (!result.success) {
+            expect(result.error).toBe('EMAIL_EXISTS');
+          }
+        });
+
         it('should rethrow non-unique database errors', async () => {
           const error = new Error('connection lost');
           const fakeDb = {
@@ -102,6 +171,25 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
 
           await expect(failingAdapter.createUser(User.create('test@example.com'))).rejects.toThrow(
             'connection lost',
+          );
+        });
+
+        it('should rethrow non-Error thrown values', async () => {
+          const fakeDb = {
+            insertInto: () => ({
+              values: () => ({
+                execute: () => {
+                  throw 'string error';
+                },
+              }),
+            }),
+          };
+          const failingAdapter = new SqlAdapter(fakeDb as unknown as Kysely<DatabaseSchema>, {
+            dialect: options.dialect,
+          });
+
+          await expect(failingAdapter.createUser(User.create('test@example.com'))).rejects.toBe(
+            'string error',
           );
         });
       });
