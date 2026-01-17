@@ -19,6 +19,7 @@ export interface AuthContextValue {
   error: string | null;
   signUp: (email: string, password: string) => Promise<ApiResponse<{ user: User }>>;
   signIn: (email: string, password: string) => Promise<ApiResponse<{ user: User }>>;
+  signInWithOAuth: (provider: OAuthProvider) => Promise<void>;
   signOut: () => Promise<ApiResponse<unknown>>;
   verifyEmail: (token: string) => Promise<ApiResponse<unknown>>;
   requestPasswordReset: (email: string) => Promise<ApiResponse<unknown>>;
@@ -40,3 +41,12 @@ export interface AuthStorage {
   setItem: (key: string, value: string) => Promise<void>;
   removeItem: (key: string) => Promise<void>;
 }
+
+export type OAuthProvider =
+  | 'google'
+  | 'github'
+  | 'apple'
+  | 'discord'
+  | 'linkedin'
+  | 'twitter'
+  | 'microsoft';

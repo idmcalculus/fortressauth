@@ -16,4 +16,4 @@ export type {
   ButtonVariant,
   InputProps,
   ModalProps,
-} from './types';
+} from './types.js';

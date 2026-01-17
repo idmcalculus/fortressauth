@@ -13,12 +13,22 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+export type OAuthProvider =
+  | 'google'
+  | 'github'
+  | 'apple'
+  | 'discord'
+  | 'linkedin'
+  | 'twitter'
+  | 'microsoft';
+
 export interface AuthContextValue {
   user: User | null;
   loading: boolean;
   error: string | null;
   signUp: (email: string, password: string) => Promise<ApiResponse<{ user: User }>>;
   signIn: (email: string, password: string) => Promise<ApiResponse<{ user: User }>>;
+  signInWithOAuth: (provider: OAuthProvider) => void;
   signOut: () => Promise<ApiResponse<unknown>>;
   verifyEmail: (token: string) => Promise<ApiResponse<unknown>>;
   requestPasswordReset: (email: string) => Promise<ApiResponse<unknown>>;

@@ -127,7 +127,7 @@ function createTestApp() {
         return c.json({ success: false, error: 'CSRF_TOKEN_INVALID' }, 403);
       }
     }
-    await next();
+    return await next();
   });
 
   app.get('/auth/csrf', (c) => {

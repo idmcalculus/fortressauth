@@ -38,7 +38,7 @@ export function LocaleSwitcher() {
         className={styles.select}
         aria-label="Select language"
       >
-        {routing.locales.map((cur) => (
+        {routing.locales.map((cur: string) => (
           <option key={cur} value={cur}>
             {localeNames[cur] || cur}
           </option>

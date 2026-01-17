@@ -14,9 +14,9 @@ import {
   validateSignInForm,
   validateSignUpForm,
   validateVerifyEmailForm,
-} from '../../shared/utils/validation';
-import type { AlertType } from './components';
-import { Alert, Button, Input, Modal } from './components';
+} from '../../shared/utils/validation.js';
+import type { AlertType } from './components/index.js';
+import { Alert, Button, Input, Modal } from './components/index.js';
 import './App.css';
 
 type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
@@ -347,7 +347,7 @@ export default function App() {
                   type="email"
                   label="Email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   error={errors.email}
                   required
@@ -362,7 +362,7 @@ export default function App() {
                   type="text"
                   label={mode === 'verify' ? 'Verification Token' : 'Reset Token'}
                   value={token}
-                  onChange={(e) => setToken(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToken(e.target.value)}
                   placeholder="selector:verifier"
                   error={errors.token}
                   hint="Paste the token from your email"
@@ -378,7 +378,7 @@ export default function App() {
                   type="password"
                   label={mode === 'reset' ? 'New Password' : 'Password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   error={errors.password}
                   hint={mode === 'signup' || mode === 'reset' ? 'Minimum 8 characters' : undefined}
@@ -394,7 +394,9 @@ export default function App() {
                   type="password"
                   label="Confirm Password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setConfirmPassword(e.target.value)
+                  }
                   placeholder="••••••••"
                   error={errors.confirmPassword}
                   required
@@ -448,7 +450,7 @@ export default function App() {
             type="email"
             label="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             placeholder="your@email.com"
             error={errors.email}
             required

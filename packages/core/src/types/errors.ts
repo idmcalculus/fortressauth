@@ -13,6 +13,10 @@ export type AuthErrorCode =
   | 'SESSION_EXPIRED'
   | 'SESSION_INVALID'
   | 'EMAIL_EXISTS'
+  | 'OAUTH_AUTH_FAILED'
+  | 'OAUTH_STATE_MISMATCH'
+  | 'OAUTH_USER_INFO_FAILED'
+  | 'OAUTH_NOT_SUPPORTED'
   | 'RATE_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';
 
@@ -112,6 +116,26 @@ export const ERROR_CODE_MAP: Record<AuthErrorCode, ErrorCodeMapping> = {
   INVALID_PASSWORD: {
     code: 'AUTH_015',
     message: 'Invalid password format.',
+    httpStatus: 400,
+  },
+  OAUTH_AUTH_FAILED: {
+    code: 'AUTH_017',
+    message: 'Authentication with the external provider failed.',
+    httpStatus: 401,
+  },
+  OAUTH_STATE_MISMATCH: {
+    code: 'AUTH_018',
+    message: 'Security verification failed for external login.',
+    httpStatus: 403,
+  },
+  OAUTH_USER_INFO_FAILED: {
+    code: 'AUTH_019',
+    message: 'Failed to retrieve user information from the external provider.',
+    httpStatus: 401,
+  },
+  OAUTH_NOT_SUPPORTED: {
+    code: 'AUTH_020',
+    message: 'The requested authentication provider is not supported or configured.',
     httpStatus: 400,
   },
 };

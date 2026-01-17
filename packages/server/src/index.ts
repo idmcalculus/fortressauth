@@ -1,5 +1,6 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
+import type { OAuthProviderId, OAuthProviderPort } from '@fortressauth/core';
 import {
   type AuthErrorCode,
   FortressAuth,
@@ -8,6 +9,13 @@ import {
   MemoryRateLimiter,
   type RateLimiterPort,
 } from '@fortressauth/core';
+import { AppleOAuthProvider } from '@fortressauth/provider-apple';
+import { DiscordOAuthProvider } from '@fortressauth/provider-discord';
+import { GitHubOAuthProvider } from '@fortressauth/provider-github';
+import { GoogleOAuthProvider } from '@fortressauth/provider-google';
+import { LinkedInOAuthProvider } from '@fortressauth/provider-linkedin';
+import { MicrosoftOAuthProvider } from '@fortressauth/provider-microsoft';
+import { TwitterOAuthProvider } from '@fortressauth/provider-twitter';
 import Database_ from 'better-sqlite3';
 import { Hono } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
@@ -110,6 +118,85 @@ const fortressConfigInput: FortressConfigInput = {
   urls: {
     baseUrl: env.BASE_URL,
   },
+  oauth: {
+    providers: {
+      ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI
+        ? {
+            google: {
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
+              redirectUri: env.GOOGLE_REDIRECT_URI,
+            },
+          }
+        : {}),
+      ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.GITHUB_REDIRECT_URI
+        ? {
+            github: {
+              clientId: env.GITHUB_CLIENT_ID,
+              clientSecret: env.GITHUB_CLIENT_SECRET,
+              redirectUri: env.GITHUB_REDIRECT_URI,
+            },
+          }
+        : {}),
+      ...(env.APPLE_CLIENT_ID &&
+      env.APPLE_TEAM_ID &&
+      env.APPLE_KEY_ID &&
+      env.APPLE_REDIRECT_URI &&
+      (env.APPLE_CLIENT_SECRET || env.APPLE_PRIVATE_KEY)
+        ? {
+            apple: {
+              clientId: env.APPLE_CLIENT_ID,
+              teamId: env.APPLE_TEAM_ID,
+              keyId: env.APPLE_KEY_ID,
+              redirectUri: env.APPLE_REDIRECT_URI,
+              clientSecret: env.APPLE_CLIENT_SECRET,
+              ...(env.APPLE_PRIVATE_KEY ? { privateKey: env.APPLE_PRIVATE_KEY } : {}),
+              ...(env.APPLE_CLIENT_SECRET_TTL_SECONDS
+                ? { clientSecretExpiresIn: env.APPLE_CLIENT_SECRET_TTL_SECONDS }
+                : {}),
+            },
+          }
+        : {}),
+      ...(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.DISCORD_REDIRECT_URI
+        ? {
+            discord: {
+              clientId: env.DISCORD_CLIENT_ID,
+              clientSecret: env.DISCORD_CLIENT_SECRET,
+              redirectUri: env.DISCORD_REDIRECT_URI,
+            },
+          }
+        : {}),
+      ...(env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET && env.LINKEDIN_REDIRECT_URI
+        ? {
+            linkedin: {
+              clientId: env.LINKEDIN_CLIENT_ID,
+              clientSecret: env.LINKEDIN_CLIENT_SECRET,
+              redirectUri: env.LINKEDIN_REDIRECT_URI,
+            },
+          }
+        : {}),
+      ...(env.TWITTER_CLIENT_ID && env.TWITTER_CLIENT_SECRET && env.TWITTER_REDIRECT_URI
+        ? {
+            twitter: {
+              clientId: env.TWITTER_CLIENT_ID,
+              clientSecret: env.TWITTER_CLIENT_SECRET,
+              redirectUri: env.TWITTER_REDIRECT_URI,
+            },
+          }
+        : {}),
+      ...(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_REDIRECT_URI
+        ? {
+            microsoft: {
+              clientId: env.MICROSOFT_CLIENT_ID,
+              clientSecret: env.MICROSOFT_CLIENT_SECRET,
+              redirectUri: env.MICROSOFT_REDIRECT_URI,
+              tenantId: env.MICROSOFT_TENANT_ID,
+              scopes: env.MICROSOFT_SCOPES,
+            },
+          }
+        : {}),
+    },
+  },
 };
 
 const resolvedConfig = FortressConfigSchema.parse(fortressConfigInput);
@@ -199,6 +286,33 @@ const emailProvider = createEmailProvider({
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);
 
+// Initialize OAuth Providers
+const oauthProviders: Record<string, OAuthProviderPort> = {};
+// biome-ignore lint/suspicious/noExplicitAny: OAuth config can be complex due to Zod inference
+const oauthConfig = resolvedConfig.oauth.providers as Record<string, any>;
+
+if (oauthConfig?.google) {
+  oauthProviders.google = new GoogleOAuthProvider(oauthConfig.google);
+}
+if (oauthConfig?.github) {
+  oauthProviders.github = new GitHubOAuthProvider(oauthConfig.github);
+}
+if (oauthConfig?.apple) {
+  oauthProviders.apple = new AppleOAuthProvider(oauthConfig.apple);
+}
+if (oauthConfig?.discord) {
+  oauthProviders.discord = new DiscordOAuthProvider(oauthConfig.discord);
+}
+if (oauthConfig?.linkedin) {
+  oauthProviders.linkedin = new LinkedInOAuthProvider(oauthConfig.linkedin);
+}
+if (oauthConfig?.twitter) {
+  oauthProviders.twitter = new TwitterOAuthProvider(oauthConfig.twitter);
+}
+if (oauthConfig?.microsoft) {
+  oauthProviders.microsoft = new MicrosoftOAuthProvider(oauthConfig.microsoft);
+}
+
 const config = fortress.getConfig();
 
 // Create Hono app
@@ -238,6 +352,10 @@ app.use(
 );
 
 app.use('/auth/*', async (c, next) => {
+  if (c.req.method === 'POST' && c.req.path === '/auth/oauth/apple/callback') {
+    return next();
+  }
+
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(c.req.method)) {
     const headerToken = c.req.header(env.CSRF_HEADER_NAME);
     const cookieToken = getCookie(c, env.CSRF_COOKIE_NAME);
@@ -642,6 +760,137 @@ app.post('/auth/reset-password', async (c) => {
     const { response, status } = createError(
       'INTERNAL_ERROR',
       'Unexpected error during password reset',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
+  }
+});
+
+// OAuth Routes
+app.get('/auth/oauth/:provider', async (c) => {
+  const providerId = c.req.param('provider') as OAuthProviderId;
+  const provider = oauthProviders[providerId];
+
+  if (!provider) {
+    const { response, status } = createError(
+      'OAUTH_NOT_SUPPORTED',
+      `Provider ${providerId} not supported`,
+    );
+    return c.json(response, status);
+  }
+
+  try {
+    const url = await fortress.getOAuthAuthorizationUrl(provider, providerId);
+    return c.redirect(url);
+  } catch (error) {
+    console.error(`OAuth initiation error for ${providerId}:`, error);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Failed to initiate OAuth flow',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
+  }
+});
+
+app.get('/auth/oauth/:provider/callback', async (c) => {
+  const providerId = c.req.param('provider') as OAuthProviderId;
+  const provider = oauthProviders[providerId];
+  const code = c.req.query('code');
+  const state = c.req.query('state');
+
+  if (!provider || !code || !state) {
+    const { response, status } = createError('OAUTH_AUTH_FAILED', 'Invalid callback parameters');
+    return c.json(response, status);
+  }
+
+  try {
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
+
+    const result = await fortress.handleOAuthCallback(provider, providerId, code, state, {
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    if (!result.success) {
+      const { response, status } = createError(result.error, 'OAuth authentication failed');
+      return c.json(response, status);
+    }
+
+    const { user, token } = result.data;
+    setSessionCookie(c, token);
+
+    // Redirect to frontend or return JSON based on request
+    const acceptHeader = c.req.header('accept');
+    if (acceptHeader?.includes('application/json')) {
+      return c.json(
+        success({
+          user: {
+            id: user.id,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            createdAt: user.createdAt.toISOString(),
+          },
+        }),
+      );
+    }
+
+    return c.redirect(env.BASE_URL);
+  } catch (error) {
+    console.error(`OAuth callback error for ${providerId}:`, error);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during OAuth callback',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
+  }
+});
+
+// Apple uses form_post for its callback, so we need a POST route too
+app.post('/auth/oauth/apple/callback', async (c) => {
+  const body = await c.req.parseBody();
+  const code = body.code as string;
+  const state = body.state as string;
+
+  if (!code || !state) {
+    const { response, status } = createError(
+      'OAUTH_AUTH_FAILED',
+      'Invalid Apple callback parameters',
+    );
+    return c.json(response, status);
+  }
+
+  const provider = oauthProviders.apple;
+  if (!provider) {
+    const { response, status } = createError('OAUTH_NOT_SUPPORTED', 'Apple provider not enabled');
+    return c.json(response, status);
+  }
+
+  try {
+    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const userAgent = c.req.header('user-agent');
+
+    const result = await fortress.handleOAuthCallback(provider, 'apple', code, state, {
+      ipAddress,
+      ...(userAgent ? { userAgent } : {}),
+    });
+
+    if (!result.success) {
+      const { response, status } = createError(result.error, 'Apple authentication failed');
+      return c.json(response, status);
+    }
+
+    const { token } = result.data;
+    setSessionCookie(c, token);
+
+    return c.redirect(env.BASE_URL);
+  } catch (error) {
+    console.error('Apple callback error:', error);
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected error during Apple callback',
       error instanceof Error ? error : undefined,
     );
     return c.json(response, status);

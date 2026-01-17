@@ -1,5 +1,11 @@
 import { computed, defineComponent, h, inject, onMounted, provide, reactive, toRef } from 'vue';
-import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
+import type {
+  ApiResponse,
+  AuthContextValue,
+  AuthProviderProps,
+  OAuthProvider,
+  User,
+} from './types.js';
 
 const CSRF_COOKIE_NAME = 'fortress_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -192,6 +198,10 @@ export const AuthProvider = defineComponent<AuthProviderProps>({
       return response;
     };
 
+    const signInWithOAuth = (provider: OAuthProvider) => {
+      window.location.href = `${baseUrl.value}/auth/oauth/${provider}`;
+    };
+
     const signOut = async () => {
       const response = await apiRequest(baseUrl.value, '/auth/logout', { method: 'POST' });
       if (response.success) {
@@ -229,6 +239,7 @@ export const AuthProvider = defineComponent<AuthProviderProps>({
       error: toRef(state, 'error'),
       signUp,
       signIn,
+      signInWithOAuth,
       signOut,
       verifyEmail,
       requestPasswordReset,

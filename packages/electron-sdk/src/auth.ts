@@ -5,6 +5,7 @@ import type {
   AuthState,
   AuthStateListener,
   AuthStorage,
+  OAuthProvider,
   User,
 } from './types.js';
 
@@ -172,6 +173,12 @@ export class FortressAuth {
       this.updateState({ error: response.error ?? 'UNKNOWN_ERROR' });
     }
     return response as ApiResponse<{ user: User }>;
+  }
+
+  signInWithOAuth(provider: OAuthProvider): void {
+    if (typeof window !== 'undefined') {
+      window.location.href = `${this.baseUrl}/auth/oauth/${provider}`;
+    }
   }
 
   async signOut(): Promise<ApiResponse<unknown>> {

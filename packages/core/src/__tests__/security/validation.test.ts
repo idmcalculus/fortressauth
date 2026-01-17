@@ -46,9 +46,11 @@ describe('Password validation', () => {
     });
 
     it('should use custom minLength', () => {
-      const _result = validatePassword('12345', { minLength: 5 });
+      const result1 = validatePassword('12345', { minLength: 5 });
 
-      // Still fails because '12345' is too short for default 8
+      // '12345' is common, so may fail
+      expect(result1).toBeDefined();
+
       // Let's test with a longer password
       const result2 = validatePassword('12345678', { minLength: 10 });
 

@@ -65,6 +65,9 @@ function createMockRepository(): AuthRepository {
     deletePasswordReset: vi.fn().mockResolvedValue(undefined),
     recordLoginAttempt: vi.fn().mockResolvedValue(undefined),
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+    createOAuthState: vi.fn(),
+    findOAuthStateByState: vi.fn(),
+    deleteOAuthState: vi.fn(),
     transaction: vi.fn().mockImplementation(async (fn) =>
       fn({
         findUserByEmail: vi.fn(),
@@ -88,6 +91,9 @@ function createMockRepository(): AuthRepository {
         deletePasswordReset: vi.fn(),
         recordLoginAttempt: vi.fn(),
         countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+        createOAuthState: vi.fn(),
+        findOAuthStateByState: vi.fn(),
+        deleteOAuthState: vi.fn(),
         transaction: vi.fn(),
       }),
     ),
@@ -216,6 +222,9 @@ describe('Property 1: User Registration Creates Valid Records', () => {
             deletePasswordReset: vi.fn(),
             recordLoginAttempt: vi.fn(),
             countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+            createOAuthState: vi.fn(),
+            findOAuthStateByState: vi.fn(),
+            deleteOAuthState: vi.fn(),
             transaction: vi.fn(),
           };
           return fn(mockRepo);
@@ -224,11 +233,12 @@ describe('Property 1: User Registration Creates Valid Records', () => {
         const result = await fortress.signUp({ email, password });
 
         expect(result.success).toBe(true);
-        if (result.success && createdAccount) {
+        if (result.success && createdAccount !== null) {
+          const account = createdAccount as Account;
           // Password hash should be Argon2id format
-          expect(createdAccount.passwordHash).toMatch(/^\$argon2id\$/);
+          expect(account.passwordHash).toMatch(/^\$argon2id\$/);
           // Provider should be 'email'
-          expect(createdAccount.providerId).toBe('email');
+          expect(account.providerId).toBe('email');
         }
       }),
       { numRuns: 50 },
@@ -385,17 +395,21 @@ describe('Property 4: Session Token Format and Storage', () => {
         const { session, rawToken } = Session.create(userId, ttlMs);
         const [selector, verifier] = rawToken.split(':');
 
+        // Ensure both selector and verifier exist
+        expect(selector).toBeDefined();
+        expect(verifier).toBeDefined();
+
         // Selector is 32 hex chars (16 bytes)
         expect(selector).toHaveLength(32);
-        expect(/^[0-9a-f]+$/.test(selector)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(selector!)).toBe(true);
 
         // Verifier is 64 hex chars (32 bytes)
         expect(verifier).toHaveLength(64);
-        expect(/^[0-9a-f]+$/.test(verifier)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(verifier!)).toBe(true);
 
         // Only hash is stored, not raw verifier
         expect(session.verifierHash).not.toBe(verifier);
-        expect(session.verifierHash).toBe(hashVerifier(verifier));
+        expect(session.verifierHash).toBe(hashVerifier(verifier!));
       }),
       { numRuns: 100 },
     );
@@ -407,12 +421,15 @@ describe('Property 4: Session Token Format and Storage', () => {
         const { session, rawToken } = Session.create(userId, ttlMs);
         const [, verifier] = rawToken.split(':');
 
+        // Ensure verifier exists
+        expect(verifier).toBeDefined();
+
         // Verifier hash should be SHA-256 (64 hex chars)
         expect(session.verifierHash).toHaveLength(64);
         expect(/^[0-9a-f]+$/.test(session.verifierHash)).toBe(true);
 
         // Hash should match the verifier
-        expect(session.matchesVerifier(verifier)).toBe(true);
+        expect(session.matchesVerifier(verifier!)).toBe(true);
       }),
       { numRuns: 100 },
     );
@@ -970,12 +987,16 @@ describe('Property 18: Token Entropy', () => {
           const { rawToken } = Session.create(`user-${i}`, 3600000);
           const [selector, verifier] = rawToken.split(':');
 
-          // Each selector and verifier should be unique
-          expect(selectors.has(selector)).toBe(false);
-          expect(verifiers.has(verifier)).toBe(false);
+          // Ensure both parts exist
+          expect(selector).toBeDefined();
+          expect(verifier).toBeDefined();
 
-          selectors.add(selector);
-          verifiers.add(verifier);
+          // Each selector and verifier should be unique
+          expect(selectors.has(selector!)).toBe(false);
+          expect(verifiers.has(verifier!)).toBe(false);
+
+          selectors.add(selector!);
+          verifiers.add(verifier!);
         }
 
         // All tokens should be unique
@@ -992,14 +1013,18 @@ describe('Property 18: Token Entropy', () => {
         const { rawToken } = Session.create(userId, ttlMs);
         const [selector, verifier] = rawToken.split(':');
 
+        // Ensure both parts exist
+        expect(selector).toBeDefined();
+        expect(verifier).toBeDefined();
+
         // Selector: 16 bytes = 32 hex chars
         expect(selector).toHaveLength(32);
         // Verifier: 32 bytes = 64 hex chars
         expect(verifier).toHaveLength(64);
 
         // Both should be valid hex
-        expect(/^[0-9a-f]+$/.test(selector)).toBe(true);
-        expect(/^[0-9a-f]+$/.test(verifier)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(selector!)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(verifier!)).toBe(true);
       }),
       { numRuns: 100 },
     );

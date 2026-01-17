@@ -23,6 +23,15 @@ export interface AuthConfig {
   storagePrefix?: string;
 }
 
+export type OAuthProvider =
+  | 'google'
+  | 'github'
+  | 'apple'
+  | 'discord'
+  | 'linkedin'
+  | 'twitter'
+  | 'microsoft';
+
 /**
  * Storage interface for persisting auth tokens.
  */

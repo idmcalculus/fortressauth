@@ -56,6 +56,16 @@ export interface PasswordResetsTable {
   created_at: ColumnType<Date, Date | string, Date | string>;
 }
 
+export interface OAuthStatesTable {
+  id: string;
+  provider_id: string;
+  state: string;
+  code_verifier: string | null;
+  redirect_uri: string | null;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+  created_at: ColumnType<Date, Date | string, Date | string>;
+}
+
 export interface Database {
   users: UsersTable;
   accounts: AccountsTable;
@@ -63,4 +73,5 @@ export interface Database {
   login_attempts: LoginAttemptsTable;
   email_verifications: EmailVerificationsTable;
   password_resets: PasswordResetsTable;
+  oauth_states: OAuthStatesTable;
 }

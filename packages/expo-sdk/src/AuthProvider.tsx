@@ -18,7 +18,7 @@ export const AuthProvider = ({ children, baseUrl }: ExpoAuthProviderProps): Reac
   const storage: AuthStorage = useMemo(() => getExpoStorage(), []);
 
   return (
-    <RNAuthProvider baseUrl={baseUrl} storage={storage}>
+    <RNAuthProvider baseUrl={baseUrl ?? ''} storage={storage}>
       {children}
     </RNAuthProvider>
   );

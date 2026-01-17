@@ -1,6 +1,12 @@
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { ApiResponse, AuthContextValue, AuthProviderProps, User } from './types.js';
+import type {
+  ApiResponse,
+  AuthContextValue,
+  AuthProviderProps,
+  OAuthProvider,
+  User,
+} from './types.js';
 
 const CSRF_COOKIE_NAME = 'fortress_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -192,6 +198,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     [baseUrl],
   );
 
+  const signInWithOAuth = useCallback(
+    (provider: OAuthProvider) => {
+      window.location.href = `${baseUrl}/auth/oauth/${provider}`;
+    },
+    [baseUrl],
+  );
+
   const signOut = useCallback(async () => {
     const response = await apiRequest(baseUrl, '/auth/logout', { method: 'POST' });
     if (response.success) {
@@ -233,6 +246,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({
     error,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     verifyEmail,
     requestPasswordReset,

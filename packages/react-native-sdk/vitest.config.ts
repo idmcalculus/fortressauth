@@ -1,6 +1,16 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+const reactNativeMock = fileURLToPath(
+  new URL('./src/__tests__/react-native-mock.ts', import.meta.url),
+);
+
 export default defineConfig({
+  resolve: {
+    alias: {
+      'react-native': reactNativeMock,
+    },
+  },
   test: {
     globals: true,
     environment: 'jsdom',

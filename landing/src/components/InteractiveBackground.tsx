@@ -66,6 +66,7 @@ export function InteractiveBackground() {
     // Update and draw particles
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
+      if (!p) continue;
 
       // Mouse influence - smooth attraction/repulsion
       const dx = mouse.x - p.x;
@@ -145,6 +146,7 @@ export function InteractiveBackground() {
       for (let j = i + 1; j < particles.length; j++) {
         const p1 = particles[i];
         const p2 = particles[j];
+        if (!p1 || !p2) continue;
         const dx = p1.x - p2.x;
         const dy = p1.y - p2.y;
         const dist = Math.sqrt(dx * dx + dy * dy);

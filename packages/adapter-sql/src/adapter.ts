@@ -4,8 +4,11 @@ import {
   EmailVerificationToken,
   err,
   type LoginAttempt,
+  type OAuthProviderId,
+  OAuthState,
   ok,
   PasswordResetToken,
+  type ProviderId,
   type Result,
   Session,
   User,
@@ -178,7 +181,7 @@ export class SqlAdapter implements AuthRepository {
     return Account.rehydrate({
       id: row.id,
       userId: row.user_id,
-      providerId: row.provider_id as 'email' | 'google' | 'github',
+      providerId: row.provider_id as ProviderId,
       providerUserId: row.provider_user_id,
       passwordHash: row.password_hash,
       createdAt: this.parseDate(row.created_at),
@@ -200,7 +203,7 @@ export class SqlAdapter implements AuthRepository {
     return Account.rehydrate({
       id: row.id,
       userId: row.user_id,
-      providerId: row.provider_id as 'email' | 'google' | 'github',
+      providerId: row.provider_id as ProviderId,
       providerUserId: row.provider_user_id,
       passwordHash: row.password_hash,
       createdAt: this.parseDate(row.created_at),
@@ -373,6 +376,47 @@ export class SqlAdapter implements AuthRepository {
 
   async deletePasswordReset(id: string): Promise<void> {
     await this.db.deleteFrom('password_resets').where('id', '=', id).execute();
+  }
+
+  async createOAuthState(state: OAuthState): Promise<void> {
+    await this.db
+      .insertInto('oauth_states')
+      .values({
+        id: state.id,
+        provider_id: state.providerId,
+        state: state.state,
+        code_verifier: state.codeVerifier,
+        redirect_uri: state.redirectUri,
+        expires_at: this.serializeDate(state.expiresAt),
+        created_at: this.serializeDate(state.createdAt),
+      })
+      .execute();
+  }
+
+  async findOAuthStateByState(state: string): Promise<OAuthState | null> {
+    const row = await this.db
+      .selectFrom('oauth_states')
+      .selectAll()
+      .where('state', '=', state)
+      .executeTakeFirst();
+
+    if (!row) {
+      return null;
+    }
+
+    return OAuthState.rehydrate({
+      id: row.id,
+      providerId: row.provider_id as OAuthProviderId,
+      state: row.state,
+      codeVerifier: row.code_verifier,
+      redirectUri: row.redirect_uri,
+      expiresAt: this.parseDate(row.expires_at),
+      createdAt: this.parseDate(row.created_at),
+    });
+  }
+
+  async deleteOAuthState(id: string): Promise<void> {
+    await this.db.deleteFrom('oauth_states').where('id', '=', id).execute();
   }
 
   async recordLoginAttempt(attempt: LoginAttempt): Promise<void> {

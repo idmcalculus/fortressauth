@@ -9,6 +9,7 @@
   "docs": {
     "title": "Documentación",
     "searchPlaceholder": "Buscar en docs...",
+    "backToHome": "Volver al inicio",
     "nav": {
       "gettingStarted": "Comenzar",
       "introduction": "Introducción",

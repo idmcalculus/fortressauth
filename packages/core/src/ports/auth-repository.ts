@@ -1,6 +1,7 @@
 import type { Account } from '../domain/entities/account.js';
 import type { EmailVerificationToken } from '../domain/entities/email-verification-token.js';
 import type { LoginAttempt } from '../domain/entities/login-attempt.js';
+import type { OAuthState } from '../domain/entities/oauth-state.js';
 import type { PasswordResetToken } from '../domain/entities/password-reset-token.js';
 import type { Session } from '../domain/entities/session.js';
 import type { User } from '../domain/entities/user.js';
@@ -30,6 +31,10 @@ export interface AuthRepository {
   findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null>;
   findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]>;
   deletePasswordReset(id: string): Promise<void>;
+
+  createOAuthState(state: OAuthState): Promise<void>;
+  findOAuthStateByState(state: string): Promise<OAuthState | null>;
+  deleteOAuthState(id: string): Promise<void>;
 
   recordLoginAttempt(attempt: LoginAttempt): Promise<void>;
   countRecentFailedAttempts(email: string, windowMs: number): Promise<number>;

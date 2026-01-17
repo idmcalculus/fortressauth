@@ -84,8 +84,10 @@ describe('ExamplesShowcase', () => {
     const dots = screen.getAllByRole('button', { name: /examples\.goToSlide/i });
 
     // Click on different dots
-    fireEvent.click(dots[2]);
-    fireEvent.click(dots[5]);
+    // biome-ignore lint/style/noNonNullAssertion: array index is known to be valid
+    fireEvent.click(dots[2]!);
+    // biome-ignore lint/style/noNonNullAssertion: array index is known to be valid
+    fireEvent.click(dots[5]!);
 
     // Dots should still be in the document
     expect(dots[2]).toBeInTheDocument();

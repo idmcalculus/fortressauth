@@ -179,6 +179,54 @@ const envSchema = z.object({
     .positive()
     .optional()
     .transform((val) => val ?? 5000),
+
+  // OAuth Providers
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
+
+  GITHUB_CLIENT_ID: z.string().optional(),
+  GITHUB_CLIENT_SECRET: z.string().optional(),
+  GITHUB_REDIRECT_URI: z.string().url().optional(),
+
+  APPLE_CLIENT_ID: z.string().optional(),
+  APPLE_TEAM_ID: z.string().optional(),
+  APPLE_KEY_ID: z.string().optional(),
+  APPLE_REDIRECT_URI: z.string().url().optional(),
+  APPLE_CLIENT_SECRET: z.string().optional(),
+  APPLE_PRIVATE_KEY: z
+    .string()
+    .optional()
+    .transform((val) => val || undefined),
+  APPLE_CLIENT_SECRET_TTL_SECONDS: z.coerce.number().positive().optional(),
+
+  DISCORD_CLIENT_ID: z.string().optional(),
+  DISCORD_CLIENT_SECRET: z.string().optional(),
+  DISCORD_REDIRECT_URI: z.string().url().optional(),
+
+  LINKEDIN_CLIENT_ID: z.string().optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().optional(),
+  LINKEDIN_REDIRECT_URI: z.string().url().optional(),
+
+  TWITTER_CLIENT_ID: z.string().optional(),
+  TWITTER_CLIENT_SECRET: z.string().optional(),
+  TWITTER_REDIRECT_URI: z.string().url().optional(),
+
+  MICROSOFT_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().optional(),
+  MICROSOFT_REDIRECT_URI: z.string().url().optional(),
+  MICROSOFT_TENANT_ID: z.string().optional(),
+  MICROSOFT_SCOPES: z
+    .string()
+    .optional()
+    .transform((val) =>
+      val
+        ? val
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : undefined,
+    ),
 });
 
 export const env = envSchema.parse(process.env);

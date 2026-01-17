@@ -1,5 +1,5 @@
 import { derived, writable } from 'svelte/store';
-import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
+import type { ApiResponse, AuthConfig, AuthState, OAuthProvider, User } from './types.js';
 
 const CSRF_COOKIE_NAME = 'fortress_csrf';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -168,6 +168,12 @@ export function createAuthStore(config?: AuthConfig) {
     return response;
   }
 
+  function signInWithOAuth(provider: OAuthProvider): void {
+    if (typeof window !== 'undefined') {
+      window.location.href = `${baseUrl}/auth/oauth/${provider}`;
+    }
+  }
+
   async function signOut(): Promise<ApiResponse<unknown>> {
     const response = await apiRequest(baseUrl, '/auth/logout', { method: 'POST' });
     if (response.success) {
@@ -214,6 +220,7 @@ export function createAuthStore(config?: AuthConfig) {
     // Methods
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     verifyEmail,
     requestPasswordReset,

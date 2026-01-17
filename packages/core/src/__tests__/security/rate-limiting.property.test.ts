@@ -52,6 +52,9 @@ function createMockRepository(): AuthRepository {
     deletePasswordReset: vi.fn().mockResolvedValue(undefined),
     recordLoginAttempt: vi.fn().mockResolvedValue(undefined),
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+    createOAuthState: vi.fn(),
+    findOAuthStateByState: vi.fn(),
+    deleteOAuthState: vi.fn(),
     transaction: vi.fn().mockImplementation(async (fn) =>
       fn({
         findUserByEmail: vi.fn(),
@@ -75,6 +78,9 @@ function createMockRepository(): AuthRepository {
         deletePasswordReset: vi.fn(),
         recordLoginAttempt: vi.fn(),
         countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
+        createOAuthState: vi.fn(),
+        findOAuthStateByState: vi.fn(),
+        deleteOAuthState: vi.fn(),
         transaction: vi.fn(),
       }),
     ),

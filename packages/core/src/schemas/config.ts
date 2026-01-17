@@ -76,6 +76,18 @@ const URL_DEFAULTS = {
   baseUrl: 'http://localhost:3000',
 };
 
+const OAUTH_DEFAULTS = {
+  providers: {} as {
+    google?: z.infer<typeof GoogleOAuthSchema>;
+    github?: z.infer<typeof GitHubOAuthSchema>;
+    apple?: z.infer<typeof AppleOAuthSchema>;
+    discord?: z.infer<typeof DiscordOAuthSchema>;
+    linkedin?: z.infer<typeof LinkedInOAuthSchema>;
+    twitter?: z.infer<typeof TwitterOAuthSchema>;
+    microsoft?: z.infer<typeof MicrosoftOAuthSchema>;
+  },
+};
+
 const SessionConfigSchema = z
   .object({
     ttlMs: z.number().positive().optional(),
@@ -190,12 +202,79 @@ const PasswordResetConfigSchema = z
 
 const UrlConfigSchema = z
   .object({
-    baseUrl: z.url().optional(),
+    baseUrl: z.string().url().optional(),
   })
   .transform((val) => ({
     baseUrl: val.baseUrl ?? URL_DEFAULTS.baseUrl,
   }))
   .openapi('UrlConfig');
+
+const GoogleOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+  redirectUri: z.string().url(),
+});
+
+const GitHubOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+  redirectUri: z.string().url(),
+});
+
+const AppleOAuthSchema = z.object({
+  clientId: z.string(),
+  teamId: z.string(),
+  keyId: z.string(),
+  redirectUri: z.string().url(),
+  clientSecret: z.string().optional(),
+  privateKey: z.string().optional(),
+  clientSecretExpiresIn: z.number().int().positive().optional(),
+});
+
+const DiscordOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+  redirectUri: z.string().url(),
+});
+
+const LinkedInOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+  redirectUri: z.string().url(),
+});
+
+const TwitterOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string(),
+  redirectUri: z.string().url(),
+});
+
+const MicrosoftOAuthSchema = z.object({
+  clientId: z.string(),
+  clientSecret: z.string().optional(),
+  redirectUri: z.string().url(),
+  tenantId: z.string().optional(),
+  scopes: z.array(z.string()).optional(),
+});
+
+const OAuthConfigSchema = z
+  .object({
+    providers: z
+      .object({
+        google: GoogleOAuthSchema.optional(),
+        github: GitHubOAuthSchema.optional(),
+        apple: AppleOAuthSchema.optional(),
+        discord: DiscordOAuthSchema.optional(),
+        linkedin: LinkedInOAuthSchema.optional(),
+        twitter: TwitterOAuthSchema.optional(),
+        microsoft: MicrosoftOAuthSchema.optional(),
+      })
+      .optional(),
+  })
+  .transform((val) => ({
+    providers: val.providers ?? OAUTH_DEFAULTS.providers,
+  }))
+  .openapi('OAuthConfig');
 
 export const FortressConfigSchema = z
   .object({
@@ -206,6 +285,7 @@ export const FortressConfigSchema = z
     emailVerification: EmailVerificationConfigSchema.optional(),
     passwordReset: PasswordResetConfigSchema.optional(),
     urls: UrlConfigSchema.optional(),
+    oauth: OAuthConfigSchema.optional(),
   })
   .transform((val) => ({
     session: val.session ?? SESSION_DEFAULTS,
@@ -215,6 +295,7 @@ export const FortressConfigSchema = z
     emailVerification: val.emailVerification ?? EMAIL_VERIFICATION_DEFAULTS,
     passwordReset: val.passwordReset ?? PASSWORD_RESET_DEFAULTS,
     urls: val.urls ?? URL_DEFAULTS,
+    oauth: val.oauth ?? OAUTH_DEFAULTS,
   }))
   .openapi('FortressConfig');
 

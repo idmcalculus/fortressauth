@@ -11,11 +11,12 @@ const cssMockPlugin = {
         map: null,
       };
     }
+    return undefined;
   },
 };
 
 export default defineConfig({
-  plugins: [react(), cssMockPlugin],
+  plugins: [react({}), cssMockPlugin],
   test: {
     globals: true,
     environment: 'jsdom',

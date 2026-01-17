@@ -4,8 +4,11 @@ import {
   EmailVerificationToken,
   err,
   type LoginAttempt,
+  type OAuthProviderId,
+  OAuthState,
   ok,
   PasswordResetToken,
+  type ProviderId,
   type Result,
   Session,
   User,
@@ -30,6 +33,7 @@ type MongoCollections = {
   emailVerifications: Collection<MongoCollectionDocuments['emailVerifications']>;
   passwordResets: Collection<MongoCollectionDocuments['passwordResets']>;
   loginAttempts: Collection<MongoCollectionDocuments['loginAttempts']>;
+  oauthStates: Collection<MongoCollectionDocuments['oauthStates']>;
 };
 
 export interface MongoAdapterOptions {
@@ -79,7 +83,7 @@ function toAccount(doc: MongoAccountDocument): Account {
   return Account.rehydrate({
     id: doc._id,
     userId: doc.userId,
-    providerId: doc.providerId as 'email' | 'google' | 'github',
+    providerId: doc.providerId as ProviderId,
     providerUserId: doc.providerUserId,
     passwordHash: doc.passwordHash,
     createdAt: doc.createdAt,
@@ -155,6 +159,9 @@ export class MongoAdapter implements AuthRepository {
       loginAttempts: this.db.collection<MongoCollectionDocuments['loginAttempts']>(
         this.collectionNames.loginAttempts,
       ),
+      oauthStates: this.db.collection<MongoCollectionDocuments['oauthStates']>(
+        this.collectionNames.oauthStates,
+      ),
     };
     this.session = session;
     this.enableTransactions = options.enableTransactions ?? true;
@@ -189,6 +196,8 @@ export class MongoAdapter implements AuthRepository {
       this.collections.passwordResets.createIndex({ selector: 1 }, { unique: true }),
       this.collections.passwordResets.createIndex({ userId: 1 }),
       this.collections.loginAttempts.createIndex({ email: 1, createdAt: -1 }),
+      this.collections.oauthStates.createIndex({ state: 1 }, { unique: true }),
+      this.collections.oauthStates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     ]);
   }
 
@@ -363,6 +372,43 @@ export class MongoAdapter implements AuthRepository {
 
   async deletePasswordReset(id: string): Promise<void> {
     await this.collections.passwordResets.deleteOne({ _id: id }, this.sessionOptions());
+  }
+
+  async createOAuthState(state: OAuthState): Promise<void> {
+    await this.collections.oauthStates.insertOne(
+      {
+        _id: state.id,
+        providerId: state.providerId,
+        state: state.state,
+        codeVerifier: state.codeVerifier,
+        redirectUri: state.redirectUri,
+        expiresAt: state.expiresAt,
+        createdAt: state.createdAt,
+      },
+      this.sessionOptions(),
+    );
+  }
+
+  async findOAuthStateByState(state: string): Promise<OAuthState | null> {
+    const doc = await this.collections.oauthStates.findOne({ state }, this.sessionOptions());
+
+    if (!doc) {
+      return null;
+    }
+
+    return OAuthState.rehydrate({
+      id: doc._id,
+      providerId: doc.providerId as OAuthProviderId,
+      state: doc.state,
+      codeVerifier: doc.codeVerifier,
+      redirectUri: doc.redirectUri,
+      expiresAt: doc.expiresAt,
+      createdAt: doc.createdAt,
+    });
+  }
+
+  async deleteOAuthState(id: string): Promise<void> {
+    await this.collections.oauthStates.deleteOne({ _id: id }, this.sessionOptions());
   }
 
   async recordLoginAttempt(attempt: LoginAttempt): Promise<void> {

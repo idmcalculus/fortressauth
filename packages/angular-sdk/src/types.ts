@@ -20,3 +20,12 @@ export interface AuthState {
 export interface AuthConfig {
   baseUrl?: string;
 }
+
+export type OAuthProvider =
+  | 'google'
+  | 'github'
+  | 'apple'
+  | 'discord'
+  | 'linkedin'
+  | 'twitter'
+  | 'microsoft';

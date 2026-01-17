@@ -17,4 +17,4 @@ export {
   validateSignUpForm,
   validateToken,
   validateVerifyEmailForm,
-} from '../../../shared/utils/validation';
+} from '../../../shared/utils/validation.js';

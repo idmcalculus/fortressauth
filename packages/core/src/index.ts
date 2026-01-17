@@ -5,6 +5,7 @@ export type { OAuthProviderId, ProviderId } from './domain/entities/account.js';
 export { Account } from './domain/entities/account.js';
 export { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 export { LoginAttempt } from './domain/entities/login-attempt.js';
+export { OAuthState } from './domain/entities/oauth-state.js';
 export { PasswordResetToken } from './domain/entities/password-reset-token.js';
 export { Session } from './domain/entities/session.js';
 export { User } from './domain/entities/user.js';
@@ -25,6 +26,7 @@ export { FortressAuth } from './fortress.js';
 // Ports
 export type { AuthRepository } from './ports/auth-repository.js';
 export type { EmailProviderPort } from './ports/email-provider.js';
+export type { OAuthProviderPort, OAuthTokens, OAuthUser } from './ports/oauth-provider.js';
 export type { RateLimiterPort } from './ports/rate-limiter.js';
 export type {
   AuthResponse,
@@ -58,6 +60,7 @@ export {
   validateEmailInput,
   validatePasswordInput,
 } from './security/input-validation.js';
+export { generatePKCE, generateState } from './security/oauth-crypto.js';
 // Security utilities
 export { hashPassword, verifyPassword } from './security/password.js';
 export { MemoryRateLimiter } from './security/rate-limiter.js';

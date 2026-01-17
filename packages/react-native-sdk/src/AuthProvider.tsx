@@ -1,8 +1,9 @@
 import type React from 'react';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Linking } from 'react-native';
 import { getDefaultStorage } from './storage.js';
-import type { ApiResponse, AuthContextValue, AuthStorage, User } from './types.js';
+import type { ApiResponse, AuthContextValue, AuthStorage, OAuthProvider, User } from './types.js';
 
 const TOKEN_STORAGE_KEY = 'fortress_auth_token';
 
@@ -143,6 +144,14 @@ export const AuthProvider = ({
     [baseUrl, storage],
   );
 
+  const signInWithOAuth = useCallback(
+    async (provider: OAuthProvider) => {
+      const url = `${baseUrl}/auth/oauth/${provider}`;
+      await Linking.openURL(url);
+    },
+    [baseUrl],
+  );
+
   const signOut = useCallback(async () => {
     const currentToken = await storage.getItem(TOKEN_STORAGE_KEY);
     const response = await apiRequest(baseUrl, '/auth/logout', { method: 'POST' }, currentToken);
@@ -187,6 +196,7 @@ export const AuthProvider = ({
     error,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     verifyEmail,
     requestPasswordReset,

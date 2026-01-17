@@ -54,6 +54,16 @@ export type MongoLoginAttemptDocument = {
   createdAt: Date;
 };
 
+export type MongoOAuthStateDocument = {
+  _id: string;
+  providerId: string;
+  state: string;
+  codeVerifier: string | null;
+  redirectUri: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
 export type MongoCollectionDocuments = {
   users: MongoUserDocument;
   accounts: MongoAccountDocument;
@@ -61,6 +71,7 @@ export type MongoCollectionDocuments = {
   emailVerifications: MongoEmailVerificationDocument;
   passwordResets: MongoPasswordResetDocument;
   loginAttempts: MongoLoginAttemptDocument;
+  oauthStates: MongoOAuthStateDocument;
 };
 
 export type MongoCollectionNames = {
@@ -70,6 +81,7 @@ export type MongoCollectionNames = {
   emailVerifications: string;
   passwordResets: string;
   loginAttempts: string;
+  oauthStates: string;
 };
 
 export const DEFAULT_COLLECTION_NAMES: MongoCollectionNames = {
@@ -79,4 +91,5 @@ export const DEFAULT_COLLECTION_NAMES: MongoCollectionNames = {
   emailVerifications: 'email_verifications',
   passwordResets: 'password_resets',
   loginAttempts: 'login_attempts',
+  oauthStates: 'oauth_states',
 };

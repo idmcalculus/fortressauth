@@ -1,16 +1,19 @@
-import { Account } from './domain/entities/account.js';
+import { Account, type OAuthProviderId } from './domain/entities/account.js';
 import { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 import { LoginAttempt } from './domain/entities/login-attempt.js';
+import { OAuthState } from './domain/entities/oauth-state.js';
 import { PasswordResetToken } from './domain/entities/password-reset-token.js';
 import { Session } from './domain/entities/session.js';
 import { User } from './domain/entities/user.js';
 import type { AuthRepository } from './ports/auth-repository.js';
 import type { EmailProviderPort } from './ports/email-provider.js';
+import type { OAuthProviderPort } from './ports/oauth-provider.js';
 import type { RateLimiterPort } from './ports/rate-limiter.js';
 import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
 import { isBreachedPassword } from './security/breached-password.js';
 import { validateEmailInput, validatePasswordInput } from './security/input-validation.js';
+import { generatePKCE, generateState } from './security/oauth-crypto.js';
 import { hashPassword, verifyPassword } from './security/password.js';
 import { buildRateLimitIdentifier } from './security/rate-limit-key.js';
 import { validatePassword } from './security/validation.js';
@@ -533,6 +536,173 @@ export class FortressAuth {
     await this.repository.deleteSessionsByUserId(user.id);
 
     return ok(undefined);
+  }
+
+  /**
+   * Generates an authorization URL for an OAuth provider and stores the state for verification.
+   */
+  async getOAuthAuthorizationUrl(
+    provider: OAuthProviderPort,
+    providerId: OAuthProviderId,
+    options?: { redirectUri?: string; scopes?: string[] },
+  ): Promise<string> {
+    const stateStr = generateState();
+    const pkce = generatePKCE();
+
+    const oauthState = OAuthState.create({
+      providerId,
+      state: stateStr,
+      codeVerifier: pkce.codeVerifier,
+      ...(options?.redirectUri ? { redirectUri: options.redirectUri } : {}),
+    });
+
+    await this.repository.createOAuthState(oauthState);
+
+    return provider.getAuthorizationUrl({
+      state: stateStr,
+      codeChallenge: pkce.codeChallenge,
+      ...(options?.scopes ? { scopes: options.scopes } : {}),
+    });
+  }
+
+  /**
+   * Handles the OAuth callback, exchanges code for tokens, and links or creates a user account.
+   */
+  async handleOAuthCallback(
+    provider: OAuthProviderPort,
+    providerId: OAuthProviderId,
+    code: string,
+    stateStr: string,
+    context?: { ipAddress?: string; userAgent?: string },
+  ): Promise<Result<AuthResult, AuthErrorCode>> {
+    // 1. Validate state
+    const oauthState = await this.repository.findOAuthStateByState(stateStr);
+    if (!oauthState || oauthState.isExpired() || oauthState.providerId !== providerId) {
+      if (oauthState) {
+        await this.repository.deleteOAuthState(oauthState.id);
+      }
+      return err('OAUTH_STATE_MISMATCH');
+    }
+
+    // 2. Exchange code for tokens
+    const tokenResult = await provider.validateCallback(
+      code,
+      oauthState.codeVerifier ? { codeVerifier: oauthState.codeVerifier } : {},
+    );
+    if (!tokenResult.success) {
+      await this.repository.deleteOAuthState(oauthState.id);
+      return err(tokenResult.error);
+    }
+
+    // 3. Get user info
+    const userInfoResult = await provider.getUserInfo(
+      tokenResult.data.idToken ?? tokenResult.data.accessToken,
+    );
+    if (!userInfoResult.success) {
+      await this.repository.deleteOAuthState(oauthState.id);
+      return err(userInfoResult.error);
+    }
+
+    const userInfo = userInfoResult.data;
+    const emailValidation = validateEmailInput(userInfo.email);
+    if (!emailValidation.success) {
+      await this.repository.deleteOAuthState(oauthState.id);
+      return err(emailValidation.error);
+    }
+    const email = emailValidation.data;
+
+    // 4. Account linking / User creation logic
+    const transactionResult = await this.repository.transaction<{
+      result: Result<AuthResult, AuthErrorCode>;
+      verificationEmail: { email: string; rawToken: string } | null;
+    }>(async (repo) => {
+      let verificationEmail: { email: string; rawToken: string } | null = null;
+      // Find account by provider and provider user id
+      let account = await repo.findAccountByProvider(providerId, userInfo.id);
+      let user: User | null = null;
+
+      if (account) {
+        user = await repo.findUserById(account.userId);
+        if (!user) {
+          return { result: err('INTERNAL_ERROR'), verificationEmail };
+        }
+      } else {
+        // Check if user exists by email
+        user = await repo.findUserByEmail(email);
+
+        if (user) {
+          if (user.isLocked()) {
+            return { result: err('ACCOUNT_LOCKED'), verificationEmail };
+          }
+          // Link new account to existing user
+          account = Account.createOAuthAccount(user.id, providerId, userInfo.id);
+          await repo.createAccount(account);
+        } else {
+          // Create new user and account
+          user = User.create(email);
+          if (userInfo.emailVerified) {
+            user = user.withEmailVerified();
+          }
+          account = Account.createOAuthAccount(user.id, providerId, userInfo.id);
+
+          const createResult = await repo.createUser(user);
+          if (!createResult.success) {
+            return {
+              result: err(createResult.error as AuthErrorCode),
+              verificationEmail,
+            };
+          }
+
+          await repo.createAccount(account);
+        }
+      }
+
+      if (!user) {
+        return { result: err('INTERNAL_ERROR'), verificationEmail };
+      }
+
+      if (user.isLocked()) {
+        return { result: err('ACCOUNT_LOCKED'), verificationEmail };
+      }
+
+      let effectiveUser = user;
+      if (!user.emailVerified && userInfo.emailVerified) {
+        effectiveUser = user.withEmailVerified();
+        await repo.updateUser(effectiveUser);
+      }
+
+      if (!effectiveUser.emailVerified) {
+        const { token, rawToken } = EmailVerificationToken.create(
+          effectiveUser.id,
+          this.config.emailVerification.ttlMs,
+        );
+        await repo.createEmailVerificationToken(token);
+        verificationEmail = { email: effectiveUser.email, rawToken };
+        return { result: err('EMAIL_NOT_VERIFIED'), verificationEmail };
+      }
+
+      // 5. Create session
+      const { session, rawToken } = Session.create(
+        effectiveUser.id,
+        this.config.session.ttlMs,
+        context?.ipAddress,
+        context?.userAgent,
+      );
+      await repo.createSession(session);
+
+      return { result: ok({ user: effectiveUser, token: rawToken }), verificationEmail };
+    });
+
+    const { result, verificationEmail } = transactionResult;
+
+    await this.repository.deleteOAuthState(oauthState.id);
+
+    if (verificationEmail) {
+      const verificationLink = `${this.config.urls.baseUrl}/verify-email?token=${verificationEmail.rawToken}`;
+      await this.emailProvider.sendVerificationEmail(verificationEmail.email, verificationLink);
+    }
+
+    return result;
   }
 
   private async checkRateLimit(

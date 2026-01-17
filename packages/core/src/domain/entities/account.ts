@@ -1,6 +1,14 @@
 import { uuidv7 } from 'uuidv7';
 
-export type ProviderId = 'email' | 'google' | 'github';
+export type ProviderId =
+  | 'email'
+  | 'google'
+  | 'github'
+  | 'apple'
+  | 'microsoft'
+  | 'twitter'
+  | 'discord'
+  | 'linkedin';
 export type OAuthProviderId = Exclude<ProviderId, 'email'>;
 
 export class Account {

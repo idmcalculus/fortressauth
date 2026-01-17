@@ -1,6 +1,6 @@
-import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
+import { Injectable, InjectionToken } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import type { ApiResponse, AuthConfig, AuthState, User } from './types.js';
+import type { ApiResponse, AuthConfig, AuthState, OAuthProvider, User } from './types.js';
 
 export const AUTH_CONFIG = new InjectionToken<AuthConfig>('AUTH_CONFIG');
 
@@ -160,7 +160,7 @@ export class AuthService {
     return this.stateSubject.getValue().error;
   }
 
-  constructor(@Optional() @Inject(AUTH_CONFIG) config?: AuthConfig) {
+  constructor(config?: AuthConfig) {
     this.baseUrl = resolveBaseUrl(config?.baseUrl);
     this.refreshUser();
   }
@@ -214,6 +214,12 @@ export class AuthService {
       this.updateState({ error: response.error ?? 'UNKNOWN_ERROR' });
     }
     return response;
+  }
+
+  signInWithOAuth(provider: OAuthProvider): void {
+    if (typeof window !== 'undefined') {
+      window.location.href = `${this.baseUrl}/auth/oauth/${provider}`;
+    }
   }
 
   async signOut(): Promise<ApiResponse<unknown>> {

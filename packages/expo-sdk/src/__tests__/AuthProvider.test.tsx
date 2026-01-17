@@ -67,7 +67,7 @@ describe('AuthProvider (Expo)', () => {
       return { json: () => Promise.resolve({ success: false }) };
     });
 
-    renderHook(() => useAuth(), { wrapper: createWrapper() });
+    renderHook(() => useAuth(), { wrapper: createWrapper('http://localhost:3000') });
 
     await waitFor(() => {
       expect(mockStorage.getItem).toHaveBeenCalledWith('fortress_auth_token');

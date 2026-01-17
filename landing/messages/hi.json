@@ -9,6 +9,7 @@
   "docs": {
     "title": "Documentation",
     "searchPlaceholder": "Search docs...",
+    "backToHome": "मुखपृष्ठ पर वापस जाएँ",
     "nav": {
       "gettingStarted": "Getting Started",
       "introduction": "Introduction",

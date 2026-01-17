@@ -31,7 +31,8 @@ describe('Navigation', () => {
     expect(mobileLinks.length).toBeGreaterThan(1);
 
     // Click mobile link should close menu
-    fireEvent.click(mobileLinks[1]);
+    // biome-ignore lint/style/noNonNullAssertion: array index is known to be valid
+    fireEvent.click(mobileLinks[1]!);
     expect(
       screen.queryByText('nav.features', { selector: '.mobileNavLink' }),
     ).not.toBeInTheDocument();

@@ -3,6 +3,7 @@ import { down as down001, up as up001 } from './001_initial.js';
 import { down as down002, up as up002 } from './002_email_verification.js';
 import { down as down003, up as up003 } from './003_password_resets.js';
 import { down as down004, up as up004 } from './004_session_split_token.js';
+import { down as down005, up as up005 } from './005_oauth_support.js';
 import {
   type MigrationColumnTypes,
   MYSQL_COLUMN_TYPES,
@@ -48,10 +49,12 @@ export async function up<T>(db: Kysely<T>, options: MigrationOptions = {}): Prom
   await up002(db, columnTypes);
   await up003(db, columnTypes);
   await up004(db, columnTypes);
+  await up005(db, columnTypes);
 }
 
 export async function down<T>(db: Kysely<T>, options: MigrationOptions = {}): Promise<void> {
   const columnTypes = resolveColumnTypes(options);
+  await down005(db, columnTypes);
   await down004(db, columnTypes);
   await down003(db, columnTypes);
   await down002(db, columnTypes);
