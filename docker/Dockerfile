@@ -68,6 +68,14 @@ COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./n
 COPY --from=builder --chown=fortress:fortress /app/packages/email-ses/dist ./node_modules/@fortressauth/email-ses/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/email-sendgrid/dist ./node_modules/@fortressauth/email-sendgrid/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/email-smtp/dist ./node_modules/@fortressauth/email-smtp/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/oauth-core/dist ./node_modules/@fortressauth/oauth-core/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-google/dist ./node_modules/@fortressauth/provider-google/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-github/dist ./node_modules/@fortressauth/provider-github/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-apple/dist ./node_modules/@fortressauth/provider-apple/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-discord/dist ./node_modules/@fortressauth/provider-discord/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-linkedin/dist ./node_modules/@fortressauth/provider-linkedin/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-twitter/dist ./node_modules/@fortressauth/provider-twitter/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/provider-microsoft/dist ./node_modules/@fortressauth/provider-microsoft/dist
 
 # Copy the main server build
 COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist

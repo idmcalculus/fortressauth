@@ -205,6 +205,11 @@ var AuthService = class AuthService2 {
       return response;
     });
   }
+  signInWithOAuth(provider) {
+    if (typeof window !== "undefined") {
+      window.location.href = `${this.baseUrl}/auth/oauth/${provider}`;
+    }
+  }
   signOut() {
     return __async(this, null, function* () {
       const response = yield apiRequest(this.baseUrl, "/auth/logout", {

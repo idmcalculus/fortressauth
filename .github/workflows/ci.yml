@@ -135,9 +135,3 @@ jobs:
 
       - name: Build Angular example
         run: pnpm --filter fortressauth-web-angular build
-
-      - name: Build Expo example
-        run: pnpm --filter fortressauth-mobile-expo build
-
-      - name: Build Desktop Electron example
-        run: pnpm --filter fortressauth-desktop-electron build

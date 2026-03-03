@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { Suspense, type FormEvent, useEffect, useMemo, useState } from 'react';
 import { postAuthJson } from '@/lib/auth-api';
 import styles from '../auth-pages.module.css';
 
@@ -30,6 +30,14 @@ function getResetErrorMessage(errorCode?: string): string {
 }
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordPageContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordPageContent() {
   const searchParams = useSearchParams();
   const tokenFromQuery = useMemo(() => searchParams.get('token') ?? '', [searchParams]);
   const [token, setToken] = useState(tokenFromQuery);
