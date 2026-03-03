@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+const authApiUrl = process.env.AUTH_API_URL?.replace(/\/$/, '');
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
 interface WebpackRule {
   test?: { test?: (ext: string) => boolean };
@@ -48,45 +50,52 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    return [
-      // Auth requests go through the dynamic proxy
+    const rules = [
       {
         source: '/auth/:path*',
-        destination: '/api/proxy/auth/:path*',
-      },
-      {
-        source: '/react-demo',
-        destination: 'http://localhost:3001/react-demo/',
-      },
-      {
-        source: '/react-demo/:path*',
-        destination: 'http://localhost:3001/react-demo/:path*',
-      },
-      {
-        source: '/vue-demo',
-        destination: 'http://localhost:3002/vue-demo/',
-      },
-      {
-        source: '/vue-demo/:path*',
-        destination: 'http://localhost:3002/vue-demo/:path*',
-      },
-      {
-        source: '/svelte-demo',
-        destination: 'http://localhost:3003/svelte-demo/',
-      },
-      {
-        source: '/svelte-demo/:path*',
-        destination: 'http://localhost:3003/svelte-demo/:path*',
-      },
-      {
-        source: '/angular-demo',
-        destination: 'http://localhost:3004/angular-demo/',
-      },
-      {
-        source: '/angular-demo/:path*',
-        destination: 'http://localhost:3004/angular-demo/:path*',
+        destination: authApiUrl ? `${authApiUrl}/auth/:path*` : '/api/proxy/auth/:path*',
       },
     ];
+
+    // Local demo proxying is only needed for development.
+    if (isDevelopment) {
+      rules.push(
+        {
+          source: '/react-demo',
+          destination: 'http://localhost:3001/react-demo/',
+        },
+        {
+          source: '/react-demo/:path*',
+          destination: 'http://localhost:3001/react-demo/:path*',
+        },
+        {
+          source: '/vue-demo',
+          destination: 'http://localhost:3002/vue-demo/',
+        },
+        {
+          source: '/vue-demo/:path*',
+          destination: 'http://localhost:3002/vue-demo/:path*',
+        },
+        {
+          source: '/svelte-demo',
+          destination: 'http://localhost:3003/svelte-demo/',
+        },
+        {
+          source: '/svelte-demo/:path*',
+          destination: 'http://localhost:3003/svelte-demo/:path*',
+        },
+        {
+          source: '/angular-demo',
+          destination: 'http://localhost:3004/angular-demo/',
+        },
+        {
+          source: '/angular-demo/:path*',
+          destination: 'http://localhost:3004/angular-demo/:path*',
+        },
+      );
+    }
+
+    return rules;
   },
 };
 

@@ -1,6 +1,9 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const defaultSqlitePath = resolve(dirname(fileURLToPath(import.meta.url)), '../fortress.db');
 
 const envSchema = z.object({
   PORT: z.coerce
@@ -15,7 +18,7 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string()
     .optional()
-    .transform((val) => val ?? './fortress.db'),
+    .transform((val) => val ?? defaultSqlitePath),
   BASE_URL: z
     .string()
     .url()

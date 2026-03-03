@@ -10,16 +10,14 @@ import {
   hasErrors,
   sanitizeInput,
   validateEmail,
-  validateResetPasswordForm,
   validateSignInForm,
   validateSignUpForm,
-  validateVerifyEmailForm,
 } from '../../shared/utils/validation.js';
 import type { AlertType } from './components/index.js';
 import { Alert, Button, Input, Modal } from './components/index.js';
 import './App.css';
 
-type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
+type AuthMode = 'signin' | 'signup';
 
 interface FeedbackState {
   type: AlertType;
@@ -27,7 +25,7 @@ interface FeedbackState {
 }
 
 export default function App() {
-  const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
+  const { signUp, signIn, signOut, requestPasswordReset } = useAuth();
   const { user, loading, error: authError } = useUser();
 
   // Form state
@@ -35,7 +33,6 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [token, setToken] = useState('');
 
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,7 +64,6 @@ export default function App() {
     setEmail('');
     setPassword('');
     setConfirmPassword('');
-    setToken('');
     setErrors({});
   }, []);
 
@@ -78,8 +74,6 @@ export default function App() {
 
     // Sanitize inputs
     const sanitizedEmail = sanitizeInput(email);
-    const sanitizedToken = sanitizeInput(token);
-
     // Validate based on mode
     let validationErrors: FormErrors = {};
 
@@ -89,12 +83,6 @@ export default function App() {
         break;
       case 'signup':
         validationErrors = validateSignUpForm(sanitizedEmail, password, confirmPassword);
-        break;
-      case 'verify':
-        validationErrors = validateVerifyEmailForm(sanitizedToken);
-        break;
-      case 'reset':
-        validationErrors = validateResetPasswordForm(sanitizedToken, password, confirmPassword);
         break;
     }
 
@@ -124,33 +112,6 @@ export default function App() {
           if (res.success) {
             showFeedback('success', 'Welcome back!');
             resetForm();
-          } else {
-            showFeedback('error', getErrorMessage(res.error));
-          }
-          break;
-        }
-
-        case 'verify': {
-          const res = await verifyEmail(sanitizedToken);
-          if (res.success) {
-            showFeedback('success', 'Email verified successfully! You can now sign in.');
-            setToken('');
-            handleModeChange('signin');
-          } else {
-            showFeedback('error', getErrorMessage(res.error));
-          }
-          break;
-        }
-
-        case 'reset': {
-          const res = await resetPassword(sanitizedToken, password);
-          if (res.success) {
-            showFeedback(
-              'success',
-              'Password reset successful! Please sign in with your new password.',
-            );
-            resetForm();
-            handleModeChange('signin');
           } else {
             showFeedback('error', getErrorMessage(res.error));
           }
@@ -234,8 +195,6 @@ export default function App() {
       const loadingTexts: Record<AuthMode, string> = {
         signin: 'Signing in...',
         signup: 'Creating account...',
-        verify: 'Verifying...',
-        reset: 'Resetting password...',
       };
       return loadingTexts[mode];
     }
@@ -243,8 +202,6 @@ export default function App() {
     const buttonTexts: Record<AuthMode, string> = {
       signin: 'Sign In',
       signup: 'Create Account',
-      verify: 'Verify Email',
-      reset: 'Reset Password',
     };
     return buttonTexts[mode];
   };
@@ -314,7 +271,7 @@ export default function App() {
 
             {/* Tab navigation */}
             <div className="tabs" role="tablist" aria-label="Authentication options">
-              {(['signin', 'signup', 'verify', 'reset'] as AuthMode[]).map((tabMode) => (
+              {(['signin', 'signup'] as AuthMode[]).map((tabMode) => (
                 <button
                   key={tabMode}
                   type="button"
@@ -327,8 +284,6 @@ export default function App() {
                 >
                   {tabMode === 'signin' && 'Sign In'}
                   {tabMode === 'signup' && 'Sign Up'}
-                  {tabMode === 'verify' && 'Verify'}
-                  {tabMode === 'reset' && 'Reset'}
                 </button>
               ))}
             </div>
@@ -356,40 +311,24 @@ export default function App() {
                 />
               )}
 
-              {/* Token field - shown for verify and reset */}
-              {(mode === 'verify' || mode === 'reset') && (
-                <Input
-                  type="text"
-                  label={mode === 'verify' ? 'Verification Token' : 'Reset Token'}
-                  value={token}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setToken(e.target.value)}
-                  placeholder="selector:verifier"
-                  error={errors.token}
-                  hint="Paste the token from your email"
-                  required
-                  autoComplete="off"
-                  disabled={isSubmitting}
-                />
-              )}
-
-              {/* Password field - shown for signin, signup, and reset */}
-              {(mode === 'signin' || mode === 'signup' || mode === 'reset') && (
+              {/* Password field - shown for signin and signup */}
+              {(mode === 'signin' || mode === 'signup') && (
                 <Input
                   type="password"
-                  label={mode === 'reset' ? 'New Password' : 'Password'}
+                  label="Password"
                   value={password}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   error={errors.password}
-                  hint={mode === 'signup' || mode === 'reset' ? 'Minimum 8 characters' : undefined}
+                  hint={mode === 'signup' ? 'Minimum 8 characters' : undefined}
                   required
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                   disabled={isSubmitting}
                 />
               )}
 
-              {/* Confirm password field - shown for signup and reset */}
-              {(mode === 'signup' || mode === 'reset') && (
+              {/* Confirm password field - shown for signup */}
+              {mode === 'signup' && (
                 <Input
                   type="password"
                   label="Confirm Password"

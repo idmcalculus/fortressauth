@@ -6,10 +6,8 @@ import {
   hasErrors,
   sanitizeInput,
   validateEmail,
-  validateResetPasswordForm,
   validateSignInForm,
   validateSignUpForm,
-  validateVerifyEmailForm,
 } from '../../../shared/utils/validation';
 
 const env = (import.meta as { env?: Record<string, string> }).env;
@@ -22,7 +20,7 @@ const auth = createAuthStore({ baseUrl: apiUrl });
 // biome-ignore lint/correctness/noUnusedVariables: Variables are used in Svelte template as $user, $loading, $error
 const { user, loading, error } = auth;
 
-type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
+type AuthMode = 'signin' | 'signup';
 type AlertType = 'success' | 'error' | 'warning' | 'info';
 
 interface FeedbackState {
@@ -35,7 +33,6 @@ let mode: AuthMode = $state('signin');
 let email = $state('');
 let password = $state('');
 let confirmPassword = $state('');
-let token = $state('');
 
 // UI state
 let isSubmitting = $state(false);
@@ -63,6 +60,7 @@ function clearFeedback() {
   feedback = null;
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in Svelte template section
 function handleModeChange(newMode: AuthMode) {
   mode = newMode;
   errors = {};
@@ -73,7 +71,6 @@ function resetForm() {
   email = '';
   password = '';
   confirmPassword = '';
-  token = '';
   errors = {};
 }
 
@@ -83,7 +80,6 @@ async function handleSubmit(e: Event) {
   clearFeedback();
 
   const sanitizedEmail = sanitizeInput(email);
-  const sanitizedToken = sanitizeInput(token);
 
   let validationErrors: FormErrors = {};
 
@@ -93,12 +89,6 @@ async function handleSubmit(e: Event) {
       break;
     case 'signup':
       validationErrors = validateSignUpForm(sanitizedEmail, password, confirmPassword);
-      break;
-    case 'verify':
-      validationErrors = validateVerifyEmailForm(sanitizedToken);
-      break;
-    case 'reset':
-      validationErrors = validateResetPasswordForm(sanitizedToken, password, confirmPassword);
       break;
   }
 
@@ -128,33 +118,6 @@ async function handleSubmit(e: Event) {
         if (res.success) {
           showFeedback('success', 'Welcome back!');
           resetForm();
-        } else {
-          showFeedback('error', getErrorMessage(res.error));
-        }
-        break;
-      }
-
-      case 'verify': {
-        const res = await auth.verifyEmail(sanitizedToken);
-        if (res.success) {
-          showFeedback('success', 'Email verified successfully! You can now sign in.');
-          token = '';
-          handleModeChange('signin');
-        } else {
-          showFeedback('error', getErrorMessage(res.error));
-        }
-        break;
-      }
-
-      case 'reset': {
-        const res = await auth.resetPassword(sanitizedToken, password);
-        if (res.success) {
-          showFeedback(
-            'success',
-            'Password reset successful! Please sign in with your new password.',
-          );
-          resetForm();
-          handleModeChange('signin');
         } else {
           showFeedback('error', getErrorMessage(res.error));
         }
@@ -218,8 +181,6 @@ function getButtonText(): string {
     const loadingTexts: Record<AuthMode, string> = {
       signin: 'Signing in...',
       signup: 'Creating account...',
-      verify: 'Verifying...',
-      reset: 'Resetting password...',
     };
     return loadingTexts[mode];
   }
@@ -227,8 +188,6 @@ function getButtonText(): string {
   const buttonTexts: Record<AuthMode, string> = {
     signin: 'Sign In',
     signup: 'Create Account',
-    verify: 'Verify Email',
-    reset: 'Reset Password',
   };
   return buttonTexts[mode];
 }
@@ -316,7 +275,7 @@ function handleOverlayClick(e: MouseEvent) {
 
       <!-- Tab navigation -->
       <div class="tabs" role="tablist" aria-label="Authentication options">
-        {#each ["signin", "signup", "verify", "reset"] as tabMode}
+        {#each ["signin", "signup"] as tabMode}
           <button
             type="button"
             role="tab"
@@ -328,8 +287,6 @@ function handleOverlayClick(e: MouseEvent) {
           >
             {tabMode === "signin" ? "Sign In" : ""}
             {tabMode === "signup" ? "Sign Up" : ""}
-            {tabMode === "verify" ? "Verify" : ""}
-            {tabMode === "reset" ? "Reset" : ""}
           </button>
         {/each}
       </div>
@@ -341,62 +298,33 @@ function handleOverlayClick(e: MouseEvent) {
         id="{mode}-panel"
         aria-labelledby="{mode}-tab"
       >
-        <!-- Email field - shown for signin and signup -->
+        <!-- Email field -->
+        <div class="form-group">
+          <label for="email" class="form-label">
+            Email <span class="form-required" aria-hidden="true">*</span>
+          </label>
+          <input
+            type="email"
+            id="email"
+            class="form-input {errors.email ? 'input-error' : ''}"
+            bind:value={email}
+            placeholder="your@email.com"
+            required
+            autocomplete="email"
+            disabled={isSubmitting}
+            aria-invalid={!!errors.email}
+            aria-describedby={errors.email ? "email-error" : undefined}
+          />
+          {#if errors.email}
+            <p id="email-error" class="form-error" role="alert">{errors.email}</p>
+          {/if}
+        </div>
+
+        <!-- Password field -->
         {#if mode === "signin" || mode === "signup"}
           <div class="form-group">
-            <label for="email" class="form-label">
-              Email <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <input
-              type="email"
-              id="email"
-              class="form-input {errors.email ? 'input-error' : ''}"
-              bind:value={email}
-              placeholder="your@email.com"
-              required
-              autocomplete={mode === "signin" ? "email" : "email"}
-              disabled={isSubmitting}
-              aria-invalid={!!errors.email}
-              aria-describedby={errors.email ? "email-error" : undefined}
-            />
-            {#if errors.email}
-              <p id="email-error" class="form-error" role="alert">{errors.email}</p>
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Token field - shown for verify and reset -->
-        {#if mode === "verify" || mode === "reset"}
-          <div class="form-group">
-            <label for="token" class="form-label">
-              {mode === "verify" ? "Verification Token" : "Reset Token"}
-              <span class="form-required" aria-hidden="true">*</span>
-            </label>
-            <input
-              type="text"
-              id="token"
-              class="form-input {errors.token ? 'input-error' : ''}"
-              bind:value={token}
-              placeholder="selector:verifier"
-              required
-              autocomplete="off"
-              disabled={isSubmitting}
-              aria-invalid={!!errors.token}
-              aria-describedby={errors.token ? "token-error" : "token-hint"}
-            />
-            {#if errors.token}
-              <p id="token-error" class="form-error" role="alert">{errors.token}</p>
-            {:else}
-              <p id="token-hint" class="form-hint">Paste the token from your email</p>
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Password field - shown for signin, signup, and reset -->
-        {#if mode === "signin" || mode === "signup" || mode === "reset"}
-          <div class="form-group">
             <label for="password" class="form-label">
-              {mode === "reset" ? "New Password" : "Password"}
+              Password
               <span class="form-required" aria-hidden="true">*</span>
             </label>
             <input
@@ -409,18 +337,18 @@ function handleOverlayClick(e: MouseEvent) {
               autocomplete={mode === "signin" ? "current-password" : "new-password"}
               disabled={isSubmitting}
               aria-invalid={!!errors.password}
-              aria-describedby={errors.password ? "password-error" : mode !== "signin" ? "password-hint" : undefined}
+              aria-describedby={errors.password ? "password-error" : mode === "signup" ? "password-hint" : undefined}
             />
             {#if errors.password}
               <p id="password-error" class="form-error" role="alert">{errors.password}</p>
-            {:else if mode === "signup" || mode === "reset"}
+            {:else if mode === "signup"}
               <p id="password-hint" class="form-hint">Minimum 8 characters</p>
             {/if}
           </div>
         {/if}
 
-        <!-- Confirm password field - shown for signup and reset -->
-        {#if mode === "signup" || mode === "reset"}
+        <!-- Confirm password field -->
+        {#if mode === "signup"}
           <div class="form-group">
             <label for="confirmPassword" class="form-label">
               Confirm Password <span class="form-required" aria-hidden="true">*</span>

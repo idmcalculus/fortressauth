@@ -130,6 +130,14 @@ function createTestFortress(configOverrides = {}) {
   return { fortress, repository, rateLimiter, emailProvider };
 }
 
+function ensureDefined(value: string | undefined, field: string): string {
+  expect(value).toBeDefined();
+  if (value === undefined) {
+    throw new Error(`${field} is undefined`);
+  }
+  return value;
+}
+
 // ============================================================================
 // Arbitraries (Test Data Generators)
 // ============================================================================
@@ -394,22 +402,20 @@ describe('Property 4: Session Token Format and Storage', () => {
       fc.property(fc.uuid(), fc.integer({ min: 1000, max: 86400000 }), (userId, ttlMs) => {
         const { session, rawToken } = Session.create(userId, ttlMs);
         const [selector, verifier] = rawToken.split(':');
-
-        // Ensure both selector and verifier exist
-        expect(selector).toBeDefined();
-        expect(verifier).toBeDefined();
+        const ensuredSelector = ensureDefined(selector, 'selector');
+        const ensuredVerifier = ensureDefined(verifier, 'verifier');
 
         // Selector is 32 hex chars (16 bytes)
-        expect(selector).toHaveLength(32);
-        expect(/^[0-9a-f]+$/.test(selector!)).toBe(true);
+        expect(ensuredSelector).toHaveLength(32);
+        expect(/^[0-9a-f]+$/.test(ensuredSelector)).toBe(true);
 
         // Verifier is 64 hex chars (32 bytes)
-        expect(verifier).toHaveLength(64);
-        expect(/^[0-9a-f]+$/.test(verifier!)).toBe(true);
+        expect(ensuredVerifier).toHaveLength(64);
+        expect(/^[0-9a-f]+$/.test(ensuredVerifier)).toBe(true);
 
         // Only hash is stored, not raw verifier
-        expect(session.verifierHash).not.toBe(verifier);
-        expect(session.verifierHash).toBe(hashVerifier(verifier!));
+        expect(session.verifierHash).not.toBe(ensuredVerifier);
+        expect(session.verifierHash).toBe(hashVerifier(ensuredVerifier));
       }),
       { numRuns: 100 },
     );
@@ -420,16 +426,14 @@ describe('Property 4: Session Token Format and Storage', () => {
       fc.property(fc.uuid(), fc.integer({ min: 1000, max: 86400000 }), (userId, ttlMs) => {
         const { session, rawToken } = Session.create(userId, ttlMs);
         const [, verifier] = rawToken.split(':');
-
-        // Ensure verifier exists
-        expect(verifier).toBeDefined();
+        const ensuredVerifier = ensureDefined(verifier, 'verifier');
 
         // Verifier hash should be SHA-256 (64 hex chars)
         expect(session.verifierHash).toHaveLength(64);
         expect(/^[0-9a-f]+$/.test(session.verifierHash)).toBe(true);
 
         // Hash should match the verifier
-        expect(session.matchesVerifier(verifier!)).toBe(true);
+        expect(session.matchesVerifier(ensuredVerifier)).toBe(true);
       }),
       { numRuns: 100 },
     );
@@ -986,17 +990,15 @@ describe('Property 18: Token Entropy', () => {
         for (let i = 0; i < count; i++) {
           const { rawToken } = Session.create(`user-${i}`, 3600000);
           const [selector, verifier] = rawToken.split(':');
-
-          // Ensure both parts exist
-          expect(selector).toBeDefined();
-          expect(verifier).toBeDefined();
+          const ensuredSelector = ensureDefined(selector, 'selector');
+          const ensuredVerifier = ensureDefined(verifier, 'verifier');
 
           // Each selector and verifier should be unique
-          expect(selectors.has(selector!)).toBe(false);
-          expect(verifiers.has(verifier!)).toBe(false);
+          expect(selectors.has(ensuredSelector)).toBe(false);
+          expect(verifiers.has(ensuredVerifier)).toBe(false);
 
-          selectors.add(selector!);
-          verifiers.add(verifier!);
+          selectors.add(ensuredSelector);
+          verifiers.add(ensuredVerifier);
         }
 
         // All tokens should be unique
@@ -1012,19 +1014,17 @@ describe('Property 18: Token Entropy', () => {
       fc.property(fc.uuid(), fc.integer({ min: 1000, max: 86400000 }), (userId, ttlMs) => {
         const { rawToken } = Session.create(userId, ttlMs);
         const [selector, verifier] = rawToken.split(':');
-
-        // Ensure both parts exist
-        expect(selector).toBeDefined();
-        expect(verifier).toBeDefined();
+        const ensuredSelector = ensureDefined(selector, 'selector');
+        const ensuredVerifier = ensureDefined(verifier, 'verifier');
 
         // Selector: 16 bytes = 32 hex chars
-        expect(selector).toHaveLength(32);
+        expect(ensuredSelector).toHaveLength(32);
         // Verifier: 32 bytes = 64 hex chars
-        expect(verifier).toHaveLength(64);
+        expect(ensuredVerifier).toHaveLength(64);
 
         // Both should be valid hex
-        expect(/^[0-9a-f]+$/.test(selector!)).toBe(true);
-        expect(/^[0-9a-f]+$/.test(verifier!)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(ensuredSelector)).toBe(true);
+        expect(/^[0-9a-f]+$/.test(ensuredVerifier)).toBe(true);
       }),
       { numRuns: 100 },
     );

@@ -13,13 +13,11 @@ import {
   hasErrors,
   sanitizeInput,
   validateEmail,
-  validateResetPasswordForm,
   validateSignInForm,
   validateSignUpForm,
-  validateVerifyEmailForm,
 } from '../../../shared/utils/validation';
 
-type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
+type AuthMode = 'signin' | 'signup';
 type AlertType = 'success' | 'error' | 'warning' | 'info';
 
 interface FeedbackState {
@@ -143,68 +141,36 @@ interface FeedbackState {
             [id]="mode + '-panel'"
             [attr.aria-labelledby]="mode + '-tab'"
           >
-            <!-- Email field - shown for signin and signup -->
+            <!-- Email field -->
+            <div class="form-group" [class.has-error]="errors.email">
+              <label [for]="'email'" class="form-label">
+                Email
+                <span class="form-required" aria-hidden="true"> *</span>
+              </label>
+              <input
+                type="email"
+                id="email"
+                class="form-input"
+                [class.input-error]="errors.email"
+                [(ngModel)]="email"
+                name="email"
+                placeholder="your@email.com"
+                required
+                [attr.aria-invalid]="!!errors.email"
+                [attr.aria-describedby]="errors.email ? 'email-error' : null"
+                [disabled]="isSubmitting"
+                autocomplete="email"
+              />
+              @if (errors.email) {
+                <p id="email-error" class="form-error" role="alert">{{ errors.email }}</p>
+              }
+            </div>
+
+            <!-- Password field -->
             @if (mode === 'signin' || mode === 'signup') {
-              <div class="form-group" [class.has-error]="errors.email">
-                <label [for]="'email'" class="form-label">
-                  Email
-                  <span class="form-required" aria-hidden="true"> *</span>
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  class="form-input"
-                  [class.input-error]="errors.email"
-                  [(ngModel)]="email"
-                  name="email"
-                  placeholder="your@email.com"
-                  required
-                  [attr.aria-invalid]="!!errors.email"
-                  [attr.aria-describedby]="errors.email ? 'email-error' : null"
-                  [disabled]="isSubmitting"
-                  autocomplete="email"
-                />
-                @if (errors.email) {
-                  <p id="email-error" class="form-error" role="alert">{{ errors.email }}</p>
-                }
-              </div>
-            }
-
-            <!-- Token field - shown for verify and reset -->
-            @if (mode === 'verify' || mode === 'reset') {
-              <div class="form-group" [class.has-error]="errors.token">
-                <label [for]="'token'" class="form-label">
-                  {{ mode === 'verify' ? 'Verification Token' : 'Reset Token' }}
-                  <span class="form-required" aria-hidden="true"> *</span>
-                </label>
-                <input
-                  type="text"
-                  id="token"
-                  class="form-input"
-                  [class.input-error]="errors.token"
-                  [(ngModel)]="token"
-                  name="token"
-                  placeholder="selector:verifier"
-                  required
-                  [attr.aria-invalid]="!!errors.token"
-                  [attr.aria-describedby]="errors.token ? 'token-error' : 'token-hint'"
-                  [disabled]="isSubmitting"
-                  autocomplete="off"
-                />
-                @if (!errors.token) {
-                  <p id="token-hint" class="form-hint">Paste the token from your email</p>
-                }
-                @if (errors.token) {
-                  <p id="token-error" class="form-error" role="alert">{{ errors.token }}</p>
-                }
-              </div>
-            }
-
-            <!-- Password field - shown for signin, signup, and reset -->
-            @if (mode === 'signin' || mode === 'signup' || mode === 'reset') {
               <div class="form-group" [class.has-error]="errors.password">
                 <label [for]="'password'" class="form-label">
-                  {{ mode === 'reset' ? 'New Password' : 'Password' }}
+                  Password
                   <span class="form-required" aria-hidden="true"> *</span>
                 </label>
                 <input
@@ -217,11 +183,11 @@ interface FeedbackState {
                   placeholder="••••••••"
                   required
                   [attr.aria-invalid]="!!errors.password"
-                  [attr.aria-describedby]="errors.password ? 'password-error' : (mode === 'signup' || mode === 'reset' ? 'password-hint' : null)"
+                  [attr.aria-describedby]="errors.password ? 'password-error' : (mode === 'signup' ? 'password-hint' : null)"
                   [disabled]="isSubmitting"
                   [autocomplete]="mode === 'signin' ? 'current-password' : 'new-password'"
                 />
-                @if ((mode === 'signup' || mode === 'reset') && !errors.password) {
+                @if (mode === 'signup' && !errors.password) {
                   <p id="password-hint" class="form-hint">Minimum 8 characters</p>
                 }
                 @if (errors.password) {
@@ -230,8 +196,8 @@ interface FeedbackState {
               </div>
             }
 
-            <!-- Confirm password field - shown for signup and reset -->
-            @if (mode === 'signup' || mode === 'reset') {
+            <!-- Confirm password field -->
+            @if (mode === 'signup') {
               <div class="form-group" [class.has-error]="errors.confirmPassword">
                 <label [for]="'confirmPassword'" class="form-label">
                   Confirm Password
@@ -420,14 +386,13 @@ export class AppComponent implements OnInit {
   private cdr = inject(ChangeDetectorRef);
 
   // Available modes for tabs
-  modes: AuthMode[] = ['signin', 'signup', 'verify', 'reset'];
+  modes: AuthMode[] = ['signin', 'signup'];
 
   // Form state
   mode: AuthMode = 'signin';
   email = '';
   password = '';
   confirmPassword = '';
-  token = '';
 
   // UI state
   isSubmitting = false;
@@ -467,7 +432,6 @@ export class AppComponent implements OnInit {
     this.email = '';
     this.password = '';
     this.confirmPassword = '';
-    this.token = '';
     this.errors = {};
   }
 
@@ -476,8 +440,6 @@ export class AppComponent implements OnInit {
     const labels: Record<AuthMode, string> = {
       signin: 'Sign In',
       signup: 'Sign Up',
-      verify: 'Verify',
-      reset: 'Reset',
     };
     return labels[tabMode];
   }
@@ -488,8 +450,6 @@ export class AppComponent implements OnInit {
       const loadingTexts: Record<AuthMode, string> = {
         signin: 'Signing in...',
         signup: 'Creating account...',
-        verify: 'Verifying...',
-        reset: 'Resetting password...',
       };
       return loadingTexts[this.mode];
     }
@@ -497,8 +457,6 @@ export class AppComponent implements OnInit {
     const buttonTexts: Record<AuthMode, string> = {
       signin: 'Sign In',
       signup: 'Create Account',
-      verify: 'Verify Email',
-      reset: 'Reset Password',
     };
     return buttonTexts[this.mode];
   }
@@ -531,7 +489,6 @@ export class AppComponent implements OnInit {
 
     // Sanitize inputs
     const sanitizedEmail = sanitizeInput(this.email);
-    const sanitizedToken = sanitizeInput(this.token);
 
     // Validate based on mode
     let validationErrors: FormErrors = {};
@@ -542,16 +499,6 @@ export class AppComponent implements OnInit {
         break;
       case 'signup':
         validationErrors = validateSignUpForm(sanitizedEmail, this.password, this.confirmPassword);
-        break;
-      case 'verify':
-        validationErrors = validateVerifyEmailForm(sanitizedToken);
-        break;
-      case 'reset':
-        validationErrors = validateResetPasswordForm(
-          sanitizedToken,
-          this.password,
-          this.confirmPassword,
-        );
         break;
     }
 
@@ -584,33 +531,6 @@ export class AppComponent implements OnInit {
           if (res.success) {
             this.showFeedback('success', 'Welcome back!');
             this.resetForm();
-          } else {
-            this.showFeedback('error', getErrorMessage(res.error));
-          }
-          break;
-        }
-
-        case 'verify': {
-          const res = await this.auth.verifyEmail(sanitizedToken);
-          if (res.success) {
-            this.showFeedback('success', 'Email verified successfully! You can now sign in.');
-            this.token = '';
-            this.handleModeChange('signin');
-          } else {
-            this.showFeedback('error', getErrorMessage(res.error));
-          }
-          break;
-        }
-
-        case 'reset': {
-          const res = await this.auth.resetPassword(sanitizedToken, this.password);
-          if (res.success) {
-            this.showFeedback(
-              'success',
-              'Password reset successful! Please sign in with your new password.',
-            );
-            this.resetForm();
-            this.handleModeChange('signin');
           } else {
             this.showFeedback('error', getErrorMessage(res.error));
           }

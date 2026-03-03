@@ -1,7 +1,9 @@
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Environment configuration', () => {
   const originalEnv = process.env;
+  const expectedDefaultSqliteSuffix = join('packages', 'server', 'fortress.db');
 
   beforeEach(() => {
     vi.resetModules();
@@ -57,7 +59,7 @@ describe('Environment configuration', () => {
 
     expect(env.PORT).toBe(3000);
     expect(env.HOST).toBe('0.0.0.0');
-    expect(env.DATABASE_URL).toBe('./fortress.db');
+    expect(env.DATABASE_URL).toContain(expectedDefaultSqliteSuffix);
     expect(env.COOKIE_SECURE).toBe(false); // Not production
     expect(env.CSRF_COOKIE_NAME).toBe('fortress_csrf');
     expect(env.CSRF_COOKIE_SECURE).toBe(false); // Not production

@@ -15,6 +15,27 @@ import {
 } from 'react-icons/si';
 import styles from './ExamplesShowcase.module.css';
 
+function normalizeDemoUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const withoutTrailingSlash = trimmed.replace(/\/$/, '');
+  if (withoutTrailingSlash.startsWith('http://') || withoutTrailingSlash.startsWith('https://')) {
+    return withoutTrailingSlash;
+  }
+
+  return withoutTrailingSlash.startsWith('/') ? withoutTrailingSlash : `/${withoutTrailingSlash}`;
+}
+
+const demoUrls = {
+  react: normalizeDemoUrl(process.env.NEXT_PUBLIC_REACT_DEMO_URL || '/react-demo'),
+  vue: normalizeDemoUrl(process.env.NEXT_PUBLIC_VUE_DEMO_URL || '/vue-demo'),
+  svelte: normalizeDemoUrl(process.env.NEXT_PUBLIC_SVELTE_DEMO_URL || '/svelte-demo'),
+  angular: normalizeDemoUrl(process.env.NEXT_PUBLIC_ANGULAR_DEMO_URL || '/angular-demo'),
+};
+
 const examples = [
   {
     id: 'basic-usage',
@@ -28,28 +49,28 @@ const examples = [
     icon: SiReact,
     techStack: ['React', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-react',
-    demoUrl: '/react-demo',
+    demoUrl: demoUrls.react,
   },
   {
     id: 'web-vue',
     icon: SiVuedotjs,
     techStack: ['Vue 3', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-vue',
-    demoUrl: '/vue-demo',
+    demoUrl: demoUrls.vue,
   },
   {
     id: 'web-svelte',
     icon: SiSvelte,
     techStack: ['Svelte 5', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-svelte',
-    demoUrl: '/svelte-demo',
+    demoUrl: demoUrls.svelte,
   },
   {
     id: 'web-angular',
     icon: SiAngular,
     techStack: ['Angular', 'TypeScript', 'RxJS'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-angular',
-    demoUrl: '/angular-demo',
+    demoUrl: demoUrls.angular,
   },
   {
     id: 'mobile-expo',

@@ -10,23 +10,21 @@ import {
   hasErrors,
   sanitizeInput,
   validateEmail,
-  validateResetPasswordForm,
   validateSignInForm,
   validateSignUpForm,
-  validateVerifyEmailForm,
 } from '../../shared/utils/validation';
 import type { AlertType } from './components';
 // biome-ignore lint/correctness/noUnusedImports: Components are used in Vue template section
 import { Alert, Button, Input, Modal } from './components';
 
-type AuthMode = 'signin' | 'signup' | 'verify' | 'reset';
+type AuthMode = 'signin' | 'signup';
 
 interface FeedbackState {
   type: AlertType;
   message: string;
 }
 
-const { signUp, signIn, signOut, verifyEmail, requestPasswordReset, resetPassword } = useAuth();
+const { signUp, signIn, signOut, requestPasswordReset } = useAuth();
 // biome-ignore lint/correctness/noUnusedVariables: Variables are used in Vue template section
 const { user, loading, error: authError } = useUser();
 
@@ -35,7 +33,6 @@ const mode = ref<AuthMode>('signin');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
-const token = ref('');
 
 // UI state
 const isSubmitting = ref(false);
@@ -54,6 +51,7 @@ function clearFeedback() {
 }
 
 // Clear form state when switching modes
+// biome-ignore lint/correctness/noUnusedVariables: Function is used in Vue template section
 function handleModeChange(newMode: AuthMode) {
   mode.value = newMode;
   errors.value = {};
@@ -65,7 +63,6 @@ function resetForm() {
   email.value = '';
   password.value = '';
   confirmPassword.value = '';
-  token.value = '';
   errors.value = {};
 }
 
@@ -96,8 +93,6 @@ const buttonText = computed(() => {
     const loadingTexts: Record<AuthMode, string> = {
       signin: 'Signing in...',
       signup: 'Creating account...',
-      verify: 'Verifying...',
-      reset: 'Resetting password...',
     };
     return loadingTexts[mode.value];
   }
@@ -105,8 +100,6 @@ const buttonText = computed(() => {
   const buttonTexts: Record<AuthMode, string> = {
     signin: 'Sign In',
     signup: 'Create Account',
-    verify: 'Verify Email',
-    reset: 'Reset Password',
   };
   return buttonTexts[mode.value];
 });
@@ -118,7 +111,6 @@ async function handleSubmit() {
 
   // Sanitize inputs
   const sanitizedEmail = sanitizeInput(email.value);
-  const sanitizedToken = sanitizeInput(token.value);
 
   // Validate based on mode
   let validationErrors: FormErrors = {};
@@ -129,16 +121,6 @@ async function handleSubmit() {
       break;
     case 'signup':
       validationErrors = validateSignUpForm(sanitizedEmail, password.value, confirmPassword.value);
-      break;
-    case 'verify':
-      validationErrors = validateVerifyEmailForm(sanitizedToken);
-      break;
-    case 'reset':
-      validationErrors = validateResetPasswordForm(
-        sanitizedToken,
-        password.value,
-        confirmPassword.value,
-      );
       break;
   }
 
@@ -168,33 +150,6 @@ async function handleSubmit() {
         if (res.success) {
           showFeedback('success', 'Welcome back!');
           resetForm();
-        } else {
-          showFeedback('error', getErrorMessage(res.error));
-        }
-        break;
-      }
-
-      case 'verify': {
-        const res = await verifyEmail(sanitizedToken);
-        if (res.success) {
-          showFeedback('success', 'Email verified successfully! You can now sign in.');
-          token.value = '';
-          handleModeChange('signin');
-        } else {
-          showFeedback('error', getErrorMessage(res.error));
-        }
-        break;
-      }
-
-      case 'reset': {
-        const res = await resetPassword(sanitizedToken, password.value);
-        if (res.success) {
-          showFeedback(
-            'success',
-            'Password reset successful! Please sign in with your new password.',
-          );
-          resetForm();
-          handleModeChange('signin');
         } else {
           showFeedback('error', getErrorMessage(res.error));
         }
@@ -256,15 +211,13 @@ async function handleSignOut() {
 
 // Tab modes for navigation
 // biome-ignore lint/correctness/noUnusedVariables: Variable is used in Vue template section
-const tabModes: AuthMode[] = ['signin', 'signup', 'verify', 'reset'];
+const tabModes: AuthMode[] = ['signin', 'signup'];
 
 // biome-ignore lint/correctness/noUnusedVariables: Function is used in Vue template section
 function getTabLabel(tabMode: AuthMode): string {
   const labels: Record<AuthMode, string> = {
     signin: 'Sign In',
     signup: 'Sign Up',
-    verify: 'Verify',
-    reset: 'Reset',
   };
   return labels[tabMode];
 }
@@ -359,50 +312,35 @@ function getTabLabel(tabMode: AuthMode): string {
         :aria-labelledby="`${mode}-tab`"
         @submit.prevent="handleSubmit"
       >
-        <!-- Email field - shown for signin and signup -->
+        <!-- Email field -->
         <Input
-          v-if="mode === 'signin' || mode === 'signup'"
           v-model="email"
           type="email"
           label="Email"
           placeholder="your@email.com"
           :error="errors.email"
           required
-          :autocomplete="mode === 'signin' ? 'email' : 'email'"
+          autocomplete="email"
           :disabled="isSubmitting"
         />
 
-        <!-- Token field - shown for verify and reset -->
+        <!-- Password field -->
         <Input
-          v-if="mode === 'verify' || mode === 'reset'"
-          v-model="token"
-          type="text"
-          :label="mode === 'verify' ? 'Verification Token' : 'Reset Token'"
-          placeholder="selector:verifier"
-          :error="errors.token"
-          hint="Paste the token from your email"
-          required
-          autocomplete="off"
-          :disabled="isSubmitting"
-        />
-
-        <!-- Password field - shown for signin, signup, and reset -->
-        <Input
-          v-if="mode === 'signin' || mode === 'signup' || mode === 'reset'"
+          v-if="mode === 'signin' || mode === 'signup'"
           v-model="password"
           type="password"
-          :label="mode === 'reset' ? 'New Password' : 'Password'"
+          label="Password"
           placeholder="••••••••"
           :error="errors.password"
-          :hint="mode === 'signup' || mode === 'reset' ? 'Minimum 8 characters' : undefined"
+          :hint="mode === 'signup' ? 'Minimum 8 characters' : undefined"
           required
           :autocomplete="mode === 'signin' ? 'current-password' : 'new-password'"
           :disabled="isSubmitting"
         />
 
-        <!-- Confirm password field - shown for signup and reset -->
+        <!-- Confirm password field -->
         <Input
-          v-if="mode === 'signup' || mode === 'reset'"
+          v-if="mode === 'signup'"
           v-model="confirmPassword"
           type="password"
           label="Confirm Password"

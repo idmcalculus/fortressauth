@@ -1,4 +1,4 @@
-import { Injectable, InjectionToken } from '@angular/core';
+import { Inject, Injectable, InjectionToken, Optional } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import type { ApiResponse, AuthConfig, AuthState, OAuthProvider, User } from './types.js';
 
@@ -160,7 +160,7 @@ export class AuthService {
     return this.stateSubject.getValue().error;
   }
 
-  constructor(config?: AuthConfig) {
+  constructor(@Optional() @Inject(AUTH_CONFIG) config?: AuthConfig) {
     this.baseUrl = resolveBaseUrl(config?.baseUrl);
     this.refreshUser();
   }

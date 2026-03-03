@@ -2,10 +2,28 @@ import { type NextRequest, NextResponse } from 'next/server';
 
 // Ports to try - server starts at 5000 and increments if port is busy (up to +10)
 const PORTS_TO_TRY = [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010];
+const configuredApiUrl = process.env.AUTH_API_URL?.replace(/\/$/, '');
 
 let cachedPort: number | null = null;
 let lastCheck = 0;
 const CACHE_TTL = 30000; // 30 seconds
+
+function getConfiguredApiUrl(): string | null {
+  if (!configuredApiUrl) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(configuredApiUrl);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.origin;
+    }
+  } catch {
+    // Ignore malformed URL and fall back to local discovery.
+  }
+
+  return null;
+}
 
 async function discoverServerPort(): Promise<number | null> {
   const now = Date.now();
@@ -41,19 +59,34 @@ async function discoverServerPort(): Promise<number | null> {
   return null;
 }
 
+async function discoverApiBaseUrl(): Promise<string | null> {
+  const explicitUrl = getConfiguredApiUrl();
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  const port = await discoverServerPort();
+  if (!port) {
+    return null;
+  }
+
+  return `http://localhost:${port}`;
+}
+
 async function proxyRequest(
   request: NextRequest,
   params: Promise<{ path: string[] }>,
 ): Promise<NextResponse> {
-  const port = await discoverServerPort();
+  const apiBaseUrl = await discoverApiBaseUrl();
 
-  if (!port) {
+  if (!apiBaseUrl) {
     return NextResponse.json({ error: 'API server not available' }, { status: 503 });
   }
 
   const { path } = await params;
   const targetPath = path.join('/');
-  const targetUrl = `http://localhost:${port}/${targetPath}`;
+  const query = request.nextUrl.search;
+  const targetUrl = `${apiBaseUrl}/${targetPath}${query}`;
 
   const headers = new Headers(request.headers);
   headers.delete('host');
