@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Suspense, type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import { postAuthJson } from '@/lib/auth-api';
 import styles from '../auth-pages.module.css';
 
