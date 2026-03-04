@@ -25,7 +25,7 @@ import { secureHeaders } from 'hono/secure-headers';
 import { Redis } from 'ioredis';
 import { Kysely, MysqlDialect, PostgresDialect, SqliteDialect } from 'kysely';
 import { createPool } from 'mysql2';
-import { Pool } from 'pg';
+import { Pool, type PoolConfig } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
 import { createEmailProvider } from './email-provider.js';
 import { env } from './env.js';
@@ -56,7 +56,7 @@ function createDatabase(): DatabaseContext {
 
   if (isPostgres) {
     const isSslRequire = url.includes('sslmode=require');
-    const poolConfig: any = { connectionString: url };
+    const poolConfig: PoolConfig = { connectionString: url };
     if (isSslRequire) {
       poolConfig.ssl = { rejectUnauthorized: false };
     }
@@ -127,78 +127,78 @@ const fortressConfigInput: FortressConfigInput = {
     providers: {
       ...(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REDIRECT_URI
         ? {
-          google: {
-            clientId: env.GOOGLE_CLIENT_ID,
-            clientSecret: env.GOOGLE_CLIENT_SECRET,
-            redirectUri: env.GOOGLE_REDIRECT_URI,
-          },
-        }
+            google: {
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
+              redirectUri: env.GOOGLE_REDIRECT_URI,
+            },
+          }
         : {}),
       ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET && env.GITHUB_REDIRECT_URI
         ? {
-          github: {
-            clientId: env.GITHUB_CLIENT_ID,
-            clientSecret: env.GITHUB_CLIENT_SECRET,
-            redirectUri: env.GITHUB_REDIRECT_URI,
-          },
-        }
+            github: {
+              clientId: env.GITHUB_CLIENT_ID,
+              clientSecret: env.GITHUB_CLIENT_SECRET,
+              redirectUri: env.GITHUB_REDIRECT_URI,
+            },
+          }
         : {}),
       ...(env.APPLE_CLIENT_ID &&
-        env.APPLE_TEAM_ID &&
-        env.APPLE_KEY_ID &&
-        env.APPLE_REDIRECT_URI &&
-        (env.APPLE_CLIENT_SECRET || env.APPLE_PRIVATE_KEY)
+      env.APPLE_TEAM_ID &&
+      env.APPLE_KEY_ID &&
+      env.APPLE_REDIRECT_URI &&
+      (env.APPLE_CLIENT_SECRET || env.APPLE_PRIVATE_KEY)
         ? {
-          apple: {
-            clientId: env.APPLE_CLIENT_ID,
-            teamId: env.APPLE_TEAM_ID,
-            keyId: env.APPLE_KEY_ID,
-            redirectUri: env.APPLE_REDIRECT_URI,
-            clientSecret: env.APPLE_CLIENT_SECRET,
-            ...(env.APPLE_PRIVATE_KEY ? { privateKey: env.APPLE_PRIVATE_KEY } : {}),
-            ...(env.APPLE_CLIENT_SECRET_TTL_SECONDS
-              ? { clientSecretExpiresIn: env.APPLE_CLIENT_SECRET_TTL_SECONDS }
-              : {}),
-          },
-        }
+            apple: {
+              clientId: env.APPLE_CLIENT_ID,
+              teamId: env.APPLE_TEAM_ID,
+              keyId: env.APPLE_KEY_ID,
+              redirectUri: env.APPLE_REDIRECT_URI,
+              clientSecret: env.APPLE_CLIENT_SECRET,
+              ...(env.APPLE_PRIVATE_KEY ? { privateKey: env.APPLE_PRIVATE_KEY } : {}),
+              ...(env.APPLE_CLIENT_SECRET_TTL_SECONDS
+                ? { clientSecretExpiresIn: env.APPLE_CLIENT_SECRET_TTL_SECONDS }
+                : {}),
+            },
+          }
         : {}),
       ...(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.DISCORD_REDIRECT_URI
         ? {
-          discord: {
-            clientId: env.DISCORD_CLIENT_ID,
-            clientSecret: env.DISCORD_CLIENT_SECRET,
-            redirectUri: env.DISCORD_REDIRECT_URI,
-          },
-        }
+            discord: {
+              clientId: env.DISCORD_CLIENT_ID,
+              clientSecret: env.DISCORD_CLIENT_SECRET,
+              redirectUri: env.DISCORD_REDIRECT_URI,
+            },
+          }
         : {}),
       ...(env.LINKEDIN_CLIENT_ID && env.LINKEDIN_CLIENT_SECRET && env.LINKEDIN_REDIRECT_URI
         ? {
-          linkedin: {
-            clientId: env.LINKEDIN_CLIENT_ID,
-            clientSecret: env.LINKEDIN_CLIENT_SECRET,
-            redirectUri: env.LINKEDIN_REDIRECT_URI,
-          },
-        }
+            linkedin: {
+              clientId: env.LINKEDIN_CLIENT_ID,
+              clientSecret: env.LINKEDIN_CLIENT_SECRET,
+              redirectUri: env.LINKEDIN_REDIRECT_URI,
+            },
+          }
         : {}),
       ...(env.TWITTER_CLIENT_ID && env.TWITTER_CLIENT_SECRET && env.TWITTER_REDIRECT_URI
         ? {
-          twitter: {
-            clientId: env.TWITTER_CLIENT_ID,
-            clientSecret: env.TWITTER_CLIENT_SECRET,
-            redirectUri: env.TWITTER_REDIRECT_URI,
-          },
-        }
+            twitter: {
+              clientId: env.TWITTER_CLIENT_ID,
+              clientSecret: env.TWITTER_CLIENT_SECRET,
+              redirectUri: env.TWITTER_REDIRECT_URI,
+            },
+          }
         : {}),
       ...(env.MICROSOFT_CLIENT_ID && env.MICROSOFT_REDIRECT_URI
         ? {
-          microsoft: {
-            clientId: env.MICROSOFT_CLIENT_ID,
-            clientSecret: env.MICROSOFT_CLIENT_SECRET,
-            redirectUri: env.MICROSOFT_REDIRECT_URI,
-            tenantId: env.MICROSOFT_TENANT_ID,
-            scopes: env.MICROSOFT_SCOPES,
-          },
-        }
+            microsoft: {
+              clientId: env.MICROSOFT_CLIENT_ID,
+              clientSecret: env.MICROSOFT_CLIENT_SECRET,
+              redirectUri: env.MICROSOFT_REDIRECT_URI,
+              tenantId: env.MICROSOFT_TENANT_ID,
+              scopes: env.MICROSOFT_SCOPES,
+            },
+          }
         : {}),
     },
   },
@@ -233,60 +233,60 @@ const repository = new SqlAdapter(db, { dialect });
 const sesCredentials =
   env.SES_ACCESS_KEY_ID && env.SES_SECRET_ACCESS_KEY
     ? {
-      accessKeyId: env.SES_ACCESS_KEY_ID,
-      secretAccessKey: env.SES_SECRET_ACCESS_KEY,
-      ...(env.SES_SESSION_TOKEN ? { sessionToken: env.SES_SESSION_TOKEN } : {}),
-    }
+        accessKeyId: env.SES_ACCESS_KEY_ID,
+        secretAccessKey: env.SES_SECRET_ACCESS_KEY,
+        ...(env.SES_SESSION_TOKEN ? { sessionToken: env.SES_SESSION_TOKEN } : {}),
+      }
     : undefined;
 const smtpAuth =
   env.SMTP_USER && env.SMTP_PASS ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined;
 const smtpTls =
   env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined || env.SMTP_TLS_SERVERNAME
     ? {
-      ...(env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined
-        ? { rejectUnauthorized: env.SMTP_TLS_REJECT_UNAUTHORIZED }
-        : {}),
-      ...(env.SMTP_TLS_SERVERNAME ? { servername: env.SMTP_TLS_SERVERNAME } : {}),
-    }
+        ...(env.SMTP_TLS_REJECT_UNAUTHORIZED !== undefined
+          ? { rejectUnauthorized: env.SMTP_TLS_REJECT_UNAUTHORIZED }
+          : {}),
+        ...(env.SMTP_TLS_SERVERNAME ? { servername: env.SMTP_TLS_SERVERNAME } : {}),
+      }
     : undefined;
 const emailProvider = createEmailProvider({
   provider: env.EMAIL_PROVIDER,
   resend:
     env.RESEND_API_KEY && env.EMAIL_FROM_ADDRESS
       ? {
-        apiKey: env.RESEND_API_KEY,
-        fromEmail: env.EMAIL_FROM_ADDRESS,
-        fromName: env.EMAIL_FROM_NAME,
-      }
+          apiKey: env.RESEND_API_KEY,
+          fromEmail: env.EMAIL_FROM_ADDRESS,
+          fromName: env.EMAIL_FROM_NAME,
+        }
       : undefined,
   ses:
     env.SES_REGION && env.SES_FROM_ADDRESS
       ? {
-        region: env.SES_REGION,
-        fromEmail: env.SES_FROM_ADDRESS,
-        ...(env.SES_FROM_NAME ? { fromName: env.SES_FROM_NAME } : {}),
-        ...(sesCredentials ? { credentials: sesCredentials } : {}),
-      }
+          region: env.SES_REGION,
+          fromEmail: env.SES_FROM_ADDRESS,
+          ...(env.SES_FROM_NAME ? { fromName: env.SES_FROM_NAME } : {}),
+          ...(sesCredentials ? { credentials: sesCredentials } : {}),
+        }
       : undefined,
   sendgrid:
     env.SENDGRID_API_KEY && env.SENDGRID_FROM_ADDRESS
       ? {
-        apiKey: env.SENDGRID_API_KEY,
-        fromEmail: env.SENDGRID_FROM_ADDRESS,
-        fromName: env.SENDGRID_FROM_NAME,
-      }
+          apiKey: env.SENDGRID_API_KEY,
+          fromEmail: env.SENDGRID_FROM_ADDRESS,
+          fromName: env.SENDGRID_FROM_NAME,
+        }
       : undefined,
   smtp:
     env.SMTP_HOST && env.SMTP_PORT && env.SMTP_FROM_ADDRESS
       ? {
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        ...(smtpAuth ? { auth: smtpAuth } : {}),
-        ...(smtpTls ? { tls: smtpTls } : {}),
-        fromEmail: env.SMTP_FROM_ADDRESS,
-        ...(env.SMTP_FROM_NAME ? { fromName: env.SMTP_FROM_NAME } : {}),
-      }
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_SECURE,
+          ...(smtpAuth ? { auth: smtpAuth } : {}),
+          ...(smtpTls ? { tls: smtpTls } : {}),
+          fromEmail: env.SMTP_FROM_ADDRESS,
+          ...(env.SMTP_FROM_NAME ? { fromName: env.SMTP_FROM_NAME } : {}),
+        }
       : undefined,
 });
 const fortress = new FortressAuth(repository, rateLimiter, emailProvider, resolvedConfig);

@@ -219,11 +219,6 @@ const dbFirewall = new hcloud.Firewall('dbFirewall', {
   rules: [
     {
       direction: 'in',
-      protocol: 'icmp',
-      sourceIps: ['0.0.0.0/0', '::/0'],
-    },
-    {
-      direction: 'in',
       protocol: 'tcp',
       port: '22',
       sourceIps: adminSourceCidrs,
@@ -240,37 +235,58 @@ const dbFirewall = new hcloud.Firewall('dbFirewall', {
 const appFirewallId = appFirewall.id.apply(parseHcloudId);
 const dbFirewallId = dbFirewall.id.apply(parseHcloudId);
 
-const appUserData = pulumi.all([dbPassword, appSecretEnv]).apply(([password, secretEnv]) => {
-  const encodedPassword = encodeURIComponent(password);
-  const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}`;
+const appUserData = pulumi
+  .all([
+    dbPassword,
+    appSecretEnv,
+    pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
+  ] as const)
+  .apply(([password, secretEnv, keys]) => {
+    const encodedPassword = encodeURIComponent(password || '');
+    const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}?sslmode=require`;
 
-  const defaultEnvEntries: [string, string][] = [
-    ['NODE_ENV', 'production'],
-    ['PORT', '3000'],
-    ['HOST', '0.0.0.0'],
-    ['DATABASE_URL', databaseUrl],
-    ['BASE_URL', `https://${appDomain}`],
-    ['COOKIE_SECURE', 'true'],
-    ['COOKIE_SAMESITE', 'none'],
-    ['CSRF_COOKIE_SECURE', 'true'],
-    ['CSRF_COOKIE_SAMESITE', 'none'],
-    ['METRICS_ENABLED', 'true'],
-    ['LOG_LEVEL', 'info'],
-  ];
+    const defaultEnvEntries: [string, string][] = [
+      ['NODE_ENV', 'production'],
+      ['PORT', '3000'],
+      ['HOST', '0.0.0.0'],
+      ['DATABASE_URL', databaseUrl],
+      ['BASE_URL', `https://${appDomain}`],
+      ['COOKIE_SECURE', 'true'],
+      ['COOKIE_SAMESITE', 'none'],
+      ['CSRF_COOKIE_SECURE', 'true'],
+      ['CSRF_COOKIE_SAMESITE', 'none'],
+      ['METRICS_ENABLED', 'true'],
+      ['LOG_LEVEL', 'info'],
+    ];
 
-  const envContent = mergeEnvEntries(defaultEnvEntries, appEnv, secretEnv);
+    const envContent = mergeEnvEntries(defaultEnvEntries, appEnv, secretEnv || {});
 
-  return `#!/bin/bash
+    return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y ca-certificates curl
+apt-get upgrade -y
+apt-get install -y ca-certificates curl unattended-upgrades
+
+useradd -m -s /bin/bash admin
+usermod -aG sudo admin
+echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+mkdir -p /home/admin/.ssh
+cat >> /home/admin/.ssh/authorized_keys <<'EOF'
+${keys.join('\n')}
+EOF
+chown -R admin:admin /home/admin/.ssh
+chmod 700 /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
+sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
 
 curl -fsSL https://get.docker.com | sh
 apt-get install -y docker-compose-plugin
 systemctl enable docker
 systemctl start docker
+usermod -aG docker admin
 
 mkdir -p /opt/fortressauth
 
@@ -298,6 +314,11 @@ services:
   app:
     image: ${appImage}
     restart: unless-stopped
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     env_file:
       - /opt/fortressauth/.env
     networks:
@@ -328,18 +349,39 @@ COMPOSE
 
 docker compose -f /opt/fortressauth/docker-compose.yml pull
 docker compose -f /opt/fortressauth/docker-compose.yml up -d
+
+iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-});
+  });
 
-const dbUserData = dbPassword.apply((password) => {
-  const escapedPassword = escapeSqlLiteral(password);
+const dbUserData = pulumi
+  .all([
+    dbPassword,
+    pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
+  ] as const)
+  .apply(([password, keys]) => {
+    const escapedPassword = escapeSqlLiteral(password || '');
 
-  return `#!/bin/bash
+    return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y postgresql postgresql-contrib
+apt-get upgrade -y
+apt-get install -y postgresql postgresql-contrib unattended-upgrades
+
+useradd -m -s /bin/bash admin
+usermod -aG sudo admin
+echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+mkdir -p /home/admin/.ssh
+cat >> /home/admin/.ssh/authorized_keys <<'EOF'
+${keys.join('\n')}
+EOF
+chown -R admin:admin /home/admin/.ssh
+chmod 700 /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
+sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
 
 PG_VERSION="$(ls /etc/postgresql | sort -V | tail -n 1)"
 PG_CONF="/etc/postgresql/\${PG_VERSION}/main/postgresql.conf"
@@ -357,8 +399,12 @@ if ! grep -q "^password_encryption = scram-sha-256" "$PG_CONF"; then
   echo "password_encryption = scram-sha-256" >>"$PG_CONF"
 fi
 
-if ! grep -q "host ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" "$PG_HBA"; then
-  echo "host ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" >>"$PG_HBA"
+if ! grep -q "^ssl = on" "$PG_CONF"; then
+  echo "ssl = on" >> "$PG_CONF"
+fi
+
+if ! grep -q "hostssl ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" "$PG_HBA"; then
+  echo "hostssl ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" >>"$PG_HBA"
 fi
 
 systemctl enable postgresql
@@ -401,8 +447,10 @@ cat >/etc/cron.d/pg_daily_backup <<'CRON'
 15 2 * * * root /usr/local/bin/pg_daily_backup.sh
 CRON
 chmod 0644 /etc/cron.d/pg_daily_backup
+
+iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-});
+  });
 
 const appServer = new hcloud.Server(
   'appServer',
@@ -478,6 +526,6 @@ export const appPublicIpv6 = appServer.ipv6Address;
 export const appPrivateAddress = appPrivateIp;
 export const dbPrivateAddress = dbPrivateIp;
 export const dbServerId = dbServer.id;
-export const sshApp = pulumi.interpolate`ssh root@${appServer.ipv4Address}`;
-export const sshDbViaApp = pulumi.interpolate`ssh -J root@${appServer.ipv4Address} root@${dbPrivateIp}`;
-export const databaseUrlTemplate = `postgresql://${dbUser}:<db-password>@${dbPrivateIp}:5432/${dbName}`;
+export const sshApp = pulumi.interpolate`ssh admin@${appServer.ipv4Address}`;
+export const sshDbViaApp = pulumi.interpolate`ssh -J admin@${appServer.ipv4Address} admin@${dbPrivateIp}`;
+export const databaseUrlTemplate = `postgresql://${dbUser}:<db-password>@${dbPrivateIp}:5432/${dbName}?sslmode=require`;
