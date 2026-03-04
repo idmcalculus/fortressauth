@@ -50,113 +50,47 @@ jobs:
         env:
           MONGODB_TEST_URL: mongodb://localhost:27017/fortressauth_test
 
-      - name: Publish @fortressauth/core
-        run: cd packages/core && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish NPM Packages (skip versions already published)
+        run: |
+          set -euo pipefail
 
-      - name: Publish @fortressauth/adapter-sql
-        run: cd packages/adapter-sql && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          publish_if_needed() {
+            local dir="$1"
+            local package_name
+            local package_version
+            package_name=$(node -p "require('./${dir}/package.json').name")
+            package_version=$(node -p "require('./${dir}/package.json').version")
 
-      - name: Publish @fortressauth/adapter-mongodb
-        run: cd packages/adapter-mongodb && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            if npm view "${package_name}@${package_version}" version > /dev/null 2>&1; then
+              echo "Skipping ${package_name}@${package_version} (already published)"
+            else
+              echo "Publishing ${package_name}@${package_version}"
+              pnpm --dir "${dir}" publish --access public --no-git-checks
+            fi
+          }
 
-      - name: Publish @fortressauth/email-ses
-        run: cd packages/email-ses && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/email-sendgrid
-        run: cd packages/email-sendgrid && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/email-smtp
-        run: cd packages/email-smtp && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/oauth-core
-        run: cd packages/oauth-core && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-google
-        run: cd packages/provider-google && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-github
-        run: cd packages/provider-github && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-apple
-        run: cd packages/provider-apple && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-discord
-        run: cd packages/provider-discord && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-linkedin
-        run: cd packages/provider-linkedin && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-twitter
-        run: cd packages/provider-twitter && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/provider-microsoft
-        run: cd packages/provider-microsoft && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/server
-        run: cd packages/server && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/react-sdk
-        run: cd packages/react-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/vue-sdk
-        run: cd packages/vue-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/angular-sdk
-        run: cd packages/angular-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/svelte-sdk
-        run: cd packages/svelte-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/react-native-sdk
-        run: cd packages/react-native-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/expo-sdk
-        run: cd packages/expo-sdk && pnpm publish --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Publish @fortressauth/electron-sdk
-        run: cd packages/electron-sdk && pnpm publish --access public --no-git-checks
+          publish_if_needed packages/core
+          publish_if_needed packages/adapter-sql
+          publish_if_needed packages/adapter-mongodb
+          publish_if_needed packages/email-ses
+          publish_if_needed packages/email-sendgrid
+          publish_if_needed packages/email-smtp
+          publish_if_needed packages/oauth-core
+          publish_if_needed packages/provider-google
+          publish_if_needed packages/provider-github
+          publish_if_needed packages/provider-apple
+          publish_if_needed packages/provider-discord
+          publish_if_needed packages/provider-linkedin
+          publish_if_needed packages/provider-twitter
+          publish_if_needed packages/provider-microsoft
+          publish_if_needed packages/server
+          publish_if_needed packages/react-sdk
+          publish_if_needed packages/vue-sdk
+          publish_if_needed packages/angular-sdk
+          publish_if_needed packages/svelte-sdk
+          publish_if_needed packages/react-native-sdk
+          publish_if_needed packages/expo-sdk
+          publish_if_needed packages/electron-sdk
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
