@@ -65,7 +65,10 @@ jobs:
               echo "Skipping ${package_name}@${package_version} (already published)"
             else
               echo "Publishing ${package_name}@${package_version}"
-              pnpm --dir "${dir}" publish --access public --no-git-checks
+              (
+                cd "${dir}"
+                pnpm publish --access public --no-git-checks
+              )
             fi
           }
 
