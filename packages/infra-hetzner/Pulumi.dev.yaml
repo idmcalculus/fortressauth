@@ -1,0 +1,32 @@
+config:
+  hcloud:token:
+    secure: AAABALEN69ikSMt6qDNHxiBNb6bDZUMzmxpMEKPSzYi1kLKxf9VDtPVl7ddqWIPkOTa+pUAkSo+9eTCrdW6U+2ZhNEEQ7uUKILIvjQimUu9cNpYAkIqV7G8p9nFQItiB
+  fortressauth-hetzner:sshKeyNames:
+    - fortressauth-hetzner
+  fortressauth-hetzner:adminIpv4Cidrs:
+    - 84.69.70.152/32
+  fortressauth-hetzner:adminIpv6Cidrs:
+    - 2a0a:ef40:19a0:6301:cc22:8b9e:388a:103/128
+  fortressauth-hetzner:appDomain: api.fortressauth.com
+  fortressauth-hetzner:appImage: docker.io/idmcalculus/fortressauth@sha256:7d812b62f9d6da6ffba1f44327b356fd92fc6378a6940311b43ea95d84736402
+  fortressauth-hetzner:dbPassword:
+    secure: AAABAHu+Y8129G0lhzs5ikjeT3cQypJfQmz1xkZSbphvM/YasyqjobOizrmuVOCCedMUgYVXCvA9oVBRPrt0RB+NdWIAmnzZcJO/6A==
+  fortressauth-hetzner:dbName: fortressauth
+  fortressauth-hetzner:dbUser: fortressauth
+  fortressauth-hetzner:location: nbg1
+  fortressauth-hetzner:image: ubuntu-24.04
+  fortressauth-hetzner:networkCidr: 10.20.0.0/16
+  fortressauth-hetzner:networkZone: eu-central
+  fortressauth-hetzner:subnetCidr: 10.20.1.0/24
+  fortressauth-hetzner:appPrivateIp: 10.20.1.10
+  fortressauth-hetzner:dbPrivateIp: 10.20.1.20
+  fortressauth-hetzner:appServerType: cpx21
+  fortressauth-hetzner:dbServerType: cpx31
+  fortressauth-hetzner:appEnv:
+    CORS_ORIGINS: http://localhost:3000
+    EMAIL_PROVIDER: resend
+    EMAIL_FROM_ADDRESS: no-reply@jaydeetechltd.com
+    EMAIL_FROM_NAME: Fortress Auth
+  fortressauth-hetzner:appSecretEnv:
+    RESEND_API_KEY:
+      secure: AAABAJVAXIn1vLN2APAeIvMrAHkz//JCAO2amGW3t9q8wmmkA08um90H8H+gJ517dEXOCInkSrSK7W63ZMjxEfV8jE0=
