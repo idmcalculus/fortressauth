@@ -1,6 +1,6 @@
 {
   "name": "@fortressauth/svelte-sdk",
-  "version": "0.1.9",
+  "version": "0.1.11",
   "type": "module",
   "svelte": "./dist/index.js",
   "main": "./dist/index.js",
