@@ -1,0 +1,29 @@
+config:
+  hcloud:token:
+    secure: "<set-with-pulumi-config>"
+  fortressauth-hetzner:location: nbg1
+  fortressauth-hetzner:image: ubuntu-24.04
+  fortressauth-hetzner:networkCidr: 10.20.0.0/16
+  fortressauth-hetzner:networkZone: eu-central
+  fortressauth-hetzner:subnetCidr: 10.20.1.0/24
+  fortressauth-hetzner:appPrivateIp: 10.20.1.10
+  fortressauth-hetzner:dbPrivateIp: 10.20.1.20
+  fortressauth-hetzner:appServerType: cpx21
+  fortressauth-hetzner:dbServerType: cpx31
+  fortressauth-hetzner:appDomain: api.example.com
+  fortressauth-hetzner:appImage: ghcr.io/your-org/fortressauth-server:latest
+  fortressauth-hetzner:sshKeyNames:
+    - your-ssh-key-name-in-hetzner
+  fortressauth-hetzner:adminIpv4Cidrs:
+    - 203.0.113.10/32
+  fortressauth-hetzner:adminIpv6Cidrs:
+    - 2001:db8::10/128
+  fortressauth-hetzner:dbName: fortressauth
+  fortressauth-hetzner:dbUser: fortressauth
+  fortressauth-hetzner:dbPassword:
+    secure: "<set-with-pulumi-config --secret>"
+  fortressauth-hetzner:appEnv:
+    CORS_ORIGINS: https://your-landing-domain.vercel.app
+    EMAIL_PROVIDER: console
+  fortressauth-hetzner:appSecretEnv:
+    secure: "<set-with-pulumi-config --path --secret fortressauth-hetzner:appSecretEnv.SMTP_PASS>"
