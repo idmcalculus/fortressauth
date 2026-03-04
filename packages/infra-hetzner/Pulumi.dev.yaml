@@ -20,8 +20,8 @@ config:
   fortressauth-hetzner:subnetCidr: 10.20.1.0/24
   fortressauth-hetzner:appPrivateIp: 10.20.1.10
   fortressauth-hetzner:dbPrivateIp: 10.20.1.20
-  fortressauth-hetzner:appServerType: cpx21
-  fortressauth-hetzner:dbServerType: cpx31
+  fortressauth-hetzner:appServerType: cpx22
+  fortressauth-hetzner:dbServerType: cpx32
   fortressauth-hetzner:appEnv:
     CORS_ORIGINS: http://localhost:3000
     EMAIL_PROVIDER: resend

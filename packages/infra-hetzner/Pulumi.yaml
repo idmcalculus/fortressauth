@@ -1,3 +1,7 @@
 name: fortressauth-hetzner
-runtime: nodejs
+runtime: 
+  name: nodejs
+  options:
+    typescript: true
 description: FortressAuth app + PostgreSQL infrastructure on Hetzner Cloud
+main: src/index.ts

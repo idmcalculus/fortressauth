@@ -2,7 +2,7 @@
   "name": "@fortressauth/infra-hetzner",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "build": "tsc",
     "lint": "biome check .",

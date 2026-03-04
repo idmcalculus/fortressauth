@@ -453,8 +453,8 @@ const dbServer = new hcloud.Server(
     firewallIds: [dbFirewallId],
     publicNets: [
       {
-        ipv4Enabled: false,
-        ipv6Enabled: false,
+        ipv4Enabled: true,
+        ipv6Enabled: true,
       },
     ],
     networks: [
