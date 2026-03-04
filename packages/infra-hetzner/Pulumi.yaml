@@ -1,0 +1,3 @@
+name: fortressauth-hetzner
+runtime: nodejs
+description: FortressAuth app + PostgreSQL infrastructure on Hetzner Cloud
