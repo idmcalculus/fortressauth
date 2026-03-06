@@ -109,6 +109,7 @@ CI is change-aware:
 - `.github/workflows/ci.yml` always publishes a stable `ci-status` result for branch protection.
 - Package/example/docker jobs are skipped when the changed files do not affect them, so docs-only and infra-only changes do not burn the full matrix.
 - `.github/workflows/deploy-hetzner.yml` only builds and pushes a Docker image when application image inputs changed; infra-only changes reuse the current image and only run Pulumi.
+- The deploy workflow temporarily allows the active GitHub runner IPv4 on SSH during `pulumi up`, then runs a cleanup `pulumi up` to remove that temporary firewall rule.
 
 Required repository secrets:
 

@@ -148,7 +148,14 @@ const adminIpv4Cidrs = assertArray(
   'adminIpv4Cidrs',
 );
 const adminIpv6Cidrs = config.getObject<string[]>('adminIpv6Cidrs') ?? [];
-const adminSourceCidrs = [...adminIpv4Cidrs, ...adminIpv6Cidrs];
+const deployRunnerCidr = process.env.FORTRESSAUTH_DEPLOY_RUNNER_CIDR?.trim();
+const adminSourceCidrs = [
+  ...new Set([
+    ...adminIpv4Cidrs,
+    ...adminIpv6Cidrs,
+    ...(deployRunnerCidr ? [deployRunnerCidr] : []),
+  ]),
+];
 
 const dbName = assertIdentifier(config.get('dbName') ?? 'fortressauth', 'dbName');
 const dbUser = assertIdentifier(config.get('dbUser') ?? 'fortressauth', 'dbUser');
@@ -248,21 +255,15 @@ const dbFirewall = new hcloud.Firewall('dbFirewall', {
 
 const appFirewallId = appFirewall.id.apply(parseHcloudId);
 const dbFirewallId = dbFirewall.id.apply(parseHcloudId);
+const sshPublicKeys = pulumi.all(
+  sshKeyNames.map((name) => hcloud.getSshKeyOutput({ name }).publicKey),
+);
 
-const appUserData = pulumi
-  .all([
-    dbPassword,
-    appSecretEnv,
-    pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
-  ] as const)
-  .apply(([password, secretEnv, keys]) => {
-    const allKeys = [...keys];
-    if (deploySshPublicKey) {
-      allKeys.push(deploySshPublicKey);
-    }
-
+const appRuntimeFiles = pulumi
+  .all([dbPassword, appSecretEnv] as const)
+  .apply(([password, secretEnv]) => {
     const encodedPassword = encodeURIComponent(password || '');
-    const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}?sslmode=require`;
+    const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}?sslmode=no-verify`;
 
     const defaultEnvEntries: [string, string][] = [
       ['NODE_ENV', 'production'],
@@ -281,42 +282,7 @@ const appUserData = pulumi
 
     const envContent = mergeEnvEntries(defaultEnvEntries, appEnv, secretEnv || {});
 
-    return `#!/bin/bash
-set -euxo pipefail
-
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get upgrade -y
-apt-get install -y ca-certificates curl unattended-upgrades
-
-useradd -m -s /bin/bash admin
-usermod -aG sudo admin
-echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
-mkdir -p /home/admin/.ssh
-cat >> /home/admin/.ssh/authorized_keys <<'EOF'
-${allKeys.join('\n')}
-EOF
-chown -R admin:admin /home/admin/.ssh
-chmod 700 /home/admin/.ssh
-chmod 600 /home/admin/.ssh/authorized_keys
-sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-systemctl restart ssh || systemctl restart sshd
-
-curl -fsSL https://get.docker.com | sh
-apt-get install -y docker-compose-plugin
-systemctl enable docker
-systemctl start docker
-usermod -aG docker admin
-
-mkdir -p /opt/fortressauth
-
-cat >/opt/fortressauth/.env <<'ENVFILE'
-${envContent}
-ENVFILE
-chmod 0600 /opt/fortressauth/.env
-
-cat >/opt/fortressauth/Caddyfile <<'CADDYFILE'
-${appDomain} {
+    const caddyfileContent = `${appDomain} {
   encode gzip
   reverse_proxy app:3000
 
@@ -326,11 +292,9 @@ ${appDomain} {
     X-Frame-Options "DENY"
     Referrer-Policy "strict-origin-when-cross-origin"
   }
-}
-CADDYFILE
+}`;
 
-cat >/opt/fortressauth/docker-compose.yml <<'COMPOSE'
-services:
+    const composeFileContent = `services:
   app:
     image: \${APP_IMAGE}
     restart: unless-stopped
@@ -365,28 +329,62 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-COMPOSE
+`;
 
-docker compose -f /opt/fortressauth/docker-compose.yml pull
-docker compose -f /opt/fortressauth/docker-compose.yml up -d
+    return {
+      caddyfileContent,
+      composeFileContent,
+      envContent,
+    };
+  });
+
+const appUserData = sshPublicKeys.apply((keys) => {
+  const allKeys = [...keys];
+  if (deploySshPublicKey) {
+    allKeys.push(deploySshPublicKey);
+  }
+
+  return `#!/bin/bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get upgrade -y
+apt-get install -y ca-certificates curl unattended-upgrades
+
+useradd -m -s /bin/bash admin
+usermod -aG sudo admin
+echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+mkdir -p /home/admin/.ssh
+cat >> /home/admin/.ssh/authorized_keys <<'EOF'
+${allKeys.join('\n')}
+EOF
+chown -R admin:admin /home/admin/.ssh
+chmod 700 /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
+sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
+
+curl -fsSL https://get.docker.com | sh
+apt-get install -y docker-compose-plugin
+systemctl enable docker
+systemctl start docker
+usermod -aG docker admin
+
+mkdir -p /opt/fortressauth
 
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-  });
+});
 
-const dbUserData = pulumi
-  .all([
-    dbPassword,
-    pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
-  ] as const)
-  .apply(([password, keys]) => {
-    const allKeys = [...keys];
-    if (deploySshPublicKey) {
-      allKeys.push(deploySshPublicKey);
-    }
-    const escapedPassword = escapeSqlLiteral(password || '');
+const dbUserData = pulumi.all([dbPassword, sshPublicKeys] as const).apply(([password, keys]) => {
+  const allKeys = [...keys];
+  if (deploySshPublicKey) {
+    allKeys.push(deploySshPublicKey);
+  }
+  const escapedPassword = escapeSqlLiteral(password || '');
 
-    return `#!/bin/bash
+  return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -471,7 +469,7 @@ chmod 0644 /etc/cron.d/pg_daily_backup
 
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-  });
+});
 
 const appServer = new hcloud.Server(
   'appServer',
@@ -558,36 +556,32 @@ if (enableAppDeploy) {
     perDialTimeout: 15,
   };
 
-  const deployScript = pulumi.interpolate`set -euo pipefail
+  const deployScript = appRuntimeFiles.apply(
+    ({ caddyfileContent, composeFileContent, envContent }) => `set -euo pipefail
 
 ENV_FILE="/opt/fortressauth/.env"
 COMPOSE_FILE="/opt/fortressauth/docker-compose.yml"
-IMAGE_REF="${appImage}"
+CADDY_FILE="/opt/fortressauth/Caddyfile"
 
-if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing env file: $ENV_FILE" >&2
-  exit 1
-fi
+sudo mkdir -p /opt/fortressauth
 
-if [ ! -f "$COMPOSE_FILE" ]; then
-  echo "Missing compose file: $COMPOSE_FILE" >&2
-  exit 1
-fi
+cat <<'ENVFILE' | sudo tee "$ENV_FILE" >/dev/null
+${envContent}
+ENVFILE
+sudo chmod 0600 "$ENV_FILE"
 
-if sudo grep -q '^APP_IMAGE=' "$ENV_FILE"; then
-  sudo sed -i "s|^APP_IMAGE=.*|APP_IMAGE=$IMAGE_REF|" "$ENV_FILE"
-else
-  printf '\nAPP_IMAGE=%s\n' "$IMAGE_REF" | sudo tee -a "$ENV_FILE" >/dev/null
-fi
+cat <<'CADDYFILE' | sudo tee "$CADDY_FILE" >/dev/null
+${caddyfileContent}
+CADDYFILE
 
-# Hetzner DB bootstrap enables TLS with a self-signed cert.
-# Keep runtime stable by normalizing DATABASE_URL to the expected non-verifying mode.
-sudo sed -i 's/sslmode=require/sslmode=no-verify/g' "$ENV_FILE"
+cat <<'COMPOSE' | sudo tee "$COMPOSE_FILE" >/dev/null
+${composeFileContent}
+COMPOSE
 
 sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull app
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recreate app
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps app
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 app
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recreate app caddy
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps app caddy
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 app caddy
 
 BASE_URL="$(sudo sed -n 's/^BASE_URL=//p' "$ENV_FILE" | head -n1)"
 if [ -n "$BASE_URL" ]; then
@@ -595,7 +589,8 @@ if [ -n "$BASE_URL" ]; then
   APP_DOMAIN="\${APP_DOMAIN#https://}"
   APP_DOMAIN="\${APP_DOMAIN#http://}"
   curl -fsS --retry 10 --retry-delay 3 -H "Host: \${APP_DOMAIN}" http://127.0.0.1/health >/dev/null
-fi`;
+fi`,
+  );
 
   new command.remote.Command(
     'deployApp',
@@ -606,7 +601,7 @@ fi`;
       // Keep the remote command idempotent; a new image digest is the only redeploy trigger.
       triggers: [appImage],
     },
-    { dependsOn: [appServer, dbServer] },
+    { dependsOn: [appFirewall, appServer, dbServer] },
   );
 }
 
