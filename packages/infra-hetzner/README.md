@@ -95,6 +95,7 @@ If you publish an `AAAA` record, point it to `appPublicIpv6`.
 - DB is private-only (no public IPv4/IPv6).
 - Access DB host using jump host output: `sshDbViaApp`.
 - Hetzner server backups can be enabled with `enableBackups=true` (default).
+- Server delete/rebuild protection defaults to `true` only for `prod`/`production` stacks; non-production stacks default to `false` so replacements do not require a manual protection toggle. Override with `fortressauth-hetzner:protectServers` if needed.
 - PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`).
 - For production-grade recovery (PITR/offsite), add WAL archiving to external object storage.
 - App deploys are performed by Pulumi over SSH whenever `appImage` changes.

@@ -10,6 +10,7 @@ config:
   fortressauth-hetzner:dbPrivateIp: 10.20.1.20
   fortressauth-hetzner:appServerType: cpx21
   fortressauth-hetzner:dbServerType: cpx31
+  fortressauth-hetzner:protectServers: false
   fortressauth-hetzner:appDomain: api.example.com
   fortressauth-hetzner:appImage: docker.io/your-docker-user/fortressauth@sha256:<image-digest>
   fortressauth-hetzner:enableAppDeploy: true

@@ -159,7 +159,8 @@ const appSecretEnv = (config.getSecretObject<unknown>('appSecretEnv') ?? pulumi.
 );
 
 const enableBackups = config.getBoolean('enableBackups') ?? true;
-const protectServers = config.getBoolean('protectServers') ?? true;
+const defaultProtectServers = /^(prod|production)$/i.test(stack);
+const protectServers = config.getBoolean('protectServers') ?? defaultProtectServers;
 
 const commonLabels = {
   'managed-by': 'pulumi',
