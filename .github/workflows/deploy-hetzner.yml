@@ -102,8 +102,6 @@ jobs:
 
       - name: Set up Pulumi
         uses: pulumi/actions@v6
-        with:
-          command: version
 
       - name: Apply Pulumi update
         working-directory: packages/infra-hetzner
