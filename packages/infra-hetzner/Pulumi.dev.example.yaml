@@ -11,7 +11,12 @@ config:
   fortressauth-hetzner:appServerType: cpx21
   fortressauth-hetzner:dbServerType: cpx31
   fortressauth-hetzner:appDomain: api.example.com
-  fortressauth-hetzner:appImage: ghcr.io/your-org/fortressauth-server:latest
+  fortressauth-hetzner:appImage: docker.io/your-docker-user/fortressauth@sha256:<image-digest>
+  fortressauth-hetzner:enableAppDeploy: true
+  fortressauth-hetzner:deploySshUser: admin
+  fortressauth-hetzner:deploySshPort: 22
+  fortressauth-hetzner:deploySshPrivateKey:
+    secure: "<set-with-pulumi-config --secret>"
   fortressauth-hetzner:sshKeyNames:
     - your-ssh-key-name-in-hetzner
   fortressauth-hetzner:adminIpv4Cidrs:

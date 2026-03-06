@@ -13,6 +13,7 @@
     "pulumi:destroy": "pulumi destroy"
   },
   "dependencies": {
+    "@pulumi/command": "^1.2.1",
     "@pulumi/hcloud": "^1.32.1",
     "@pulumi/pulumi": "^3.203.0"
   },

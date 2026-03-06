@@ -55,11 +55,24 @@ function createDatabase(): DatabaseContext {
   const isMysql = url.startsWith('mysql://') || url.startsWith('mysql2://');
 
   if (isPostgres) {
-    const isSslRequire = url.includes('sslmode=require');
-    const poolConfig: PoolConfig = { connectionString: url };
-    if (isSslRequire) {
+    const parsedUrl = new URL(url);
+    const sslMode = parsedUrl.searchParams.get('sslmode')?.toLowerCase() ?? null;
+    // pg replaces the provided `ssl` object when `sslmode` is present in the URL.
+    // We normalize by removing `sslmode` and mapping it ourselves.
+    if (sslMode) {
+      parsedUrl.searchParams.delete('sslmode');
+    }
+
+    const poolConfig: PoolConfig = { connectionString: parsedUrl.toString() };
+
+    if (sslMode === 'disable') {
+      poolConfig.ssl = false;
+    } else if (sslMode === 'verify-ca' || sslMode === 'verify-full') {
+      poolConfig.ssl = { rejectUnauthorized: true };
+    } else if (sslMode === 'require' || sslMode === 'no-verify') {
       poolConfig.ssl = { rejectUnauthorized: false };
     }
+
     const pool = new Pool(poolConfig);
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     return {

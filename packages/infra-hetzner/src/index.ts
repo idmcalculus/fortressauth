@@ -1,3 +1,4 @@
+import * as command from '@pulumi/command';
 import * as hcloud from '@pulumi/hcloud';
 import * as pulumi from '@pulumi/pulumi';
 
@@ -129,6 +130,18 @@ if (!appImage) {
   throw new Error('Invalid appImage config value.');
 }
 
+const deploySshUser = config.get('deploySshUser') ?? 'admin';
+const deploySshPort = config.getNumber('deploySshPort') ?? 22;
+const deploySshPrivateKey = config.getSecret('deploySshPrivateKey');
+const deploySshPublicKey = config.get('deploySshPublicKey');
+const enableAppDeploy = config.getBoolean('enableAppDeploy') ?? deploySshPrivateKey !== undefined;
+
+if (enableAppDeploy && !deploySshPrivateKey) {
+  throw new Error(
+    'Missing required secret config fortressauth-hetzner:deploySshPrivateKey while enableAppDeploy=true.',
+  );
+}
+
 const sshKeyNames = assertArray(config.requireObject<string[]>('sshKeyNames'), 'sshKeyNames');
 const adminIpv4Cidrs = assertArray(
   config.requireObject<string[]>('adminIpv4Cidrs'),
@@ -242,6 +255,11 @@ const appUserData = pulumi
     pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
   ] as const)
   .apply(([password, secretEnv, keys]) => {
+    const allKeys = [...keys];
+    if (deploySshPublicKey) {
+      allKeys.push(deploySshPublicKey);
+    }
+
     const encodedPassword = encodeURIComponent(password || '');
     const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}?sslmode=require`;
 
@@ -249,6 +267,7 @@ const appUserData = pulumi
       ['NODE_ENV', 'production'],
       ['PORT', '3000'],
       ['HOST', '0.0.0.0'],
+      ['APP_IMAGE', appImage],
       ['DATABASE_URL', databaseUrl],
       ['BASE_URL', `https://${appDomain}`],
       ['COOKIE_SECURE', 'true'],
@@ -274,7 +293,7 @@ usermod -aG sudo admin
 echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
 mkdir -p /home/admin/.ssh
 cat >> /home/admin/.ssh/authorized_keys <<'EOF'
-${keys.join('\n')}
+${allKeys.join('\n')}
 EOF
 chown -R admin:admin /home/admin/.ssh
 chmod 700 /home/admin/.ssh
@@ -312,7 +331,7 @@ CADDYFILE
 cat >/opt/fortressauth/docker-compose.yml <<'COMPOSE'
 services:
   app:
-    image: ${appImage}
+    image: \${APP_IMAGE}
     restart: unless-stopped
     user: "1000:1000"
     security_opt:
@@ -360,6 +379,10 @@ const dbUserData = pulumi
     pulumi.all(sshKeyNames.map((k) => hcloud.getSshKeyOutput({ name: k }).publicKey)),
   ] as const)
   .apply(([password, keys]) => {
+    const allKeys = [...keys];
+    if (deploySshPublicKey) {
+      allKeys.push(deploySshPublicKey);
+    }
     const escapedPassword = escapeSqlLiteral(password || '');
 
     return `#!/bin/bash
@@ -375,7 +398,7 @@ usermod -aG sudo admin
 echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
 mkdir -p /home/admin/.ssh
 cat >> /home/admin/.ssh/authorized_keys <<'EOF'
-${keys.join('\n')}
+${allKeys.join('\n')}
 EOF
 chown -R admin:admin /home/admin/.ssh
 chmod 700 /home/admin/.ssh
@@ -419,14 +442,11 @@ BEGIN
     ALTER ROLE ${dbUser} WITH LOGIN PASSWORD '${escapedPassword}';
   END IF;
 END $$;
-
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_database WHERE datname = '${dbName}') THEN
-    CREATE DATABASE ${dbName} OWNER ${dbUser};
-  END IF;
-END $$;
 SQL
+
+if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='${dbName}'" | grep -q 1; then
+  runuser -u postgres -- createdb --owner=${dbUser} ${dbName}
+fi
 
 runuser -u postgres -- psql -d ${dbName} -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 
@@ -520,6 +540,74 @@ const dbServer = new hcloud.Server(
   { dependsOn: [privateSubnet] },
 );
 
+if (enableAppDeploy) {
+  if (!deploySshPrivateKey) {
+    throw new Error(
+      'Missing required secret config fortressauth-hetzner:deploySshPrivateKey while enableAppDeploy=true.',
+    );
+  }
+
+  const deployConnection: command.types.input.remote.ConnectionArgs = {
+    host: appServer.ipv4Address,
+    user: deploySshUser,
+    port: deploySshPort,
+    privateKey: deploySshPrivateKey,
+    // Cloud-init can take several minutes before the admin user + SSH keys are ready.
+    dialErrorLimit: 120,
+    perDialTimeout: 15,
+  };
+
+  const deployScript = pulumi.interpolate`set -euo pipefail
+
+ENV_FILE="/opt/fortressauth/.env"
+COMPOSE_FILE="/opt/fortressauth/docker-compose.yml"
+IMAGE_REF="${appImage}"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Missing env file: $ENV_FILE" >&2
+  exit 1
+fi
+
+if [ ! -f "$COMPOSE_FILE" ]; then
+  echo "Missing compose file: $COMPOSE_FILE" >&2
+  exit 1
+fi
+
+if sudo grep -q '^APP_IMAGE=' "$ENV_FILE"; then
+  sudo sed -i "s|^APP_IMAGE=.*|APP_IMAGE=$IMAGE_REF|" "$ENV_FILE"
+else
+  printf '\nAPP_IMAGE=%s\n' "$IMAGE_REF" | sudo tee -a "$ENV_FILE" >/dev/null
+fi
+
+# Hetzner DB bootstrap enables TLS with a self-signed cert.
+# Keep runtime stable by normalizing DATABASE_URL to the expected non-verifying mode.
+sudo sed -i 's/sslmode=require/sslmode=no-verify/g' "$ENV_FILE"
+
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull app
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recreate app
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps app
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 app
+
+BASE_URL="$(sudo sed -n 's/^BASE_URL=//p' "$ENV_FILE" | head -n1)"
+if [ -n "$BASE_URL" ]; then
+  APP_DOMAIN="$BASE_URL"
+  APP_DOMAIN="\${APP_DOMAIN#https://}"
+  APP_DOMAIN="\${APP_DOMAIN#http://}"
+  curl -fsS --retry 10 --retry-delay 3 -H "Host: \${APP_DOMAIN}" http://127.0.0.1/health >/dev/null
+fi`;
+
+  new command.remote.Command(
+    'deployApp',
+    {
+      connection: deployConnection,
+      create: pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`,
+      update: deployScript,
+      triggers: [appImage],
+    },
+    { dependsOn: [appServer, dbServer] },
+  );
+}
+
 export const appUrl = pulumi.interpolate`https://${appDomain}`;
 export const appPublicIpv4 = appServer.ipv4Address;
 export const appPublicIpv6 = appServer.ipv6Address;
@@ -528,4 +616,4 @@ export const dbPrivateAddress = dbPrivateIp;
 export const dbServerId = dbServer.id;
 export const sshApp = pulumi.interpolate`ssh admin@${appServer.ipv4Address}`;
 export const sshDbViaApp = pulumi.interpolate`ssh -J admin@${appServer.ipv4Address} admin@${dbPrivateIp}`;
-export const databaseUrlTemplate = `postgresql://${dbUser}:<db-password>@${dbPrivateIp}:5432/${dbName}?sslmode=require`;
+export const databaseUrlTemplate = `postgresql://${dbUser}:<db-password>@${dbPrivateIp}:5432/${dbName}?sslmode=no-verify`;

@@ -8,7 +8,7 @@ config:
   fortressauth-hetzner:adminIpv6Cidrs:
     - 2a0a:ef40:19a0:6301:cc22:8b9e:388a:103/128
   fortressauth-hetzner:appDomain: api.fortressauth.com
-  fortressauth-hetzner:appImage: docker.io/idmcalculus/fortressauth@sha256:7d812b62f9d6da6ffba1f44327b356fd92fc6378a6940311b43ea95d84736402
+  fortressauth-hetzner:appImage: docker.io/idmcalculus/fortressauth@sha256:3ad19ce61083009ed2062074d4c9ed92ceae24fd03e7dff44174049ccbe12046
   fortressauth-hetzner:dbPassword:
     secure: AAABAHu+Y8129G0lhzs5ikjeT3cQypJfQmz1xkZSbphvM/YasyqjobOizrmuVOCCedMUgYVXCvA9oVBRPrt0RB+NdWIAmnzZcJO/6A==
   fortressauth-hetzner:dbName: fortressauth
@@ -30,3 +30,9 @@ config:
   fortressauth-hetzner:appSecretEnv:
     RESEND_API_KEY:
       secure: AAABAJVAXIn1vLN2APAeIvMrAHkz//JCAO2amGW3t9q8wmmkA08um90H8H+gJ517dEXOCInkSrSK7W63ZMjxEfV8jE0=
+  fortressauth-hetzner:deploySshUser: admin
+  fortressauth-hetzner:deploySshPort: "22"
+  fortressauth-hetzner:enableAppDeploy: "true"
+  fortressauth-hetzner:deploySshPrivateKey:
+    secure: AAABANcgF3w044hBmvQgrXByf/uKCK5/xnt7eusaxu9fV+evXhgFtAQ/c1DoWdu+dBO11E8dmZGy/uLq5sBcBhgoOYX1FjoBN5TfKbRrTpeVqxgvsJEyL04wjgWXaM7kq3raK+7ohEd/qdyJewVrqEna26bjnGi2fqqEKdT+NvmcMzdlJMLwS/nTrY/MLkNyRrY5tjigKEbxYvPwA7Di+iUwwdYlgAGszgjQv2FjH4uVwWmm5eQM9/kpLAoj5l/prdgvHHFRDRYSnsdwgcENMi81zMlebR87JBaW5HQFV9mPksFNcTJTVFDfyOTnB02gw5PimqcSNtU/lQzbmgvO5TIgTVpd5lmsMaPUwTkOJj25c0qnYuyslGBWRk/fSS1lgkb1aZxftxokhrWyerFIBV2RWDVonMpv2095J4DJSenzzKnDpaRzO283noFnQl0GQUGfsLOyGYjdvi+jB44tpFBNqLKa82w2Cp4+cSWACwXxMsZo0G85cnQlPmzmcQSuhVvSNXQiDhDqRaE19/nTROL/pN2deiGIAoVW7CHs5rtt6ZRHUCg21HmHRTKSGdPhXjP8u+jxKiK30A==
+  fortressauth-hetzner:deploySshPublicKey: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDfuswJLjNeTsMDB2EWuJWk3zvAeMYXyvc3sfTZlReFR gha-hetzner-deploy

@@ -14,9 +14,10 @@ Pulumi stack to provision:
 - Existing SSH key name(s) already uploaded in Hetzner Cloud
 - Admin IP CIDR(s) for SSH access
 - Public DNS hostname for API (for example `api.example.com`)
-- Published server Docker image (for example `ghcr.io/<org>/<image>:<tag>`)
+- Published server Docker image digest (for example `docker.io/<user>/fortressauth@sha256:<digest>`)
 - PostgreSQL password
 - Optional server env overrides (`appEnv`, `appSecretEnv`)
+- SSH private key for remote app deploy updates (`deploySshPrivateKey`)
 
 ## Files
 
@@ -38,11 +39,17 @@ Set secrets and config:
 ```bash
 pulumi config set hcloud:token --secret
 pulumi config set fortressauth-hetzner:appDomain api.example.com
-pulumi config set fortressauth-hetzner:appImage ghcr.io/your-org/fortressauth-server:latest
+pulumi config set fortressauth-hetzner:appImage docker.io/your-user/fortressauth@sha256:<digest>
 pulumi config set --path 'fortressauth-hetzner:sshKeyNames[0]' your-hetzner-ssh-key-name
 pulumi config set --path 'fortressauth-hetzner:adminIpv4Cidrs[0]' 203.0.113.10/32
 pulumi config set fortressauth-hetzner:dbPassword --secret
+pulumi config set fortressauth-hetzner:deploySshUser admin
+pulumi config set fortressauth-hetzner:deploySshPort 22
+cat ~/.ssh/fortressauth_deploy_ci | pulumi config set fortressauth-hetzner:deploySshPrivateKey --secret
+pulumi config set fortressauth-hetzner:deploySshPublicKey "$(cat ~/.ssh/fortressauth_deploy_ci.pub)"
 ```
+
+Use the same deploy key material for the GitHub secret `HETZNER_DEPLOY_SSH_PRIVATE_KEY`.
 
 Optional secrets and config:
 
@@ -50,6 +57,7 @@ Optional secrets and config:
 pulumi config set fortressauth-hetzner:location nbg1
 pulumi config set fortressauth-hetzner:appServerType cpx21
 pulumi config set fortressauth-hetzner:dbServerType cpx31
+pulumi config set fortressauth-hetzner:enableAppDeploy true
 pulumi config set fortressauth-hetzner:dbName fortressauth
 pulumi config set fortressauth-hetzner:dbUser fortressauth
 pulumi config set --path 'fortressauth-hetzner:appEnv.CORS_ORIGINS' https://landing.example.com
@@ -80,6 +88,7 @@ pulumi destroy
 ## DNS
 
 After `pulumi up`, point your DNS `A` record for `appDomain` to output `appPublicIpv4`.
+If you publish an `AAAA` record, point it to `appPublicIpv6`.
 
 ## Notes
 
@@ -88,3 +97,19 @@ After `pulumi up`, point your DNS `A` record for `appDomain` to output `appPubli
 - Hetzner server backups can be enabled with `enableBackups=true` (default).
 - PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`).
 - For production-grade recovery (PITR/offsite), add WAL archiving to external object storage.
+- App deploys are performed by Pulumi over SSH whenever `appImage` changes.
+
+## GitHub Actions CD
+
+The workflow `.github/workflows/deploy-hetzner.yml` deploys automatically after CI passes on `main` (or manually via `workflow_dispatch`).
+
+Required repository secrets:
+
+- `DOCKER_USERNAME`
+- `DOCKER_PASSWORD`
+- `PULUMI_ACCESS_TOKEN`
+- `HETZNER_DEPLOY_SSH_PRIVATE_KEY` (private key matching a configured admin SSH key)
+
+Required repository variable:
+
+- `PULUMI_STACK` (example: `idmcalculus/fortressauth-hetzner/dev`)
