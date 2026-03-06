@@ -73,7 +73,9 @@ const PASSWORD_RESET_DEFAULTS = {
 };
 
 const URL_DEFAULTS = {
-  baseUrl: 'http://localhost:3000',
+  baseUrl: 'https://api.fortressauth.com',
+  localBaseUrl: 'http://localhost:3000',
+  devBaseUrl: 'https://dev-api.fortressauth.com',
 };
 
 const OAUTH_DEFAULTS = {

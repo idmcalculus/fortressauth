@@ -331,8 +331,16 @@ export function generateOpenAPIDocument(version: string): OpenAPIObject {
     },
     servers: [
       {
-        url: 'http://localhost:3000',
+        url: 'https://api.fortressauth.com',
+        description: 'Production server',
+      },
+      {
+        url: 'https://dev-api.fortressauth.com',
         description: 'Development server',
+      },
+      {
+        url: 'http://localhost:3000',
+        description: 'Local server',
       },
     ],
   });
