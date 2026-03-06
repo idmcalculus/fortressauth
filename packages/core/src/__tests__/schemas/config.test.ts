@@ -260,7 +260,11 @@ describe('FortressConfigSchema', () => {
     it('should provide default baseUrl when urls config is not provided', () => {
       const config = FortressConfigSchema.parse({});
 
-      expect(config.urls.baseUrl).toBe('http://localhost:3000');
+      expect(config.urls.baseUrl).toBe('https://api.fortressauth.com');
+      expect(config.urls).toMatchObject({
+        localBaseUrl: 'http://localhost:3000',
+        devBaseUrl: 'https://dev-api.fortressauth.com',
+      });
     });
 
     it('should provide default baseUrl when urls config is empty object', () => {
@@ -268,7 +272,7 @@ describe('FortressConfigSchema', () => {
         urls: {},
       });
 
-      expect(config.urls.baseUrl).toBe('http://localhost:3000');
+      expect(config.urls.baseUrl).toBe('https://api.fortressauth.com');
     });
 
     it('should allow custom baseUrl', () => {

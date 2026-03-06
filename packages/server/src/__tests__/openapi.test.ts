@@ -15,8 +15,21 @@ describe('OpenAPI document generation', () => {
     const doc = generateOpenAPIDocument('1.0.0');
 
     expect(doc.servers).toBeDefined();
-    expect(doc.servers).toHaveLength(1);
-    expect(doc.servers?.[0]?.url).toBe('http://localhost:3000');
+    expect(doc.servers).toHaveLength(3);
+    expect(doc.servers).toEqual([
+      {
+        url: 'https://api.fortressauth.com',
+        description: 'Production server',
+      },
+      {
+        url: 'https://dev-api.fortressauth.com',
+        description: 'Development server',
+      },
+      {
+        url: 'http://localhost:3000',
+        description: 'Local server',
+      },
+    ]);
   });
 
   it('should include all auth paths', () => {
@@ -24,6 +37,7 @@ describe('OpenAPI document generation', () => {
 
     expect(doc.paths).toBeDefined();
     expect(doc.paths?.['/health']).toBeDefined();
+    expect(doc.paths?.['/metrics']).toBeDefined();
     expect(doc.paths?.['/auth/csrf']).toBeDefined();
     expect(doc.paths?.['/auth/signup']).toBeDefined();
     expect(doc.paths?.['/auth/login']).toBeDefined();
