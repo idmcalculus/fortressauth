@@ -6,9 +6,114 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      infra: ${{ steps.filter.outputs.infra }}
+      test: ${{ steps.filter.outputs.test }}
+      examples: ${{ steps.filter.outputs.examples }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [ -z "${BASE_SHA}" ] || [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            git ls-files > changed-files.txt
+          else
+            git diff --name-only "${BASE_SHA}" "${{ github.sha }}" > changed-files.txt
+          fi
+
+          infra=false
+          test=false
+          examples=false
+          docker=false
+
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            case "${file}" in
+              packages/infra-hetzner/*)
+                infra=true
+                ;;
+              packages/*)
+                test=true
+                examples=true
+                docker=true
+                ;;
+              examples/*)
+                examples=true
+                ;;
+              docker/*)
+                docker=true
+                ;;
+              package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json|biome.json)
+                test=true
+                examples=true
+                docker=true
+                ;;
+            esac
+          done < changed-files.txt
+
+          echo "infra=${infra}" >> "${GITHUB_OUTPUT}"
+          echo "test=${test}" >> "${GITHUB_OUTPUT}"
+          echo "examples=${examples}" >> "${GITHUB_OUTPUT}"
+          echo "docker=${docker}" >> "${GITHUB_OUTPUT}"
+
+          echo "infra=${infra}"
+          echo "test=${test}"
+          echo "examples=${examples}"
+          echo "docker=${docker}"
+
+  infra:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.infra == 'true' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          CI: true
+
+      - name: Lint infra package
+        run: pnpm --filter @fortressauth/infra-hetzner lint
+
+      - name: Typecheck infra package
+        run: pnpm --filter @fortressauth/infra-hetzner typecheck
+
   test:
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.test == 'true' }}
 
     services:
       mongodb:
@@ -37,7 +142,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
+          cache: pnpm
 
       - name: Install build dependencies
         run: |
@@ -73,31 +178,10 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  docker:
-    runs-on: ubuntu-latest
-    needs: [test, examples]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build Docker image
-        run: docker build -f docker/Dockerfile -t fortressauth:latest .
-
-      - name: Test Docker image
-        run: |
-          docker run -d -p 3000:3000 --name test-server fortressauth:latest
-          sleep 5
-          # If curl fails, print logs and exit with error
-          curl -f http://localhost:3000/health || (docker logs test-server && exit 1)
-          docker stop test-server
-
   examples:
     runs-on: ubuntu-latest
-    needs: test
+    needs: changes
+    if: ${{ needs.changes.outputs.examples == 'true' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -111,7 +195,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-          cache: 'pnpm'
+          cache: pnpm
 
       - name: Install build dependencies
         run: |
@@ -135,3 +219,66 @@ jobs:
 
       - name: Build Angular example
         run: pnpm --filter fortressauth-web-angular build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [changes, infra, test, examples]
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.changes.outputs.docker == 'true' &&
+        (needs.infra.result == 'success' || needs.infra.result == 'skipped') &&
+        (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+        (needs.examples.result == 'success' || needs.examples.result == 'skipped')
+      }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          load: true
+          tags: fortressauth:latest
+          cache-from: type=gha,scope=ci-docker
+          cache-to: type=gha,mode=max,scope=ci-docker
+
+      - name: Test Docker image
+        run: |
+          docker run -d -p 3000:3000 --name test-server fortressauth:latest
+          sleep 5
+          curl -f http://localhost:3000/health || (docker logs test-server && exit 1)
+          docker stop test-server
+
+  ci-status:
+    runs-on: ubuntu-latest
+    needs: [changes, infra, test, examples, docker]
+    if: ${{ always() }}
+    steps:
+      - name: Verify CI results
+        shell: bash
+        env:
+          INFRA_RESULT: ${{ needs.infra.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          EXAMPLES_RESULT: ${{ needs.examples.result }}
+          DOCKER_RESULT: ${{ needs.docker.result }}
+        run: |
+          set -euo pipefail
+
+          for result in "${INFRA_RESULT}" "${TEST_RESULT}" "${EXAMPLES_RESULT}" "${DOCKER_RESULT}"; do
+            case "${result}" in
+              success|skipped)
+                ;;
+              *)
+                echo "CI dependency failed with result: ${result}" >&2
+                exit 1
+                ;;
+            esac
+          done

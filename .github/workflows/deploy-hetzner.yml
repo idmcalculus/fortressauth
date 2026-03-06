@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  changes:
     if: >
       github.event_name == 'workflow_dispatch' ||
       (
@@ -26,6 +26,73 @@ jobs:
         github.event.workflow_run.head_repository.full_name == github.repository &&
         github.event.workflow_run.head_branch == 'main'
       )
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+      infra: ${{ steps.filter.outputs.infra }}
+      deploy: ${{ steps.filter.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+
+      - name: Classify changed files
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "image=true" >> "${GITHUB_OUTPUT}"
+            echo "infra=true" >> "${GITHUB_OUTPUT}"
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            git diff --name-only HEAD^ HEAD > changed-files.txt
+          else
+            git ls-files > changed-files.txt
+          fi
+
+          image=false
+          infra=false
+
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            case "${file}" in
+              packages/infra-hetzner/*)
+                infra=true
+                ;;
+              packages/*)
+                image=true
+                ;;
+              docker/*)
+                image=true
+                ;;
+              package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json|biome.json)
+                image=true
+                ;;
+            esac
+          done < changed-files.txt
+
+          deploy=false
+          if [ "${image}" = "true" ] || [ "${infra}" = "true" ]; then
+            deploy=true
+          fi
+
+          echo "image=${image}" >> "${GITHUB_OUTPUT}"
+          echo "infra=${infra}" >> "${GITHUB_OUTPUT}"
+          echo "deploy=${deploy}" >> "${GITHUB_OUTPUT}"
+
+          echo "image=${image}"
+          echo "infra=${infra}"
+          echo "deploy=${deploy}"
+
+  deploy:
+    needs: changes
+    if: ${{ needs.changes.outputs.deploy == 'true' }}
     runs-on: ubuntu-latest
     environment: hetzner
     env:
@@ -38,29 +105,36 @@ jobs:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Validate deployment config
-        run: |
-          set -euo pipefail
-          if [ -z "${PULUMI_STACK:-}" ]; then
-            echo "Missing repository variable PULUMI_STACK (example: idmcalculus/fortressauth-hetzner/dev)." >&2
-            exit 1
-          fi
-          if [ -z "${DOCKER_USERNAME:-}" ] || [ -z "${DOCKER_PASSWORD:-}" ]; then
-            echo "Missing environment secrets DOCKER_USERNAME and/or DOCKER_PASSWORD." >&2
-            exit 1
-          fi
-          if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
-            echo "Missing environment secret PULUMI_ACCESS_TOKEN." >&2
-            exit 1
-          fi
-          if [ -z "${HETZNER_DEPLOY_SSH_PRIVATE_KEY:-}" ]; then
-            echo "Missing environment secret HETZNER_DEPLOY_SSH_PRIVATE_KEY." >&2
-            exit 1
-          fi
+        shell: bash
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           HETZNER_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_DEPLOY_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PULUMI_STACK:-}" ]; then
+            echo "Missing repository variable PULUMI_STACK (example: idmcalculus/fortressauth-hetzner/dev)." >&2
+            exit 1
+          fi
+
+          if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
+            echo "Missing environment secret PULUMI_ACCESS_TOKEN." >&2
+            exit 1
+          fi
+
+          if [ -z "${HETZNER_DEPLOY_SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing environment secret HETZNER_DEPLOY_SSH_PRIVATE_KEY." >&2
+            exit 1
+          fi
+
+          if [ "${{ needs.changes.outputs.image }}" = "true" ]; then
+            if [ -z "${DOCKER_USERNAME:-}" ] || [ -z "${DOCKER_PASSWORD:-}" ]; then
+              echo "Missing environment secrets DOCKER_USERNAME and/or DOCKER_PASSWORD." >&2
+              exit 1
+            fi
+          fi
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -79,15 +153,18 @@ jobs:
           CI: true
 
       - name: Set up Docker Buildx
+        if: ${{ needs.changes.outputs.image == 'true' }}
         uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
+        if: ${{ needs.changes.outputs.image == 'true' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push app image
+        if: ${{ needs.changes.outputs.image == 'true' }}
         id: image
         uses: docker/build-push-action@v6
         with:
@@ -97,8 +174,10 @@ jobs:
           push: true
           provenance: false
           tags: |
-            ${{ env.DOCKER_IMAGE }}:sha-${{ github.sha }}
+            ${{ env.DOCKER_IMAGE }}:sha-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
             ${{ env.DOCKER_IMAGE }}:main
+          cache-from: type=gha,scope=deploy-hetzner
+          cache-to: type=gha,mode=max,scope=deploy-hetzner
 
       - name: Set up Pulumi
         uses: pulumi/actions@v6
@@ -108,18 +187,29 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           HETZNER_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_DEPLOY_SSH_PRIVATE_KEY }}
+        shell: bash
         run: |
           set -euo pipefail
 
-          IMAGE_REF="${DOCKER_IMAGE}@${{ steps.image.outputs.digest }}"
-          echo "Deploying image ${IMAGE_REF}"
+          CURRENT_IMAGE="$(pulumi config get fortressauth-hetzner:appImage --stack "${PULUMI_STACK}")"
+          IMAGE_REF="${CURRENT_IMAGE}"
+
+          if [ "${{ needs.changes.outputs.image }}" = "true" ]; then
+            IMAGE_REF="${DOCKER_IMAGE}@${{ steps.image.outputs.digest }}"
+            echo "Deploying new image ${IMAGE_REF}"
+          else
+            echo "Deploying infra-only update with existing image ${IMAGE_REF}"
+          fi
 
           pulumi stack select "${PULUMI_STACK}"
-          pulumi config set fortressauth-hetzner:appImage "${IMAGE_REF}" --stack "${PULUMI_STACK}"
+          if [ "${{ needs.changes.outputs.image }}" = "true" ]; then
+            pulumi config set fortressauth-hetzner:appImage "${IMAGE_REF}" --stack "${PULUMI_STACK}"
+          fi
           pulumi config set fortressauth-hetzner:enableAppDeploy true --stack "${PULUMI_STACK}"
           pulumi config set fortressauth-hetzner:deploySshUser admin --stack "${PULUMI_STACK}"
           pulumi config set fortressauth-hetzner:deploySshPort 22 --stack "${PULUMI_STACK}"
-          pulumi config set fortressauth-hetzner:deploySshPrivateKey --secret "${HETZNER_DEPLOY_SSH_PRIVATE_KEY}" --stack "${PULUMI_STACK}"
+          printf '%s' "${HETZNER_DEPLOY_SSH_PRIVATE_KEY}" | \
+            pulumi config set fortressauth-hetzner:deploySshPrivateKey --secret --stack "${PULUMI_STACK}"
 
           pulumi preview --stack "${PULUMI_STACK}" --diff
           pulumi up --yes --stack "${PULUMI_STACK}"
@@ -129,6 +219,7 @@ jobs:
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
           HETZNER_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_DEPLOY_SSH_PRIVATE_KEY }}
+        shell: bash
         run: |
           set -euo pipefail
 
@@ -138,8 +229,8 @@ jobs:
           APP_DOMAIN="${APP_DOMAIN#http://}"
 
           KEY_PATH="$(mktemp)"
-          trap 'rm -f "$KEY_PATH"' EXIT
-          printf '%s\n' "${HETZNER_DEPLOY_SSH_PRIVATE_KEY}" >"${KEY_PATH}"
+          trap 'rm -f "${KEY_PATH}"' EXIT
+          printf '%s\n' "${HETZNER_DEPLOY_SSH_PRIVATE_KEY}" > "${KEY_PATH}"
           chmod 600 "${KEY_PATH}"
 
           ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "${KEY_PATH}" \

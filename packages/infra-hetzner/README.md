@@ -103,6 +103,12 @@ If you publish an `AAAA` record, point it to `appPublicIpv6`.
 
 The workflow `.github/workflows/deploy-hetzner.yml` deploys automatically after CI passes on `main` (or manually via `workflow_dispatch`).
 
+CI is change-aware:
+
+- `.github/workflows/ci.yml` always publishes a stable `ci-status` result for branch protection.
+- Package/example/docker jobs are skipped when the changed files do not affect them, so docs-only and infra-only changes do not burn the full matrix.
+- `.github/workflows/deploy-hetzner.yml` only builds and pushes a Docker image when application image inputs changed; infra-only changes reuse the current image and only run Pulumi.
+
 Required repository secrets:
 
 - `DOCKER_USERNAME`
