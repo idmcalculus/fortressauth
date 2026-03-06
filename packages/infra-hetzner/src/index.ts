@@ -591,13 +591,15 @@ if [ -n "$BASE_URL" ]; then
   curl -fsS --retry 10 --retry-delay 3 -H "Host: \${APP_DOMAIN}" http://127.0.0.1/health >/dev/null
 fi`,
   );
+  const deployScriptWithBootstrapWait = pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`;
 
   new command.remote.Command(
     'deployApp',
     {
       connection: deployConnection,
-      create: pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`,
-      update: deployScript,
+      create: deployScriptWithBootstrapWait,
+      // Updates can run against a freshly replaced server, so they must wait for cloud-init too.
+      update: deployScriptWithBootstrapWait,
       // Keep the remote command idempotent; a new image digest is the only redeploy trigger.
       triggers: [appImage],
     },
