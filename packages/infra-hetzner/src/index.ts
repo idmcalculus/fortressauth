@@ -602,6 +602,7 @@ fi`;
       connection: deployConnection,
       create: pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`,
       update: deployScript,
+      // Keep the remote command idempotent; a new image digest is the only redeploy trigger.
       triggers: [appImage],
     },
     { dependsOn: [appServer, dbServer] },
