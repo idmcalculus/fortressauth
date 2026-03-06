@@ -218,7 +218,6 @@ jobs:
         working-directory: packages/infra-hetzner
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
-          HETZNER_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_DEPLOY_SSH_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -228,11 +227,6 @@ jobs:
           APP_DOMAIN="${APP_URL#https://}"
           APP_DOMAIN="${APP_DOMAIN#http://}"
 
-          KEY_PATH="$(mktemp)"
-          trap 'rm -f "${KEY_PATH}"' EXIT
-          printf '%s\n' "${HETZNER_DEPLOY_SSH_PRIVATE_KEY}" > "${KEY_PATH}"
-          chmod 600 "${KEY_PATH}"
-
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -i "${KEY_PATH}" \
-            "admin@${APP_IP}" \
-            "curl -fsS --retry 10 --retry-delay 2 -H 'Host: ${APP_DOMAIN}' http://127.0.0.1/health >/dev/null"
+          curl -fsS --retry 20 --retry-all-errors --retry-delay 3 \
+            --resolve "${APP_DOMAIN}:443:${APP_IP}" \
+            "https://${APP_DOMAIN}/health" >/dev/null
