@@ -33,7 +33,7 @@ import { ErrorResponseFactory } from './errors/error-response-factory.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
 
-const VERSION = '0.1.9';
+const VERSION = '0.1.13';
 
 // Initialize error response factory based on NODE_ENV
 const errorFactory = new ErrorResponseFactory();
