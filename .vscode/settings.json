@@ -1,3 +1,9 @@
 {
-	"vitest.disableWorkspaceWarning": true
+	"vitest.disableWorkspaceWarning": true,
+	"terminal.integrated.automationProfile.osx": {
+		"path": "/bin/zsh",
+		"args": [
+			"-l"
+		]
+	}
 }
