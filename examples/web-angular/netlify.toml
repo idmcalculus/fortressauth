@@ -1,0 +1,13 @@
+[build]
+  command = "pnpm exec turbo run build --filter=fortressauth-web-angular"
+  publish = "examples/web-angular/dist/web-angular/browser"
+  ignore = "node scripts/netlify-build-policy.mjs angular"
+
+[build.environment]
+  ANGULAR_API_URL = "https://api.fortressauth.com/"
+  DEMO_BASE_PATH = "/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

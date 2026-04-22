@@ -81,6 +81,7 @@ web_modules/
 # Next.js build output
 .next
 out
+**/.netlify/
 
 # Nuxt.js build / generate output
 .nuxt
@@ -101,6 +102,10 @@ dist
 
 # Sveltekit cache directory
 .svelte-kit/
+examples/web-svelte/build/
+
+# Angular cache directory
+**/.angular/cache/
 
 # vitepress build output
 **/.vitepress/dist
@@ -160,3 +165,6 @@ cookies.txt
 .orchids/
 .kiro/*
 .vscode/*
+
+# Generated example runtime config
+examples/web-angular/src/assets/runtime-config.js

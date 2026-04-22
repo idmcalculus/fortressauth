@@ -1,0 +1,13 @@
+[build]
+  command = "pnpm exec turbo run build --filter=fortressauth-web-svelte"
+  publish = "examples/web-svelte/build"
+  ignore = "node scripts/netlify-build-policy.mjs svelte"
+
+[build.environment]
+  DEMO_BASE_PATH = "/"
+  VITE_API_URL = "https://api.fortressauth.com/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

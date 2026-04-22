@@ -1,0 +1,13 @@
+[build]
+  command = "pnpm exec turbo run build --filter=fortressauth-web-react"
+  publish = "examples/web-react/dist"
+  ignore = "node scripts/netlify-build-policy.mjs react"
+
+[build.environment]
+  DEMO_BASE_PATH = "/"
+  VITE_API_URL = "https://api.fortressauth.com/"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
