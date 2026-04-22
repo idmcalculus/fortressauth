@@ -59,6 +59,7 @@ describe('Environment configuration', () => {
 
     expect(env.PORT).toBe(3000);
     expect(env.HOST).toBe('0.0.0.0');
+    expect(env.STRICT_PORT).toBe(false);
     expect(env.DATABASE_URL).toContain(expectedDefaultSqliteSuffix);
     expect(env.COOKIE_SECURE).toBe(false); // Not production
     expect(env.CSRF_COOKIE_NAME).toBe('fortress_csrf');
@@ -101,6 +102,14 @@ describe('Environment configuration', () => {
     const { env } = await import('../env.js');
 
     expect(env.PORT).toBe(8080);
+  });
+
+  it('should parse STRICT_PORT as boolean', async () => {
+    process.env.STRICT_PORT = 'true';
+
+    const { env } = await import('../env.js');
+
+    expect(env.STRICT_PORT).toBe(true);
   });
 
   it('should parse COOKIE_SECURE as boolean', async () => {

@@ -1,0 +1,206 @@
+name: Deploy Netlify Infra
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - packages/infra-netlify/**
+      - .github/workflows/deploy-netlify-infra.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig.json
+      - turbo.json
+  push:
+    branches: [main]
+    paths:
+      - packages/infra-netlify/**
+      - .github/workflows/deploy-netlify-infra.yml
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - tsconfig.json
+      - turbo.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-netlify-infra-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PULUMI_STACK: ${{ vars.NETLIFY_PULUMI_STACK }}
+  NETLIFY_TEAM_ID: ${{ vars.NETLIFY_TEAM_ID }}
+  NETLIFY_TEAM_SLUG: ${{ vars.NETLIFY_TEAM_SLUG }}
+
+jobs:
+  preview:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    environment: netlify
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check deployment config
+        id: deployment-config
+        shell: bash
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          NETLIFY_API_TOKEN: ${{ secrets.NETLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+
+          if [ -z "${PULUMI_STACK:-}" ]; then
+            missing+=("repository variable NETLIFY_PULUMI_STACK")
+          fi
+
+          if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
+            missing+=("repository secret PULUMI_ACCESS_TOKEN")
+          fi
+
+          if [ -z "${NETLIFY_API_TOKEN:-}" ]; then
+            missing+=("repository secret NETLIFY_API_TOKEN")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            {
+              echo "### Netlify infra preview skipped"
+              echo
+              echo "Pulumi preview is skipped until the repository is bootstrapped with:"
+              for item in "${missing[@]}"; do
+                echo "- ${item}"
+              done
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Install pnpm
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Use Node.js 24
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.deployment-config.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
+        env:
+          CI: true
+
+      - name: Set up Pulumi
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: pulumi/actions@v6
+
+      - name: Preview Pulumi changes
+        if: steps.deployment-config.outputs.configured == 'true'
+        working-directory: packages/infra-netlify
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          NETLIFY_API_TOKEN: ${{ secrets.NETLIFY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pulumi stack select "${PULUMI_STACK}"
+          pulumi preview --stack "${PULUMI_STACK}" --diff
+
+  apply:
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: netlify
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check deployment config
+        id: deployment-config
+        shell: bash
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          NETLIFY_API_TOKEN: ${{ secrets.NETLIFY_API_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+
+          if [ -z "${PULUMI_STACK:-}" ]; then
+            missing+=("repository variable NETLIFY_PULUMI_STACK")
+          fi
+
+          if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
+            missing+=("repository secret PULUMI_ACCESS_TOKEN")
+          fi
+
+          if [ -z "${NETLIFY_API_TOKEN:-}" ]; then
+            missing+=("repository secret NETLIFY_API_TOKEN")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            {
+              echo "### Netlify infra apply skipped"
+              echo
+              echo "Pulumi apply is skipped until the repository is bootstrapped with:"
+              for item in "${missing[@]}"; do
+                echo "- ${item}"
+              done
+            } >> "${GITHUB_STEP_SUMMARY}"
+
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "Manual deployment was requested, but Netlify infra configuration is incomplete." >&2
+              exit 1
+            fi
+
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Install pnpm
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Use Node.js 24
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.deployment-config.outputs.configured == 'true'
+        run: pnpm install --frozen-lockfile
+        env:
+          CI: true
+
+      - name: Set up Pulumi
+        if: steps.deployment-config.outputs.configured == 'true'
+        uses: pulumi/actions@v6
+
+      - name: Apply Pulumi changes
+        if: steps.deployment-config.outputs.configured == 'true'
+        working-directory: packages/infra-netlify
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          NETLIFY_API_TOKEN: ${{ secrets.NETLIFY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pulumi stack select "${PULUMI_STACK}"
+          pulumi preview --stack "${PULUMI_STACK}" --diff
+          pulumi up --yes --stack "${PULUMI_STACK}"

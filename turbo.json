@@ -1,5 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tsconfig.json"
+  ],
   "tasks": {
     "build": {
       "dependsOn": [
@@ -8,8 +13,44 @@
       "outputs": [
         "dist/**",
         ".next/**",
+        "!.next/cache/**",
         ".svelte-kit/**",
+        "build/**",
         "out/**"
+      ]
+    },
+    "landing#build": {
+      "env": [
+        "AUTH_API_URL",
+        "NEXT_PUBLIC_DOCS_URL",
+        "NEXT_PUBLIC_REACT_DEMO_URL",
+        "NEXT_PUBLIC_VUE_DEMO_URL",
+        "NEXT_PUBLIC_SVELTE_DEMO_URL",
+        "NEXT_PUBLIC_ANGULAR_DEMO_URL"
+      ]
+    },
+    "fortressauth-web-react#build": {
+      "env": [
+        "VITE_API_URL",
+        "DEMO_BASE_PATH"
+      ]
+    },
+    "fortressauth-web-vue#build": {
+      "env": [
+        "VITE_API_URL",
+        "DEMO_BASE_PATH"
+      ]
+    },
+    "fortressauth-web-svelte#build": {
+      "env": [
+        "VITE_API_URL",
+        "DEMO_BASE_PATH"
+      ]
+    },
+    "fortressauth-web-angular#build": {
+      "env": [
+        "ANGULAR_API_URL",
+        "DEMO_BASE_PATH"
       ]
     },
     "test": {

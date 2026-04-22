@@ -28,7 +28,19 @@ pnpm --filter @fortressauth/server dev
 pnpm --filter fortressauth-web-svelte dev
 ```
 
-The app will open at http://localhost:5175
+The app will open at http://localhost:3003/svelte-demo/ when launched by the landing dev stack.
+
+### Deployment Configuration
+
+The Svelte demo is prerendered with `@sveltejs/adapter-static` for Netlify:
+
+```bash
+VITE_API_URL=https://api.fortressauth.com
+DEMO_BASE_PATH=/
+pnpm --filter fortressauth-web-svelte build
+```
+
+Use `DEMO_BASE_PATH=/svelte-demo` only when the demo is mounted under the landing domain instead of deployed at the root of its own host.
 
 ## SDK Usage
 

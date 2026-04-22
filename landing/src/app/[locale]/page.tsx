@@ -6,8 +6,14 @@ import { Footer } from '@/components/Footer';
 import { GlobalBackground } from '@/components/GlobalBackground';
 import { Hero } from '@/components/Hero';
 import { Navigation } from '@/components/Navigation';
+import { getDocumentationUrl } from '@/lib/api-config';
 
 export default function HomePage() {
+  const externalDocsUrl =
+    process.env.NODE_ENV === 'production'
+      ? (getDocumentationUrl(process.env) ?? '/api/proxy/docs/')
+      : '/api/proxy/docs/';
+
   return (
     <GlobalBackground>
       <Navigation />
@@ -16,7 +22,7 @@ export default function HomePage() {
         <Features />
         <CodeShowcase />
         <ExamplesShowcase />
-        <Documentation />
+        <Documentation externalDocsUrl={externalDocsUrl} />
       </main>
       <Footer />
     </GlobalBackground>

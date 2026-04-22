@@ -1,12 +1,8 @@
 # Contributing to FortressAuth
 
-Thank you for your interest in contributing to FortressAuth! This document provides guidelines and instructions for contributing.
+This repository is a TypeScript monorepo with a hexagonal core, multiple adapters, SDKs, frontend examples, and deployment automation. Contributions need to keep the core security model and package boundaries intact.
 
-## Code of Conduct
-
-Be respectful, inclusive, and professional in all interactions.
-
-## Getting Started
+## Before You Start
 
 ### Prerequisites
 
@@ -16,237 +12,109 @@ Be respectful, inclusive, and professional in all interactions.
 
 ### Setup
 
-1. Fork the repository
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/idmcalculus/fortressauth.git
-   cd fortressauth
-   ```
-3. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-4. Build packages:
-   ```bash
-   pnpm build
-   ```
-5. Run tests:
-   ```bash
-   pnpm test
-   ```
-
-## Development Workflow
-
-### Branch Naming
-
-- `feature/description` - New features
-- `fix/description` - Bug fixes
-- `docs/description` - Documentation updates
-- `refactor/description` - Code refactoring
-- `test/description` - Test additions/updates
-
-### Making Changes
-
-1. Create a new branch:
-   ```bash
-   git checkout -b feature/your-feature
-   ```
-
-2. Make your changes following our coding standards
-
-3. Write/update tests:
-   ```bash
-   pnpm test
-   ```
-
-4. Ensure code quality:
-   ```bash
-   pnpm lint
-   pnpm typecheck
-   ```
-
-5. Commit your changes:
-   ```bash
-   git commit -m "feat: add new feature"
-   ```
-
-### Commit Messages
-
-Follow [Conventional Commits](https://www.conventionalcommits.org/):
-
-- `feat:` - New feature
-- `fix:` - Bug fix
-- `docs:` - Documentation changes
-- `style:` - Code style changes (formatting, etc.)
-- `refactor:` - Code refactoring
-- `test:` - Test additions/updates
-- `chore:` - Maintenance tasks
-
-Examples:
-```
-feat: add OAuth provider support
-fix: resolve session expiration bug
-docs: update deployment guide
-test: add rate limiter edge cases
+```bash
+git clone https://github.com/idmcalculus/fortressauth.git
+cd fortressauth
+pnpm install
 ```
 
-### Pull Requests
+Run the standard validation suite before you begin a larger change so you know the baseline is clean:
 
-1. Push your branch:
-   ```bash
-   git push origin feature/your-feature
-   ```
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+```
 
-2. Create a Pull Request on GitHub
-
-3. Fill out the PR template with:
-   - Description of changes
-   - Related issues
-   - Testing performed
-   - Screenshots (if applicable)
-
-4. Wait for review and address feedback
-
-## Coding Standards
-
-### TypeScript
-
-- Use TypeScript strict mode
-- Explicit return types on functions
-- No `any` type (use `unknown` if needed)
-- Prefer interfaces for public APIs
-- Use type guards for runtime checks
+## Repository Expectations
 
 ### Architecture
 
-- Follow hexagonal architecture principles
-- Keep business logic in core package
-- Adapters implement port interfaces
-- No infrastructure dependencies in core
+- Keep core business logic in `packages/core`
+- Keep infrastructure concerns in adapters, the server, or deployment packages
+- Add or change ports before coupling core logic to a concrete implementation
+- Keep security-sensitive behaviour consistent across server and SDK layers
 
-### Error Handling
+### Tests and quality gates
 
-- Use Result pattern (no throwing for expected errors)
-- Throw only for unexpected/unrecoverable errors
-- Provide descriptive error messages
-
-### Testing
-
-- Write tests for all new features
-- Maintain 90%+ code coverage
-- Use descriptive test names
-- Follow AAA pattern (Arrange, Act, Assert)
-
-Example:
-```typescript
-describe('Feature', () => {
-  it('should do something when condition is met', () => {
-    // Arrange
-    const input = createTestInput();
-    
-    // Act
-    const result = doSomething(input);
-    
-    // Assert
-    expect(result).toBe(expected);
-  });
-});
-```
-
-### Documentation
-
-- Update README for user-facing changes
-- Add JSDoc comments for public APIs
-- Update DEPLOYMENT.md for deployment changes
-- Include code examples where helpful
-
-## Project Structure
-
-```
-fortressauth/
-├── packages/
-│   ├── core/           # Business logic
-│   ├── adapter-sql/    # SQL adapter
-│   └── server/         # HTTP server
-├── docker/             # Docker configuration
-├── .github/            # GitHub Actions
-└── docs/               # Documentation
-```
-
-## Testing
-
-### Unit Tests
+Every code change should leave these green:
 
 ```bash
-# Run all tests
+pnpm lint
+pnpm typecheck
+```
+
+Also run the narrowest relevant package tests while iterating, then the broader suite before opening a PR:
+
+```bash
+pnpm --filter @fortressauth/server test
+pnpm --filter @fortressauth/core test
 pnpm test
-
-# Run tests in watch mode
-pnpm test:watch
-
-# Run with coverage
-pnpm test:coverage
 ```
 
-### Integration Tests
-
-Integration tests are in `__tests__` directories alongside source files.
-
-### Manual Testing
-
-```bash
-# Start development server
-cd packages/server
-pnpm dev
-
-# Test endpoints
-curl http://localhost:3000/health
-```
-
-## Release Process
-
-Maintainers handle releases:
-
-1. Update version in package.json files
-2. Update CHANGELOG.md
-3. Create git tag: `git tag v0.2.0`
-4. Push tag: `git push origin v0.2.0`
-5. GitHub Actions publishes to npm
-
-## Getting Help
-
-- Check existing issues and discussions
-- Ask questions in GitHub Discussions
-- Join our community chat (if available)
-
-## Areas for Contribution
-
-### High Priority
-
-- OAuth provider implementations
-- Email verification flow
-- Password reset functionality
-- Redis rate limiter adapter
-
-### Medium Priority
-
-- Additional database adapters
-- Multi-factor authentication
-- Session management UI
-- Audit logging
+If your change touches examples, frontend apps, or build tooling, run the affected package builds as well.
 
 ### Documentation
 
-- More deployment examples
-- Tutorial videos
-- API reference improvements
-- Translation to other languages
+Update docs in the same PR when behaviour, setup, deployment, or release steps change.
 
-## Recognition
+Typical places to update are:
 
-Contributors will be:
-- Listed in CONTRIBUTORS.md
-- Mentioned in release notes
-- Credited in documentation
+- `README.md` for repo-level navigation and workflow changes
+- package-specific READMEs for package-specific usage
+- `PUBLISHING.md` for release workflow changes
+- `packages/infra-hetzner/README.md` for Hetzner deploy changes
 
-Thank you for contributing to FortressAuth!
+## Branches and commits
+
+Use a short-lived branch off `main`.
+
+Commit messages should follow Conventional Commits where practical:
+
+- `feat:`
+- `fix:`
+- `docs:`
+- `refactor:`
+- `test:`
+- `chore:`
+
+Examples:
+
+```text
+feat: add microsoft oauth provider support
+fix: normalize postgres sslmode handling
+docs: update release workflow
+```
+
+## Pull Requests
+
+A pull request should include:
+
+- a clear summary of the change
+- why the change is needed
+- the commands you ran to validate it
+- screenshots or recordings for UI changes, if relevant
+- any follow-up work or known limitations
+
+Keep PRs scoped. If a change spans core logic, SDKs, docs, and infra, explain that coupling explicitly.
+
+## Contributor Checklist
+
+Before opening a PR, make sure you have done the following:
+
+- [ ] updated or added tests where behaviour changed
+- [ ] run `pnpm lint`
+- [ ] run `pnpm typecheck`
+- [ ] run relevant package tests or `pnpm test`
+- [ ] updated the affected docs
+- [ ] verified examples or deploy flows if your change touches them
+
+## Release Notes for Contributors
+
+Maintainers own the final release process, but contributors should call out any release-sensitive changes in the PR description, especially when a change affects:
+
+- published package APIs
+- Docker image contents
+- OpenAPI or health version strings
+- environment variables
+- CI, deploy, or publish workflows

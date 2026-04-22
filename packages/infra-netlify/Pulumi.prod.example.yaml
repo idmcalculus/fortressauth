@@ -1,0 +1,16 @@
+config:
+  fortressauth-netlify:teamId: "<netlify-team-id>"
+  fortressauth-netlify:teamSlug: "<netlify-team-slug>"
+  fortressauth-netlify:productionBranch: main
+  fortressauth-netlify:authApiUrl: https://api.fortressauth.com/
+  fortressauth-netlify:landingDomain: fortressauth.com
+  fortressauth-netlify:wwwLandingDomain: www.fortressauth.com
+  fortressauth-netlify:reactDemoDomain: react-demo.fortressauth.com
+  fortressauth-netlify:vueDemoDomain: vue-demo.fortressauth.com
+  fortressauth-netlify:svelteDemoDomain: svelte-demo.fortressauth.com
+  fortressauth-netlify:angularDemoDomain: angular-demo.fortressauth.com
+  fortressauth-netlify:landingSiteName: fortressauth-landing
+  fortressauth-netlify:reactSiteName: fortressauth-react-demo
+  fortressauth-netlify:vueSiteName: fortressauth-vue-demo
+  fortressauth-netlify:svelteSiteName: fortressauth-svelte-demo
+  fortressauth-netlify:angularSiteName: fortressauth-angular-demo

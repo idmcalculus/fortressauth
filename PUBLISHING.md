@@ -1,281 +1,169 @@
-# Publishing Guide
+# Publishing FortressAuth
 
-This guide covers how to publish FortressAuth packages to npm and deploy the server.
+This document describes the current release path for FortressAuth. The repository publishes npm packages and Docker images only after the target commit has been validated and deployed.
 
-## Prerequisites
+## Release Flow
 
-### npm Account
-1. Create an account at https://www.npmjs.com
-2. Enable 2FA for your account
-3. Create an access token with publish permissions
-4. Add token to GitHub secrets as `NPM_TOKEN`
+1. Prepare the release commit on `main`
+2. Let `CI` pass for that commit
+3. Let `Deploy Hetzner` succeed for that same commit
+4. Create a GitHub Release for that deployed commit
+5. Let the `Publish` workflow publish npm packages and Docker images
 
-### Docker Hub Account
-1. Create an account at https://hub.docker.com
-2. Create a repository named `fortressauth`
-3. Add credentials to GitHub secrets:
-   - `DOCKER_USERNAME`
-   - `DOCKER_PASSWORD`
+The important constraint is step 3: `Publish` checks that the exact release commit already has a successful `Deploy Hetzner` run.
 
-## Pre-Publishing Checklist
+## Required Secrets and Variables
 
-- [ ] All tests passing (`pnpm test`)
-- [ ] Coverage above 90% (`pnpm test:coverage`)
-- [ ] Linting passes (`pnpm lint`)
-- [ ] Type checking passes (`pnpm typecheck`)
-- [ ] Build succeeds (`pnpm build`)
-- [ ] Documentation updated
-- [ ] CHANGELOG.md updated
-- [ ] Version bumped in all package.json files
-- [ ] README examples tested
-- [ ] Docker image builds successfully
+### GitHub Actions secrets
 
-## Version Bumping
+- `NPM_TOKEN`
+- `DOCKER_USERNAME`
+- `DOCKER_PASSWORD`
+- `PULUMI_ACCESS_TOKEN`
+- `HETZNER_DEPLOY_SSH_PRIVATE_KEY`
 
-Update version in all package.json files:
+### GitHub Actions variables
 
-```bash
-# packages/core/package.json
-# packages/adapter-sql/package.json
-# packages/server/package.json
-```
+- `PULUMI_STACK`
 
-Follow [Semantic Versioning](https://semver.org/):
-- **MAJOR**: Breaking changes
-- **MINOR**: New features (backward compatible)
-- **PATCH**: Bug fixes
+## Release Preparation Checklist
 
-## Manual Publishing
+### 1. Update versioned files
 
-### 1. Build Packages
+When bumping versions, update all relevant package manifests and any runtime/docs versions that are surfaced publicly.
+
+At minimum, check:
+
+- root `package.json`
+- all publishable `packages/*/package.json`
+- `packages/server/src/index.ts` (`VERSION`, used by `/health` and `/openapi.json`)
+- `packages/server/README.md` if it shows example version output
+
+### 2. Run the local validation suite
 
 ```bash
 pnpm install
+pnpm lint
+pnpm typecheck
+pnpm test
 pnpm build
 ```
 
-### 2. Test Packages
+If the change is isolated, you can iterate with filtered package commands first, but do not cut a release without the full repo checks.
+
+### 3. Merge the release commit to `main`
+
+The release commit must be the one you intend to tag and publish.
+
+### 4. Wait for deployment of that commit
+
+`Deploy Hetzner` is the gate before release publication. It now always builds a fresh Docker image from the commit being deployed and updates the stack to that image digest.
+
+Manual deploys are available through `workflow_dispatch` if needed.
+
+### 5. Verify the live deployment
+
+Check the live API before cutting the release:
 
 ```bash
-pnpm test
+curl -fsS https://api.fortressauth.com/health
+curl -fsS https://api.fortressauth.com/openapi.json
 ```
 
-### 3. Login to npm
+If you want to sync your local Pulumi stack file with the most recent deployment before manual infra work:
 
 ```bash
-npm login
+cd packages/infra-hetzner
+pulumi stack select idmcalculus/fortressauth-hetzner/dev
+pulumi config refresh --force
 ```
 
-### 4. Publish Core Package
+### 6. Create the GitHub Release
+
+Tag the deployed commit and create the release from GitHub:
 
 ```bash
-cd packages/core
-npm publish --access public
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
-### 5. Publish Adapter Package
+Then create a GitHub Release for that tag.
+
+## What the Publish Workflow Does
+
+The `Publish` workflow is triggered by `release.created` and does the following:
+
+### Verify deploy status
+
+- resolves the release tag to a commit SHA
+- checks for a successful `Deploy Hetzner` run for that same SHA
+- fails fast if the commit has not been deployed successfully
+
+### Publish npm packages
+
+The workflow builds and tests the repo, then publishes publishable workspace packages if that exact version is not already on npm.
+
+Current publish set:
+
+- `@fortressauth/core`
+- `@fortressauth/adapter-sql`
+- `@fortressauth/adapter-mongodb`
+- `@fortressauth/oauth-core`
+- `@fortressauth/server`
+- `@fortressauth/react-sdk`
+- `@fortressauth/vue-sdk`
+- `@fortressauth/angular-sdk`
+- `@fortressauth/svelte-sdk`
+- `@fortressauth/react-native-sdk`
+- `@fortressauth/expo-sdk`
+- `@fortressauth/electron-sdk`
+- `@fortressauth/email-ses`
+- `@fortressauth/email-sendgrid`
+- `@fortressauth/email-smtp`
+- `@fortressauth/provider-google`
+- `@fortressauth/provider-github`
+- `@fortressauth/provider-apple`
+- `@fortressauth/provider-discord`
+- `@fortressauth/provider-linkedin`
+- `@fortressauth/provider-twitter`
+- `@fortressauth/provider-microsoft`
+
+### Publish Docker images
+
+The workflow builds architecture-specific images for:
+
+- `linux/amd64`
+- `linux/arm64`
+
+It then merges them into multi-arch tags:
+
+- `docker.io/<DOCKER_USERNAME>/fortressauth:vX.Y.Z`
+- `docker.io/<DOCKER_USERNAME>/fortressauth:latest`
+
+## Post-Release Verification
+
+After publishing, verify:
+
+- the expected npm versions exist
+- the Docker image for the release tag is available
+- the release tag matches the commit that passed deploy
+- the live `/health` and `/openapi.json` endpoints still match the release version
+
+## Failure Modes
+
+### Publish failed because deploy was missing
+
+This means the release tag points to a commit that was never successfully deployed. Deploy that commit first, then rerun `Publish`.
+
+### Local `Pulumi.dev.yaml` is stale after CI deploys
+
+That is expected. CI updates stack config in its own checkout. Use:
 
 ```bash
-cd packages/adapter-sql
-npm publish --access public
+cd packages/infra-hetzner
+pulumi config refresh --force
 ```
 
-### 6. Publish Server Package
+### npm publish skipped a package
 
-```bash
-cd packages/server
-npm publish --access public
-```
-
-## Automated Publishing (Recommended)
-
-### Using GitHub Actions
-
-1. **Create a Release**
-   ```bash
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-
-2. **Create GitHub Release**
-   - Go to GitHub repository
-   - Click "Releases" → "Create a new release"
-   - Select the tag you created
-   - Add release notes
-   - Publish release
-
-3. **Automated Workflow**
-   - GitHub Actions will automatically:
-     - Run tests
-     - Build packages
-     - Publish to npm
-     - Build and push Docker image
-
-## Docker Publishing
-
-### Manual Docker Publishing
-
-```bash
-# Build image
-docker build -f docker/Dockerfile -t idmcalculus/fortressauth:0.2.0 .
-docker tag idmcalculus/fortressauth:0.2.0 idmcalculus/fortressauth:latest
-
-# Login to Docker Hub
-docker login
-
-# Push images
-docker push idmcalculus/fortressauth:0.2.0
-docker push idmcalculus/fortressauth:latest
-```
-
-### Multi-Platform Build
-
-```bash
-# Create builder
-docker buildx create --use
-
-# Build and push for multiple platforms
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t idmcalculus/fortressauth:0.2.0 \
-  -t idmcalculus/fortressauth:latest \
-  --push \
-  -f docker/Dockerfile .
-```
-
-## Post-Publishing Checklist
-
-- [ ] Verify packages on npm:
-  - https://www.npmjs.com/package/@fortressauth/core
-  - https://www.npmjs.com/package/@fortressauth/adapter-sql
-  - https://www.npmjs.com/package/@fortressauth/server
-- [ ] Test installation: `npm install @fortressauth/core`
-- [ ] Verify Docker image: `docker pull idmcalculus/fortressauth:latest`
-- [ ] Update documentation with new version
-- [ ] Announce release on social media/blog
-- [ ] Close related GitHub issues
-- [ ] Update project roadmap
-
-## Testing Published Packages
-
-### Test npm Packages
-
-```bash
-# Create test directory
-mkdir test-fortressauth
-cd test-fortressauth
-npm init -y
-
-# Install packages
-npm install @fortressauth/core @fortressauth/adapter-sql
-
-# Create test file
-cat > test.js << 'EOF'
-import { FortressAuth } from '@fortressauth/core';
-console.log('FortressAuth loaded successfully!');
-EOF
-
-# Run test
-node test.js
-```
-
-### Test Docker Image
-
-```bash
-# Pull image
-docker pull idmcalculus/fortressauth:latest
-
-# Run container
-docker run -d -p 3000:3000 idmcalculus/fortressauth:latest
-
-# Test health endpoint
-curl http://localhost:3000/health
-
-# Stop container
-docker stop $(docker ps -q --filter ancestor=idmcalculus/fortressauth:latest)
-```
-
-## Rollback Procedure
-
-If issues are discovered after publishing:
-
-### npm Rollback
-
-```bash
-# Deprecate version
-npm deprecate @fortressauth/core@0.2.0 "Critical bug, use 0.1.0 instead"
-
-# Or unpublish (within 72 hours)
-npm unpublish @fortressauth/core@0.2.0
-```
-
-### Docker Rollback
-
-```bash
-# Remove tags
-docker rmi idmcalculus/fortressauth:0.2.0
-
-# Re-tag previous version as latest
-docker tag idmcalculus/fortressauth:0.1.0 idmcalculus/fortressauth:latest
-docker push idmcalculus/fortressauth:latest
-```
-
-## Troubleshooting
-
-### npm Publish Fails
-
-**Error: 403 Forbidden**
-- Check npm token is valid
-- Verify 2FA is configured
-- Ensure you have publish permissions
-
-**Error: Package already exists**
-- Version already published
-- Bump version number
-
-### Docker Build Fails
-
-**Error: Cannot find module**
-- Run `pnpm install` first
-- Check all dependencies are installed
-
-**Error: Platform not supported**
-- Use `docker buildx` for multi-platform builds
-- Specify platform: `--platform linux/amd64`
-
-## Release Notes Template
-
-```markdown
-## v0.2.0 (2024-01-15)
-
-### Features
-- Add OAuth provider support
-- Implement email verification flow
-
-### Bug Fixes
-- Fix session expiration edge case
-- Resolve rate limiter memory leak
-
-### Breaking Changes
-- Rename `signUp` to `register` (migration guide below)
-
-### Migration Guide
-\`\`\`typescript
-// Before
-await fortress.signUp({ email, password });
-
-// After
-await fortress.register({ email, password });
-\`\`\`
-
-### Contributors
-- @username1
-- @username2
-```
-
-## Support
-
-For publishing issues:
-- Check GitHub Actions logs
-- Review npm publish documentation
-- Contact maintainers via GitHub Issues
+The workflow intentionally skips any package version that is already on npm.

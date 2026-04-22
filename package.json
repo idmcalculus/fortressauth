@@ -2,7 +2,10 @@
   "name": "fortressauth",
   "version": "0.1.13",
   "private": true,
-  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
@@ -11,7 +14,8 @@
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
-    "dev": "turbo run dev"
+    "dev": "pnpm --filter landing dev",
+    "dev:turbo": "turbo run dev"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

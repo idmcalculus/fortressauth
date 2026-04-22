@@ -1,227 +1,164 @@
 # FortressAuth
 
-A secure-by-default, database-agnostic authentication library built with TypeScript and hexagonal architecture.
+FortressAuth is a security-first authentication platform built as a TypeScript monorepo. The core auth engine stays infrastructure-agnostic, while the repository ships the HTTP server, SDKs, OAuth providers, examples, landing site, and deployment automation around it.
 
-## Features
+## What Is In This Repo
 
-- Secure by Default: Argon2id password hashing, split session tokens (selector + hashed verifier), timing-attack prevention
-- Hexagonal Architecture: Clean separation between business logic and infrastructure
-- Database Agnostic: Works with PostgreSQL, MySQL, and SQLite via Kysely
-- Email Provider Agnostic: Pluggable email providers (console, Resend, SES, SendGrid, SMTP, or custom)
-- Production Ready: Email verification, password reset, rate limiting (memory/Redis), account lockout, session management
-- OpenAPI Documentation: Auto-generated API docs with Scalar UI
-- Docker Ready: Multi-stage Dockerfile with security best practices
-- SDKs: React, Vue, Angular, Svelte, React Native, Expo, Electron SDKs with example apps
+### Core platform
 
-## Packages
+- `packages/core` - domain logic, configuration schema, ports, and the `FortressAuth` application service
+- `packages/adapter-sql` - Kysely-backed adapter for PostgreSQL, MySQL, and SQLite
+- `packages/adapter-mongodb` - MongoDB adapter
+- `packages/server` - standalone HTTP server with OpenAPI docs at `/docs`
+- `packages/oauth-core` - shared OAuth primitives
 
-| Package | Description |
-|---------|-------------|
-| [@fortressauth/core](./packages/core) | Business logic, domain entities, ports |
-| [@fortressauth/adapter-sql](./packages/adapter-sql) | SQL adapter for PostgreSQL, MySQL, SQLite |
-| [@fortressauth/server](./packages/server) | Standalone HTTP server |
-| [@fortressauth/react-sdk](./packages/react-sdk) | React hooks & context |
-| [@fortressauth/vue-sdk](./packages/vue-sdk) | Vue composables & provider |
-| [@fortressauth/angular-sdk](./packages/angular-sdk) | Angular service wrapper |
-| [@fortressauth/svelte-sdk](./packages/svelte-sdk) | Svelte stores and helpers |
-| [@fortressauth/react-native-sdk](./packages/react-native-sdk) | React Native hooks & provider (token-based) |
-| [@fortressauth/expo-sdk](./packages/expo-sdk) | Expo wrapper with SecureStore |
-| [@fortressauth/electron-sdk](./packages/electron-sdk) | Electron client (token-based) |
-| [@fortressauth/email-ses](./packages/email-ses) | AWS SES email provider |
-| [@fortressauth/email-sendgrid](./packages/email-sendgrid) | SendGrid email provider |
-| [@fortressauth/email-smtp](./packages/email-smtp) | SMTP email provider |
+### OAuth providers
 
-## Quick Start
+- `packages/provider-google`
+- `packages/provider-github`
+- `packages/provider-apple`
+- `packages/provider-discord`
+- `packages/provider-linkedin`
+- `packages/provider-twitter`
+- `packages/provider-microsoft`
+
+### Client SDKs
+
+- `packages/react-sdk`
+- `packages/vue-sdk`
+- `packages/angular-sdk`
+- `packages/svelte-sdk`
+- `packages/react-native-sdk`
+- `packages/expo-sdk`
+- `packages/electron-sdk`
+
+### Email providers
+
+- `packages/email-ses`
+- `packages/email-sendgrid`
+- `packages/email-smtp`
+
+### Product surfaces
+
+- `landing` - marketing site and product pages
+- `examples/web-react`
+- `examples/web-vue`
+- `examples/web-svelte`
+- `examples/web-angular`
+- `examples/basic-usage`
+
+### Infrastructure
+
+- `packages/infra-hetzner` - Pulumi stack for the current Hetzner deployment workflow
+- `packages/infra-netlify` - Pulumi stack for Netlify frontend site settings, domains, and env configuration
+
+## Security Defaults
+
+- Argon2id password hashing with the configured OWASP-aligned parameters
+- Split-token design for sessions, email verification, and password reset flows
+- SHA-256 hashing of token verifiers at rest
+- Constant-time comparisons for secrets
+- Email-enumeration resistance and dummy hashing paths
+- CSRF protection for state-changing HTTP endpoints
+- Account lockout and rate limiting
+- Secure cookie defaults for browser-based flows
+
+## Local Development
 
 ### Prerequisites
 
 - Node.js 20+
 - pnpm 10+
 
-### Installation
+### Install and validate
 
 ```bash
-# Install dependencies
 pnpm install
-
-# Build all packages
-pnpm build
-
-# Run tests
-pnpm test
-
-# Lint code
 pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-### Development
+### Run the API only
+
+The standalone server has sensible local defaults:
 
 ```bash
-# Start development server (with examples)
-pnpm dev
+pnpm --filter @fortressauth/server dev
 ```
 
-The server will start at `http://localhost:3000`. Visit `http://localhost:3000/docs` for API documentation.
+That serves:
 
-### Docker
+- API: `http://localhost:3000`
+- OpenAPI JSON: `http://localhost:3000/openapi.json`
+- Scalar docs: `http://localhost:3000/docs`
+
+### Run the full local product workspace
+
+This starts the landing app, API server, and frontend examples together:
 
 ```bash
-# Build and run with Docker Compose
-cd docker
-docker-compose up --build
+pnpm run dev
+# or
+pnpm --filter landing dev
 ```
 
-## Environment Variables
+Use `pnpm run dev:turbo` only when you explicitly want Turbo to launch every package-level `dev` script independently. That will duplicate the server and demo processes because `landing` already orchestrates them.
 
-### Server
+## Working With The Packages
+
+Use workspace filters when you only need one surface:
 
 ```bash
-# Server
-PORT=3000
-HOST=0.0.0.0
-DATABASE_URL=./fortress.db
-BASE_URL=http://localhost:3000
-
-# Security
-COOKIE_SECURE=false
-COOKIE_SAMESITE=strict
-
-# Email Provider
-EMAIL_PROVIDER=console   # or 'resend', 'ses', 'sendgrid', 'smtp'
-RESEND_API_KEY=          # required for resend
-EMAIL_FROM_ADDRESS=      # required for resend
-EMAIL_FROM_NAME=         # optional
-SES_REGION=              # required for ses
-SES_ACCESS_KEY_ID=       # required for ses
-SES_SECRET_ACCESS_KEY=   # required for ses
-SES_SESSION_TOKEN=       # optional for ses
-SES_FROM_ADDRESS=        # required for ses
-SES_FROM_NAME=           # optional for ses
-SENDGRID_API_KEY=        # required for sendgrid
-SENDGRID_FROM_ADDRESS=   # required for sendgrid
-SENDGRID_FROM_NAME=      # optional for sendgrid
-SMTP_HOST=               # required for smtp
-SMTP_PORT=               # required for smtp
-SMTP_SECURE=false        # optional for smtp
-SMTP_USER=               # optional for smtp
-SMTP_PASS=               # optional for smtp
-SMTP_FROM_ADDRESS=       # required for smtp
-SMTP_FROM_NAME=          # optional for smtp
-SMTP_TLS_REJECT_UNAUTHORIZED= # optional for smtp
-SMTP_TLS_SERVERNAME=     # optional for smtp
-
-# Optional
-REDIS_URL=               # for distributed rate limiting
-CORS_ORIGINS=            # comma-separated origins
-LOG_LEVEL=info
-METRICS_ENABLED=true
+pnpm --filter @fortressauth/core test
+pnpm --filter @fortressauth/server dev
+pnpm --filter fortressauth-web-react build
 ```
 
-### Client SDKs
+## Frontend Deployment
 
-```bash
-# Vite projects
-VITE_API_BASE_URL=http://localhost:3000
+The supported production topology is:
 
-# Next.js projects
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
-```
+- `landing/` on Netlify at `https://fortressauth.com`
+- `https://www.fortressauth.com` redirects to the apex domain
+- API on its own domain such as `https://api.fortressauth.com`
+- Each web demo deployed separately on its own subdomain:
+  - `https://react-demo.fortressauth.com`
+  - `https://vue-demo.fortressauth.com`
+  - `https://svelte-demo.fortressauth.com`
+  - `https://angular-demo.fortressauth.com`
 
-## API Endpoints
+`landing/` uses `AUTH_API_URL` everywhere it needs backend access and requires that env var in every environment. In local integrated dev, `pnpm dev` treats a loopback `AUTH_API_URL` port as the preferred starting point and will move to the next free local API port if needed while keeping the whole stack aligned. Demo links are driven by `NEXT_PUBLIC_*_DEMO_URL`.
 
-- `GET /health` - Health check
-- `GET /metrics` - Prometheus metrics (if enabled)
-- `GET /docs` - API documentation
-- `GET /openapi.json` - OpenAPI specification
-- `POST /auth/signup` - Create new account
-- `POST /auth/login` - Sign in
-- `POST /auth/logout` - Sign out
-- `GET /auth/me` - Get current user
-- `POST /auth/verify-email` - Verify email via selector:verifier token
-- `POST /auth/request-password-reset` - Send password reset email
-- `POST /auth/reset-password` - Reset password with selector:verifier token
+Deployment ownership is split intentionally:
 
-## Security Features
+- **Netlify Git integration** performs frontend production deployments on merge to `main` and landing deploy previews
+- **Pulumi (`packages/infra-netlify`)** manages existing Netlify site build settings, deploy preview flags, custom domains, and project environment variables
+- **GitHub Actions** validates IaC, applies Netlify site-setting changes, and runs production smoke checks
 
-- **Password Hashing**: Argon2id with OWASP-recommended parameters
-- **Session Tokens**: 32-byte cryptographic random tokens, stored as SHA-256 hashes
-- **Timing Attack Prevention**: Constant-time comparisons for secrets
-- **Rate Limiting**: Token bucket algorithm with configurable limits
-- **Account Lockout**: Automatic lockout after failed login attempts
-- **Secure Cookies**: HttpOnly, SameSite, Secure flags
+Landing previews remain enabled, but they are UI/docs previews only. Do not treat them as full auth-flow environments until a staging API exists. Demo previews are disabled because unstable preview origins should not be treated as valid auth origins.
 
-## Email Configuration
+## Documentation Map
 
-FortressAuth supports pluggable email providers:
+The root docs are intentionally small. Use package docs for the details that belong with the code they describe.
 
-### Console (Development)
-```bash
-EMAIL_PROVIDER=console
-```
-Logs verification links to terminal - perfect for development.
+- `packages/core/README.md` - core library usage and concepts
+- `packages/server/README.md` - server configuration and HTTP surface
+- `packages/infra-hetzner/README.md` - Hetzner/Pulumi deployment workflow
+- `packages/infra-netlify/README.md` - Netlify/Pulumi frontend deployment workflow
+- `CONTRIBUTING.md` - contributor workflow and quality gates
+- `PUBLISHING.md` - release and publishing process
 
-### Resend (Production)
-```bash
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=re_xxxxxxxxxxxxx
-EMAIL_FROM_ADDRESS=noreply@yourdomain.com
-EMAIL_FROM_NAME=Your App
-```
+## CI, Deploys, and Releases
 
-### AWS SES
-```bash
-EMAIL_PROVIDER=ses
-SES_REGION=us-east-1
-SES_ACCESS_KEY_ID=...
-SES_SECRET_ACCESS_KEY=...
-SES_SESSION_TOKEN=        # optional
-SES_FROM_ADDRESS=noreply@yourdomain.com
-SES_FROM_NAME=Your App
-```
+- `CI` runs on pushes and pull requests to `main`
+- `Deploy Hetzner` runs after successful `CI` on `main`, or manually via `workflow_dispatch`
+- `Deploy Netlify Infra` runs `pulumi preview`/`pulumi up` for `packages/infra-netlify`
+- `Smoke Frontend` checks the deployed landing site, docs proxy, and demo URLs after production frontend changes
+- `Deploy Hetzner` always builds a fresh Docker image from the deployed commit and smoke-tests `/health` and `/openapi.json`
+- `Publish` runs from a GitHub Release and requires a successful `Deploy Hetzner` run for the same commit before it publishes npm packages and Docker images
 
-### SendGrid
-```bash
-EMAIL_PROVIDER=sendgrid
-SENDGRID_API_KEY=...
-SENDGRID_FROM_ADDRESS=noreply@yourdomain.com
-SENDGRID_FROM_NAME=Your App
-```
+## Contributing
 
-### SMTP
-```bash
-EMAIL_PROVIDER=smtp
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_SECURE=false
-SMTP_USER=...
-SMTP_PASS=...
-SMTP_FROM_ADDRESS=noreply@yourdomain.com
-SMTP_FROM_NAME=Your App
-SMTP_TLS_REJECT_UNAUTHORIZED=false
-SMTP_TLS_SERVERNAME=smtp.example.com
-```
-
-### Custom Provider
-Implement the `EmailProviderPort` interface from `@fortressauth/core`.
-
-## Architecture
-
-FortressAuth follows hexagonal architecture principles:
-
-- **Core**: Contains all business logic with zero infrastructure dependencies
-- **Ports**: Interfaces that define contracts for external services
-- **Adapters**: Implementations of ports for specific technologies
-
-## Examples
-
-- `examples/web-react` - React + Vite example app
-- `examples/web-vue` - Vue + Vite example app
-- `examples/web-angular` - Angular example app
-- `examples/web-svelte` - Svelte example app
-- `examples/mobile-expo` - Expo example app
-- `examples/desktop-electron` - Electron example app
-- `examples/basic-usage` - Basic Node.js usage
-
-## License
-
-MIT
+See `CONTRIBUTING.md` before opening a pull request.

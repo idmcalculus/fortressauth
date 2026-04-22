@@ -13,30 +13,10 @@ import {
   SiSvelte,
   SiVuedotjs,
 } from 'react-icons/si';
+import { getExamplesDemoUrls } from '@/lib/demo-config';
 import styles from './ExamplesShowcase.module.css';
 
-function normalizeDemoUrl(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const withoutTrailingSlash = trimmed.replace(/\/$/, '');
-  if (withoutTrailingSlash.startsWith('http://') || withoutTrailingSlash.startsWith('https://')) {
-    return withoutTrailingSlash;
-  }
-
-  return withoutTrailingSlash.startsWith('/') ? withoutTrailingSlash : `/${withoutTrailingSlash}`;
-}
-
-const demoUrls = {
-  react: normalizeDemoUrl(process.env.NEXT_PUBLIC_REACT_DEMO_URL || '/react-demo'),
-  vue: normalizeDemoUrl(process.env.NEXT_PUBLIC_VUE_DEMO_URL || '/vue-demo'),
-  svelte: normalizeDemoUrl(process.env.NEXT_PUBLIC_SVELTE_DEMO_URL || '/svelte-demo'),
-  angular: normalizeDemoUrl(process.env.NEXT_PUBLIC_ANGULAR_DEMO_URL || '/angular-demo'),
-};
-
-const examples = [
+const baseExamples = [
   {
     id: 'basic-usage',
     icon: SiNodedotjs,
@@ -49,28 +29,28 @@ const examples = [
     icon: SiReact,
     techStack: ['React', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-react',
-    demoUrl: demoUrls.react,
+    demoUrl: null,
   },
   {
     id: 'web-vue',
     icon: SiVuedotjs,
     techStack: ['Vue 3', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-vue',
-    demoUrl: demoUrls.vue,
+    demoUrl: null,
   },
   {
     id: 'web-svelte',
     icon: SiSvelte,
     techStack: ['Svelte 5', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-svelte',
-    demoUrl: demoUrls.svelte,
+    demoUrl: null,
   },
   {
     id: 'web-angular',
     icon: SiAngular,
     techStack: ['Angular', 'TypeScript', 'RxJS'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-angular',
-    demoUrl: demoUrls.angular,
+    demoUrl: null,
   },
   {
     id: 'mobile-expo',
@@ -89,6 +69,16 @@ const examples = [
 ];
 
 export function ExamplesShowcase() {
+  const demoUrls = getExamplesDemoUrls();
+  const examples = [
+    baseExamples[0],
+    { ...baseExamples[1], demoUrl: demoUrls.react },
+    { ...baseExamples[2], demoUrl: demoUrls.vue },
+    { ...baseExamples[3], demoUrl: demoUrls.svelte },
+    { ...baseExamples[4], demoUrl: demoUrls.angular },
+    baseExamples[5],
+    baseExamples[6],
+  ];
   const t = useTranslations('examples');
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',

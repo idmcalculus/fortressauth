@@ -1,0 +1,16 @@
+[build]
+  command = "pnpm exec turbo run build --filter=landing"
+  publish = "landing/.next"
+  ignore = "node scripts/netlify-build-policy.mjs landing"
+
+[[redirects]]
+  from = "http://www.fortressauth.com/*"
+  to = "https://fortressauth.com/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.fortressauth.com/*"
+  to = "https://fortressauth.com/:splat"
+  status = 301
+  force = true

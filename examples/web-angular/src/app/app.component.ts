@@ -36,7 +36,7 @@ interface FeedbackState {
     <main id="main-content" class="container">
       <header class="header">
         <img
-          src="/angular-demo/logo.svg"
+          src="logo.svg"
           alt=""
           class="logo"
           aria-hidden="true"

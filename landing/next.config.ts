@@ -1,8 +1,9 @@
 import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
+import { requireAuthApiOrigin } from './src/lib/api-config';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
-const authApiUrl = process.env.AUTH_API_URL?.replace(/\/$/, '');
+const authApiOrigin = requireAuthApiOrigin(process.env);
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 interface WebpackRule {
@@ -14,6 +15,9 @@ interface WebpackRule {
 
 const nextConfig: NextConfig = {
   trailingSlash: true,
+  env: {
+    NEXT_PUBLIC_AUTH_API_URL: authApiOrigin,
+  },
   webpack(config) {
     const fileLoaderRule = config.module.rules.find((rule: WebpackRule) =>
       rule.test?.test?.('.svg'),
@@ -53,7 +57,7 @@ const nextConfig: NextConfig = {
     const rules = [
       {
         source: '/auth/:path*',
-        destination: authApiUrl ? `${authApiUrl}/auth/:path*` : '/api/proxy/auth/:path*',
+        destination: `${authApiOrigin}/auth/:path*`,
       },
     ];
 

@@ -1,0 +1,13 @@
+name: fortressauth-netlify
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: FortressAuth frontend infrastructure on Netlify
+main: src/index.ts
+packages:
+  netlify:
+    source: terraform-provider
+    version: 1.1.1
+    parameters:
+      - netlify/netlify

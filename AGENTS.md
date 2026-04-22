@@ -5,15 +5,25 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 **Project Summary**
 - FortressAuth is a secure-by-default, database-agnostic authentication library built with TypeScript.
 - Architecture is hexagonal (ports-and-adapters) to keep core logic independent from infrastructure.
-- The monorepo includes core auth, SQL adapter, HTTP server, framework SDKs, examples, landing site, and marketing content.
+- The monorepo includes core auth, SQL and MongoDB adapters, OAuth providers, a standalone HTTP server, client SDKs, examples, the landing site, deployment automation, and marketing content.
 
 **Architecture Overview**
 - Domain layer: pure business logic in `packages/core/src/domain/`.
 - Application layer: orchestrator in `packages/core/src/fortress.ts`.
 - Ports layer: interfaces in `packages/core/src/ports/`.
-- Adapters layer: infrastructure implementations in `packages/adapter-sql/`, `packages/server/`, `packages/email-*`.
-- Client SDKs: `packages/react-sdk/`, `packages/vue-sdk/`, `packages/angular-sdk/`, `packages/svelte-sdk/`.
+- Adapters layer: infrastructure implementations in `packages/adapter-sql/`, `packages/adapter-mongodb/`, `packages/server/`, and `packages/email-*`.
+- OAuth layer: shared primitives in `packages/oauth-core/` and concrete providers in `packages/provider-*`.
+- Client SDKs: `packages/react-sdk/`, `packages/vue-sdk/`, `packages/angular-sdk/`, `packages/svelte-sdk/`, `packages/react-native-sdk/`, `packages/expo-sdk/`, and `packages/electron-sdk/`.
+- Infrastructure automation: `packages/infra-hetzner/` and `packages/infra-netlify/`.
 - Marketing and launch materials: `.kiro/specs/fortressauth-platform/marketing/`.
+
+**Pulumi And Codex Workflow**
+- Use the enabled `pulumi@local-plugins` Codex plugin for Pulumi authoring, migration, provider upgrades, Automation API work, ESC, and reusable components.
+- Use the plugin-provided MCP server named `pulumi` for Pulumi Registry lookups and Pulumi Cloud stack/resource questions after authenticating with `codex mcp login pulumi`.
+- Keep Pulumi code changes scoped to `packages/infra-hetzner/` and `packages/infra-netlify/` unless a broader infrastructure change is explicitly requested.
+- Prefer `pulumi preview` for validation when the needed stack config and provider credentials are available.
+- Do not run `pulumi up`, `pulumi destroy`, or delegate mutating work to Pulumi Neo without explicit user confirmation.
+- When changing Pulumi behavior, update the relevant package README and GitHub Actions workflow docs if the operational process changes.
 
 **Core Security Defaults**
 - Split token pattern for sessions and verification/reset tokens.
@@ -40,6 +50,7 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 **Testing and Quality Gates**
 - Property-based tests validate correctness properties for critical flows.
 - After each task, run `pnpm lint` and `pnpm typecheck` and fix all errors.
+- Run relevant package tests when behavior changes; run broader test/build commands before release-sensitive changes.
 - Do not modify `biome.json` without explicit user permission.
 - Do not mark tasks as complete until the user has manually verified and approved the work.
 
@@ -47,6 +58,7 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 - Examples share a unified design system and validation utilities in `examples/shared/`.
 - Environment variables for API URLs are required and documented per example.
 - CORS configuration must allow credentials and support all examples.
+- The `landing/` app and example apps should stay aligned with the server API and current deployment/docs workflow.
 
 **Marketing and Content Guidance**
 - Voice: security-first, developer-centric, technically credible, helpful, and inclusive.
@@ -60,3 +72,4 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 - Favor interface-driven changes in ports before adapter updates.
 - Keep security behavior consistent across server and SDK layers.
 - When adding features, update tests and documentation in the same PR when reasonable.
+- When changing release, deploy, or versioned runtime behavior, update the relevant root docs (`README.md`, `CONTRIBUTING.md`, `PUBLISHING.md`) and package docs.

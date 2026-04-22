@@ -1,15 +1,28 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
-export default defineConfig({
-  plugins: [react()],
-  base: '/react-demo/',
-  server: {
-    port: 3001,
-    strictPort: true,
-  },
-  preview: {
-    port: 3001,
-    strictPort: true,
-  },
+function normalizeBasePath(value: string | undefined, fallback: string): string {
+  const trimmed = (value ?? fallback).trim();
+  if (!trimmed || trimmed === '/') {
+    return '/';
+  }
+
+  return `/${trimmed.replace(/^\/+|\/+$/g, '')}/`;
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [react()],
+    base: normalizeBasePath(env.DEMO_BASE_PATH, '/react-demo/'),
+    server: {
+      port: 3001,
+      strictPort: true,
+    },
+    preview: {
+      port: 3001,
+      strictPort: true,
+    },
+  };
 });

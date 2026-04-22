@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Documentation } from '../Documentation';
 
 // Store original env
-const originalEnv = process.env;
+const originalEnv = { ...process.env };
 
 // Type for mocked fetch - use ReturnType of vi.fn() to properly type the mock
 type MockFetch = ReturnType<typeof vi.fn>;
@@ -12,17 +12,21 @@ describe('Documentation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn() as typeof global.fetch;
-    // Reset env
-    vi.resetModules();
+    process.env = {
+      ...originalEnv,
+      NODE_ENV: 'test',
+      AUTH_API_URL: 'http://localhost:5000',
+      NEXT_PUBLIC_AUTH_API_URL: 'http://localhost:5000',
+    };
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    process.env = { ...originalEnv };
   });
 
   it('shows searching state initially', async () => {
     (global.fetch as MockFetch).mockImplementation(() => new Promise(() => {})); // Hangs
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
     expect(screen.getByText('Discovering API server...')).toBeInTheDocument();
   });
 
@@ -32,10 +36,12 @@ describe('Documentation', () => {
       json: () => Promise.resolve({ status: 'ok' }),
     });
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
-      expect(screen.getByTitle('FortressAuth API Documentation')).toBeInTheDocument();
+      const iframe = screen.getByTitle('FortressAuth API Documentation');
+      expect(iframe).toBeInTheDocument();
+      expect(iframe).toHaveAttribute('src', '/api/proxy/docs/');
     });
   });
 
@@ -45,7 +51,7 @@ describe('Documentation', () => {
       json: () => Promise.resolve({ status: 'error' }),
     });
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
       expect(screen.getByText('documentation.serverNotRunning')).toBeInTheDocument();
@@ -58,7 +64,7 @@ describe('Documentation', () => {
 
     fetchMock.mockRejectedValue(new Error('Failed'));
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
       expect(screen.getByText('documentation.serverNotRunning')).toBeInTheDocument();
@@ -70,9 +76,8 @@ describe('Documentation', () => {
       fireEvent.click(retryButton);
     });
 
-    // 11 ports tried twice (initial + retry) = 22 calls
     await waitFor(() => {
-      expect(fetchCalls.mock.calls.length).toBe(22);
+      expect(fetchCalls.mock.calls.length).toBe(2);
     });
   });
 
@@ -80,7 +85,7 @@ describe('Documentation', () => {
     // All initial discovery attempts fail
     (global.fetch as MockFetch).mockRejectedValue(new Error('Failed'));
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(
       () => {
@@ -111,41 +116,63 @@ describe('Documentation', () => {
       json: () => Promise.resolve({ status: 'ok' }),
     });
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="https://api.fortressauth.com/docs" />);
 
     await waitFor(() => {
       const link = screen.getByText(/documentation.openFullDocs/);
       expect(link).toBeInTheDocument();
+      expect(link.closest('a')).toHaveAttribute('href', 'https://api.fortressauth.com/docs');
       expect(link).toHaveAttribute('target', '_blank');
       expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     });
   });
 
+  it('uses the production docs URL when no explicit docs env is set', async () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: 'production',
+      AUTH_API_URL: 'https://api.fortressauth.com',
+      NEXT_PUBLIC_AUTH_API_URL: 'https://api.fortressauth.com',
+    };
+
+    render(<Documentation externalDocsUrl="https://api.fortressauth.com/docs" />);
+
+    await waitFor(() => {
+      const iframe = screen.getByTitle('FortressAuth API Documentation');
+      expect(iframe).toHaveAttribute('src', '/api/proxy/docs/');
+    });
+
+    const link = screen.getByText(/documentation.openFullDocs/);
+    expect(link.closest('a')).toHaveAttribute('href', 'https://api.fortressauth.com/docs');
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it('shows command to start server in fallback', async () => {
     (global.fetch as MockFetch).mockRejectedValue(new Error('Failed'));
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
       expect(screen.getByText('pnpm --filter @fortressauth/server dev')).toBeInTheDocument();
     });
   });
 
-  it('tries multiple ports when discovering server', async () => {
-    // First 3 ports fail, 4th succeeds
-    (global.fetch as MockFetch)
-      .mockRejectedValueOnce(new Error('Failed'))
-      .mockRejectedValueOnce(new Error('Failed'))
-      .mockRejectedValueOnce(new Error('Failed'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ status: 'ok' }),
-      });
+  it('checks the configured AUTH_API_URL health endpoint', async () => {
+    (global.fetch as MockFetch).mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ status: 'ok' }),
+    });
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
       expect(screen.getByTitle('FortressAuth API Documentation')).toBeInTheDocument();
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/proxy/health', {
+      method: 'GET',
+      signal: expect.any(AbortSignal),
     });
   });
 
@@ -154,7 +181,7 @@ describe('Documentation', () => {
       ok: false,
     });
 
-    render(<Documentation />);
+    render(<Documentation externalDocsUrl="/api/proxy/docs/" />);
 
     await waitFor(() => {
       expect(screen.getByText('documentation.serverNotRunning')).toBeInTheDocument();

@@ -1,0 +1,91 @@
+name: Smoke Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - landing/**
+      - examples/web-react/**
+      - examples/web-vue/**
+      - examples/web-svelte/**
+      - examples/web-angular/**
+      - packages/infra-netlify/**
+      - packages/react-sdk/**
+      - packages/vue-sdk/**
+      - packages/svelte-sdk/**
+      - packages/angular-sdk/**
+      - scripts/netlify-build-policy.mjs
+      - package.json
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - turbo.json
+      - .github/workflows/smoke-frontend.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Smoke production frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          wait_for_content() {
+            local url="$1"
+            local pattern="$2"
+            local attempts="${3:-40}"
+            local delay="${4:-15}"
+            local attempt
+            local body
+
+            for attempt in $(seq 1 "${attempts}"); do
+              body="$(mktemp)"
+              if curl -fsSL "${url}" >"${body}" && grep -q "${pattern}" "${body}"; then
+                rm -f "${body}"
+                return 0
+              fi
+              rm -f "${body}"
+              sleep "${delay}"
+            done
+
+            echo "Smoke check failed for ${url} after ${attempts} attempts." >&2
+            return 1
+          }
+
+          wait_for_redirect() {
+            local url="$1"
+            local expected_location="$2"
+            local attempts="${3:-40}"
+            local delay="${4:-15}"
+            local attempt
+            local location
+
+            for attempt in $(seq 1 "${attempts}"); do
+              location="$(curl -fsSI "${url}" | awk 'tolower($1) == "location:" {print $2}' | tr -d '\r' | tail -n1 || true)"
+              if [ "${location}" = "${expected_location}" ]; then
+                return 0
+              fi
+              sleep "${delay}"
+            done
+
+            echo "Smoke redirect check failed for ${url}; expected ${expected_location}, got ${location:-<none>}." >&2
+            return 1
+          }
+
+          wait_for_content "https://fortressauth.com/" "FortressAuth"
+          wait_for_redirect "https://www.fortressauth.com/" "https://fortressauth.com/"
+          wait_for_content "https://fortressauth.com/api/proxy/health" '"status":"ok"'
+          wait_for_content "https://fortressauth.com/api/proxy/docs/" "openapi.json"
+          wait_for_content "https://react-demo.fortressauth.com/" "FortressAuth"
+          wait_for_content "https://vue-demo.fortressauth.com/" "FortressAuth"
+          wait_for_content "https://svelte-demo.fortressauth.com/" "FortressAuth"
+          wait_for_content "https://angular-demo.fortressauth.com/" "FortressAuth"

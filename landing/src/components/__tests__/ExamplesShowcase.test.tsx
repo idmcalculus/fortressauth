@@ -1,6 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ExamplesShowcase } from '../ExamplesShowcase';
+
+const mutableEnv = process.env as Record<string, string | undefined>;
+const originalNodeEnv = process.env.NODE_ENV;
+const originalDemoUrls = {
+  react: process.env.NEXT_PUBLIC_REACT_DEMO_URL,
+  vue: process.env.NEXT_PUBLIC_VUE_DEMO_URL,
+  svelte: process.env.NEXT_PUBLIC_SVELTE_DEMO_URL,
+  angular: process.env.NEXT_PUBLIC_ANGULAR_DEMO_URL,
+};
 
 // Mock IntersectionObserver and ResizeObserver for embla-carousel
 beforeAll(() => {
@@ -21,6 +30,14 @@ beforeAll(() => {
     disconnect = () => null;
   }
   window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+});
+
+afterEach(() => {
+  mutableEnv.NODE_ENV = originalNodeEnv;
+  mutableEnv.NEXT_PUBLIC_REACT_DEMO_URL = originalDemoUrls.react;
+  mutableEnv.NEXT_PUBLIC_VUE_DEMO_URL = originalDemoUrls.vue;
+  mutableEnv.NEXT_PUBLIC_SVELTE_DEMO_URL = originalDemoUrls.svelte;
+  mutableEnv.NEXT_PUBLIC_ANGULAR_DEMO_URL = originalDemoUrls.angular;
 });
 
 describe('ExamplesShowcase', () => {
@@ -46,6 +63,18 @@ describe('ExamplesShowcase', () => {
 
     const demoLinks = screen.getAllByText('examples.viewDemo →');
     expect(demoLinks.length).toBe(4); // Only web examples have demos (React, Vue, Svelte, Angular)
+  });
+
+  it('hides demo links in production when deploy URLs are not configured', () => {
+    mutableEnv.NODE_ENV = 'production';
+    delete mutableEnv.NEXT_PUBLIC_REACT_DEMO_URL;
+    delete mutableEnv.NEXT_PUBLIC_VUE_DEMO_URL;
+    delete mutableEnv.NEXT_PUBLIC_SVELTE_DEMO_URL;
+    delete mutableEnv.NEXT_PUBLIC_ANGULAR_DEMO_URL;
+
+    render(<ExamplesShowcase />);
+
+    expect(screen.queryByText('examples.viewDemo →')).not.toBeInTheDocument();
   });
 
   it('renders carousel navigation buttons', () => {

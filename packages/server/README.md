@@ -29,11 +29,14 @@ pnpm build
 pnpm start
 ```
 
+By default the server will walk to the next free port if `PORT` is already occupied. Set `STRICT_PORT=true` when an external orchestrator has already chosen the port and every other local service must keep using that exact value.
+
 ## Environment Variables
 
 ```bash
 PORT=3000                          # Server port
 HOST=0.0.0.0                       # Server host
+STRICT_PORT=false                  # Fail instead of auto-selecting another port
 DATABASE_URL=./fortress.db         # SQLite database path (or PostgreSQL/MySQL URL)
 BASE_URL=http://localhost:3000     # Public URL for email links
 COOKIE_SECURE=false                # Use secure cookies (true in production)
@@ -164,16 +167,21 @@ Electron and React Native/Expo SDKs use Bearer token authentication instead of c
 For production deployments:
 
 ```bash
-# Production example
-CORS_ORIGINS=https://myapp.com,https://www.myapp.com
+# Shared top-level domain example
+BASE_URL=https://fortressauth.com
+CORS_ORIGINS=https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
 COOKIE_SECURE=true
-COOKIE_SAMESITE=strict
+COOKIE_SAMESITE=lax
+CSRF_COOKIE_SECURE=true
+CSRF_COOKIE_SAMESITE=lax
 ```
 
 **Important**: In production, always:
 1. Set `COOKIE_SECURE=true` (requires HTTPS)
-2. Use `COOKIE_SAMESITE=strict` or `lax` for CSRF protection
-3. Only allow specific origins (avoid wildcards)
+2. Use `COOKIE_SAMESITE=lax` and `CSRF_COOKIE_SAMESITE=lax` when the frontend and API share the same top-level domain
+3. Use `COOKIE_SAMESITE=none` and `CSRF_COOKIE_SAMESITE=none` when the frontend and API are on different top-level domains
+4. Include every browser frontend origin in `CORS_ORIGINS` when demos or apps call the API directly
+5. Only allow specific origins (avoid wildcards)
 
 ## Email Providers
 

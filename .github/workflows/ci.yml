@@ -15,7 +15,7 @@ jobs:
     outputs:
       infra: ${{ steps.filter.outputs.infra }}
       test: ${{ steps.filter.outputs.test }}
-      examples: ${{ steps.filter.outputs.examples }}
+      frontend: ${{ steps.filter.outputs.frontend }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v5
@@ -42,29 +42,34 @@ jobs:
 
           infra=false
           test=false
-          examples=false
+          frontend=false
           docker=false
 
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             case "${file}" in
-              packages/infra-hetzner/*)
+              packages/infra-hetzner/*|packages/infra-netlify/*)
                 infra=true
                 ;;
               packages/*)
                 test=true
-                examples=true
+                frontend=true
                 docker=true
                 ;;
-              examples/*)
-                examples=true
+              examples/*|landing/*)
+                test=true
+                frontend=true
                 ;;
               docker/*)
                 docker=true
                 ;;
+              scripts/*)
+                test=true
+                frontend=true
+                ;;
               package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json|biome.json)
                 test=true
-                examples=true
+                frontend=true
                 docker=true
                 ;;
             esac
@@ -72,12 +77,12 @@ jobs:
 
           echo "infra=${infra}" >> "${GITHUB_OUTPUT}"
           echo "test=${test}" >> "${GITHUB_OUTPUT}"
-          echo "examples=${examples}" >> "${GITHUB_OUTPUT}"
+          echo "frontend=${frontend}" >> "${GITHUB_OUTPUT}"
           echo "docker=${docker}" >> "${GITHUB_OUTPUT}"
 
           echo "infra=${infra}"
           echo "test=${test}"
-          echo "examples=${examples}"
+          echo "frontend=${frontend}"
           echo "docker=${docker}"
 
   infra:
@@ -91,7 +96,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.27.0
+          version: 10.33.0
 
       - name: Use Node.js 24
         uses: actions/setup-node@v6
@@ -109,6 +114,12 @@ jobs:
 
       - name: Typecheck infra package
         run: pnpm --filter @fortressauth/infra-hetzner typecheck
+
+      - name: Lint Netlify infra package
+        run: pnpm --filter @fortressauth/infra-netlify lint
+
+      - name: Typecheck Netlify infra package
+        run: pnpm --filter @fortressauth/infra-netlify typecheck
 
   test:
     runs-on: ubuntu-latest
@@ -136,7 +147,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.27.0
+          version: 10.33.0
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
@@ -164,6 +175,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          AUTH_API_URL: https://api.fortressauth.com/
 
       - name: Test
         run: pnpm test:coverage
@@ -178,10 +191,10 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  examples:
+  frontend:
     runs-on: ubuntu-latest
     needs: changes
-    if: ${{ needs.changes.outputs.examples == 'true' }}
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -189,7 +202,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.27.0
+          version: 10.33.0
 
       - name: Use Node.js 24
         uses: actions/setup-node@v6
@@ -205,24 +218,43 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages
-        run: pnpm build
+      - name: Run landing unit tests
+        run: pnpm --filter landing test
+        env:
+          AUTH_API_URL: https://api.fortressauth.com/
+
+      - name: Build landing
+        run: pnpm --filter landing build
+        env:
+          AUTH_API_URL: https://api.fortressauth.com/
 
       - name: Build React example
-        run: pnpm --filter fortressauth-web-react build
+        run: pnpm --filter fortressauth-web-react... build
+        env:
+          DEMO_BASE_PATH: /
+          VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Vue example
-        run: pnpm --filter fortressauth-web-vue build
+        run: pnpm --filter fortressauth-web-vue... build
+        env:
+          DEMO_BASE_PATH: /
+          VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Svelte example
-        run: pnpm --filter fortressauth-web-svelte build
+        run: pnpm --filter fortressauth-web-svelte... build
+        env:
+          DEMO_BASE_PATH: /
+          VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Angular example
-        run: pnpm --filter fortressauth-web-angular build
+        run: pnpm --filter fortressauth-web-angular... build
+        env:
+          ANGULAR_API_URL: https://api.fortressauth.com/
+          DEMO_BASE_PATH: /
 
   docker:
     runs-on: ubuntu-latest
-    needs: [changes, infra, test, examples]
+    needs: [changes, infra, test, frontend]
     if: >-
       ${{
         always() &&
@@ -231,7 +263,7 @@ jobs:
         needs.changes.outputs.docker == 'true' &&
         (needs.infra.result == 'success' || needs.infra.result == 'skipped') &&
         (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-        (needs.examples.result == 'success' || needs.examples.result == 'skipped')
+        (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
       }}
 
     steps:
@@ -259,7 +291,7 @@ jobs:
 
   ci-status:
     runs-on: ubuntu-latest
-    needs: [changes, infra, test, examples, docker]
+    needs: [changes, infra, test, frontend, docker]
     if: ${{ always() }}
     steps:
       - name: Verify CI results
@@ -267,12 +299,12 @@ jobs:
         env:
           INFRA_RESULT: ${{ needs.infra.result }}
           TEST_RESULT: ${{ needs.test.result }}
-          EXAMPLES_RESULT: ${{ needs.examples.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
           DOCKER_RESULT: ${{ needs.docker.result }}
         run: |
           set -euo pipefail
 
-          for result in "${INFRA_RESULT}" "${TEST_RESULT}" "${EXAMPLES_RESULT}" "${DOCKER_RESULT}"; do
+          for result in "${INFRA_RESULT}" "${TEST_RESULT}" "${FRONTEND_RESULT}" "${DOCKER_RESULT}"; do
             case "${result}" in
               success|skipped)
                 ;;

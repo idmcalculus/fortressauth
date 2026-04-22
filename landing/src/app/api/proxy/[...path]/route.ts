@@ -1,88 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { requireAuthApiOrigin } from '@/lib/api-config';
 
-// Ports to try - server starts at 5000 and increments if port is busy (up to +10)
-const PORTS_TO_TRY = [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010];
-const configuredApiUrl = process.env.AUTH_API_URL?.replace(/\/$/, '');
-
-let cachedPort: number | null = null;
-let lastCheck = 0;
-const CACHE_TTL = 30000; // 30 seconds
-
-function getConfiguredApiUrl(): string | null {
-  if (!configuredApiUrl) {
-    return null;
-  }
-
-  try {
-    const parsed = new URL(configuredApiUrl);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return parsed.origin;
-    }
-  } catch {
-    // Ignore malformed URL and fall back to local discovery.
-  }
-
-  return null;
-}
-
-async function discoverServerPort(): Promise<number | null> {
-  const now = Date.now();
-  if (cachedPort && now - lastCheck < CACHE_TTL) {
-    return cachedPort;
-  }
-
-  for (const port of PORTS_TO_TRY) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000);
-
-      const response = await fetch(`http://localhost:${port}/health`, {
-        method: 'GET',
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const data = (await response.json()) as { status?: string };
-        if (data.status === 'ok') {
-          cachedPort = port;
-          lastCheck = now;
-          return port;
-        }
-      }
-    } catch {
-      // Continue to next port
-    }
-  }
-
-  return null;
-}
-
-async function discoverApiBaseUrl(): Promise<string | null> {
-  const explicitUrl = getConfiguredApiUrl();
-  if (explicitUrl) {
-    return explicitUrl;
-  }
-
-  const port = await discoverServerPort();
-  if (!port) {
-    return null;
-  }
-
-  return `http://localhost:${port}`;
-}
+const apiBaseUrl = requireAuthApiOrigin(process.env);
 
 async function proxyRequest(
   request: NextRequest,
   params: Promise<{ path: string[] }>,
 ): Promise<NextResponse> {
-  const apiBaseUrl = await discoverApiBaseUrl();
-
-  if (!apiBaseUrl) {
-    return NextResponse.json({ error: 'API server not available' }, { status: 503 });
-  }
-
   const { path } = await params;
   const targetPath = path.join('/');
   const query = request.nextUrl.search;
