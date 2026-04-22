@@ -128,6 +128,7 @@ The workflow `.github/workflows/deploy-netlify-infra.yml` handles:
 
 - `pulumi preview` on pull requests that touch `packages/infra-netlify`
 - `pulumi up` on merges to `main`
+- bootstrap-safe skips when the repository does not have Netlify/Pulumi deployment configuration yet
 
 Required repository secrets:
 
@@ -142,3 +143,5 @@ Optional repository variables:
 
 - `NETLIFY_TEAM_ID`
 - `NETLIFY_TEAM_SLUG`
+
+During the initial bootstrap, pull request previews and push-to-main applies skip cleanly if the required repository variable or secrets are missing. After those values are configured, run the workflow manually from GitHub Actions to create or update the Netlify sites. Manual workflow runs fail when deployment configuration is incomplete, so they can be used as the explicit production deploy check after bootstrap.

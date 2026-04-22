@@ -229,25 +229,25 @@ jobs:
           AUTH_API_URL: https://api.fortressauth.com/
 
       - name: Build React example
-        run: pnpm --filter fortressauth-web-react build
+        run: pnpm --filter fortressauth-web-react... build
         env:
           DEMO_BASE_PATH: /
           VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Vue example
-        run: pnpm --filter fortressauth-web-vue build
+        run: pnpm --filter fortressauth-web-vue... build
         env:
           DEMO_BASE_PATH: /
           VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Svelte example
-        run: pnpm --filter fortressauth-web-svelte build
+        run: pnpm --filter fortressauth-web-svelte... build
         env:
           DEMO_BASE_PATH: /
           VITE_API_URL: https://api.fortressauth.com/
 
       - name: Build Angular example
-        run: pnpm --filter fortressauth-web-angular build
+        run: pnpm --filter fortressauth-web-angular... build
         env:
           ANGULAR_API_URL: https://api.fortressauth.com/
           DEMO_BASE_PATH: /

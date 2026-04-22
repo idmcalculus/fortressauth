@@ -44,7 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Validate deployment config
+      - name: Check deployment config
+        id: deployment-config
         shell: bash
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -52,41 +53,60 @@ jobs:
         run: |
           set -euo pipefail
 
+          missing=()
+
           if [ -z "${PULUMI_STACK:-}" ]; then
-            echo "Missing repository variable NETLIFY_PULUMI_STACK." >&2
-            exit 1
+            missing+=("repository variable NETLIFY_PULUMI_STACK")
           fi
 
           if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
-            echo "Missing repository secret PULUMI_ACCESS_TOKEN." >&2
-            exit 1
+            missing+=("repository secret PULUMI_ACCESS_TOKEN")
           fi
 
           if [ -z "${NETLIFY_API_TOKEN:-}" ]; then
-            echo "Missing repository secret NETLIFY_API_TOKEN." >&2
-            exit 1
+            missing+=("repository secret NETLIFY_API_TOKEN")
           fi
 
+          if [ "${#missing[@]}" -gt 0 ]; then
+            {
+              echo "### Netlify infra preview skipped"
+              echo
+              echo "Pulumi preview is skipped until the repository is bootstrapped with:"
+              for item in "${missing[@]}"; do
+                echo "- ${item}"
+              done
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
+
       - name: Install pnpm
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
 
       - name: Use Node.js 24
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.deployment-config.outputs.configured == 'true'
         run: pnpm install --frozen-lockfile
         env:
           CI: true
 
       - name: Set up Pulumi
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: pulumi/actions@v6
 
       - name: Preview Pulumi changes
+        if: steps.deployment-config.outputs.configured == 'true'
         working-directory: packages/infra-netlify
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -105,7 +125,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Validate deployment config
+      - name: Check deployment config
+        id: deployment-config
         shell: bash
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
@@ -113,41 +134,66 @@ jobs:
         run: |
           set -euo pipefail
 
+          missing=()
+
           if [ -z "${PULUMI_STACK:-}" ]; then
-            echo "Missing repository variable NETLIFY_PULUMI_STACK." >&2
-            exit 1
+            missing+=("repository variable NETLIFY_PULUMI_STACK")
           fi
 
           if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
-            echo "Missing repository secret PULUMI_ACCESS_TOKEN." >&2
-            exit 1
+            missing+=("repository secret PULUMI_ACCESS_TOKEN")
           fi
 
           if [ -z "${NETLIFY_API_TOKEN:-}" ]; then
-            echo "Missing repository secret NETLIFY_API_TOKEN." >&2
-            exit 1
+            missing+=("repository secret NETLIFY_API_TOKEN")
           fi
 
+          if [ "${#missing[@]}" -gt 0 ]; then
+            {
+              echo "### Netlify infra apply skipped"
+              echo
+              echo "Pulumi apply is skipped until the repository is bootstrapped with:"
+              for item in "${missing[@]}"; do
+                echo "- ${item}"
+              done
+            } >> "${GITHUB_STEP_SUMMARY}"
+
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "Manual deployment was requested, but Netlify infra configuration is incomplete." >&2
+              exit 1
+            fi
+
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "configured=true" >> "${GITHUB_OUTPUT}"
+
       - name: Install pnpm
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 10.33.0
 
       - name: Use Node.js 24
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
           cache: pnpm
 
       - name: Install dependencies
+        if: steps.deployment-config.outputs.configured == 'true'
         run: pnpm install --frozen-lockfile
         env:
           CI: true
 
       - name: Set up Pulumi
+        if: steps.deployment-config.outputs.configured == 'true'
         uses: pulumi/actions@v6
 
       - name: Apply Pulumi changes
+        if: steps.deployment-config.outputs.configured == 'true'
         working-directory: packages/infra-netlify
         env:
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
