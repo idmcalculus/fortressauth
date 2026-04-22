@@ -135,7 +135,7 @@ Deployment ownership is split intentionally:
 
 - **Netlify Git integration** performs frontend production deployments on merge to `main` and landing deploy previews
 - **Pulumi (`packages/infra-netlify`)** manages existing Netlify site build settings, deploy preview flags, custom domains, and project environment variables
-- **GitHub Actions** validates IaC, applies Netlify site-setting changes, and runs production smoke checks
+- **GitHub Actions** validates IaC, applies Netlify site-setting changes, and runs production smoke checks after frontend smoke is enabled
 
 Landing previews remain enabled, but they are UI/docs previews only. Do not treat them as full auth-flow environments until a staging API exists. Demo previews are disabled because unstable preview origins should not be treated as valid auth origins.
 
@@ -155,7 +155,7 @@ The root docs are intentionally small. Use package docs for the details that bel
 - `CI` runs on pushes and pull requests to `main`
 - `Deploy Hetzner` runs after successful `CI` on `main`, or manually via `workflow_dispatch`
 - `Deploy Netlify Infra` runs `pulumi preview`/`pulumi up` for `packages/infra-netlify`
-- `Smoke Frontend` checks the deployed landing site, docs proxy, and demo URLs after production frontend changes
+- `Smoke Frontend` checks the deployed landing site, docs proxy, and demo URLs after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
 - `Deploy Hetzner` always builds a fresh Docker image from the deployed commit and smoke-tests `/health` and `/openapi.json`
 - `Publish` runs from a GitHub Release and requires a successful `Deploy Hetzner` run for the same commit before it publishes npm packages and Docker images
 
