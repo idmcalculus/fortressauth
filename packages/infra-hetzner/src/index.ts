@@ -33,6 +33,10 @@ function assertSameSite(value: string, name: string): 'strict' | 'lax' | 'none' 
   return value;
 }
 
+function normalizeBaseUrl(value: URL): string {
+  return value.toString().replace(/\/$/, '');
+}
+
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
@@ -143,6 +147,7 @@ try {
 if (parsedFrontendBaseUrl.protocol !== 'http:' && parsedFrontendBaseUrl.protocol !== 'https:') {
   throw new Error('Invalid frontendBaseUrl config value.');
 }
+const normalizedFrontendBaseUrl = normalizeBaseUrl(parsedFrontendBaseUrl);
 
 const cookieSameSite = assertSameSite(config.get('cookieSameSite') ?? 'lax', 'cookieSameSite');
 const csrfCookieSameSite = assertSameSite(
@@ -296,7 +301,7 @@ const appRuntimeFiles = pulumi
       ['HOST', '0.0.0.0'],
       ['APP_IMAGE', appImage],
       ['DATABASE_URL', databaseUrl],
-      ['BASE_URL', parsedFrontendBaseUrl.toString()],
+      ['BASE_URL', normalizedFrontendBaseUrl],
       ['COOKIE_SECURE', 'true'],
       ['COOKIE_SAMESITE', cookieSameSite],
       ['CSRF_COOKIE_SECURE', 'true'],
@@ -608,13 +613,7 @@ sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recr
 sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps app caddy
 sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 app caddy
 
-BASE_URL="$(sudo sed -n 's/^BASE_URL=//p' "$ENV_FILE" | head -n1)"
-if [ -n "$BASE_URL" ]; then
-  APP_DOMAIN="$BASE_URL"
-  APP_DOMAIN="\${APP_DOMAIN#https://}"
-  APP_DOMAIN="\${APP_DOMAIN#http://}"
-  curl -fsS --retry 10 --retry-delay 3 -H "Host: \${APP_DOMAIN}" http://127.0.0.1/health >/dev/null
-fi`,
+curl -fsS --retry 10 --retry-all-errors --retry-delay 3 -H "Host: ${appDomain}" http://127.0.0.1/health >/dev/null`,
   );
   const deployScriptWithBootstrapWait = pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`;
 
