@@ -215,13 +215,6 @@
   border-color: var(--color-accent);
 }
 
-/* When demoLink is hovered, make adjacent codeLink look filled */
-.demoLink:hover + .codeLink {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
-  color: white;
-  border-color: transparent;
-}
-
 .codeLink {
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -362,4 +355,11 @@
   .codeLink {
     text-align: center;
   }
+}
+
+/* When demoLink is hovered, make adjacent codeLink look filled */
+.demoLink:hover + .codeLink {
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  color: white;
+  border-color: transparent;
 }

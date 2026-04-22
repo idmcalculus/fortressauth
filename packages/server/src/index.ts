@@ -435,7 +435,7 @@ app.get('/docs', (c) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 </head>
 <body>
-  <script id="api-reference" data-url="/openapi.json"></script>
+  <script id="api-reference" data-url="../openapi.json"></script>
   <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
 </body>
 </html>`;
@@ -962,6 +962,25 @@ async function findAvailablePort(startPort: number, hostname: string): Promise<n
   );
 }
 
+async function resolveServerPort(
+  startPort: number,
+  hostname: string,
+  strictPort: boolean,
+): Promise<number> {
+  if (!strictPort) {
+    return findAvailablePort(startPort, hostname);
+  }
+
+  const available = await isPortAvailable(startPort, hostname);
+  if (!available) {
+    throw new Error(
+      `Port ${startPort} is already in use and STRICT_PORT=true. Stop the other process or choose a different port before starting the server.`,
+    );
+  }
+
+  return startPort;
+}
+
 // Start server if running as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Register shutdown handlers
@@ -971,8 +990,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`🚀 FortressAuth server v${VERSION} starting...`);
   console.log(`📊 Database: ${env.DATABASE_URL}`);
 
-  // Find available port
-  findAvailablePort(env.PORT, env.HOST)
+  // Resolve the startup port, either by walking to the next free port or by
+  // failing fast when an external orchestrator already chose one.
+  resolveServerPort(env.PORT, env.HOST, env.STRICT_PORT)
     .then((availablePort) => {
       if (availablePort !== env.PORT) {
         console.log(

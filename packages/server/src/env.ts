@@ -15,6 +15,10 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((val) => val ?? '0.0.0.0'),
+  STRICT_PORT: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => val === 'true'),
   DATABASE_URL: z
     .string()
     .optional()

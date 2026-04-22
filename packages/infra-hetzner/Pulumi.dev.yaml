@@ -8,6 +8,7 @@ config:
   fortressauth-hetzner:adminIpv6Cidrs:
     - 2a0a:ef40:19a0:6301:cc22:8b9e:388a:103/128
   fortressauth-hetzner:appDomain: api.fortressauth.com
+  fortressauth-hetzner:frontendBaseUrl: https://fortressauth.com
   fortressauth-hetzner:appImage: docker.io/idmcalculus/fortressauth@sha256:974efc2db9367f74a376a00fbfcf939dcf87de8e575637cf6e106491111e8005
   fortressauth-hetzner:dbPassword:
     secure: AAABAHu+Y8129G0lhzs5ikjeT3cQypJfQmz1xkZSbphvM/YasyqjobOizrmuVOCCedMUgYVXCvA9oVBRPrt0RB+NdWIAmnzZcJO/6A==
@@ -23,7 +24,7 @@ config:
   fortressauth-hetzner:appServerType: cpx22
   fortressauth-hetzner:dbServerType: cpx32
   fortressauth-hetzner:appEnv:
-    CORS_ORIGINS: http://localhost:3000
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
     EMAIL_PROVIDER: resend
     EMAIL_FROM_ADDRESS: no-reply@jaydeetechltd.com
     EMAIL_FROM_NAME: Fortress Auth

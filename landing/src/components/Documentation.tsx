@@ -3,53 +3,30 @@
 import { ExternalLink } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
+import { isApiHealthy } from '@/lib/api-config';
 import styles from './Documentation.module.css';
 
-// Ports to try - server starts at 5000 and increments if port is busy (up to +10)
-const PORTS_TO_TRY = [5000, 5001, 5002, 5003, 5004, 5005, 5006, 5007, 5008, 5009, 5010];
-const BASE_URL = process.env.NEXT_PUBLIC_DOCS_URL || null;
+const API_PROXY_ORIGIN = '/api/proxy';
+const API_DOCS_PROXY_URL = '/api/proxy/docs/';
 
-export function Documentation() {
+type DocumentationProps = {
+  externalDocsUrl?: string | null;
+};
+
+export function Documentation({ externalDocsUrl = API_DOCS_PROXY_URL }: DocumentationProps) {
   const t = useTranslations('documentation');
-  const [docsUrl, setDocsUrl] = useState<string | null>(BASE_URL);
-  const [status, setStatus] = useState<'loading' | 'found' | 'not-found'>('loading');
+  const [status, setStatus] = useState<'loading' | 'found' | 'not-found'>(
+    process.env.NODE_ENV === 'production' ? 'found' : 'loading',
+  );
 
   const discoverServer = useCallback(async () => {
-    // If a specific URL is configured via env var, use it
-    if (BASE_URL) {
-      setDocsUrl(BASE_URL);
+    if (process.env.NODE_ENV === 'production') {
       setStatus('found');
       return;
     }
 
-    // Try to find the server on common ports
-    for (const port of PORTS_TO_TRY) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-        const response = await fetch(`http://localhost:${port}/health`, {
-          method: 'GET',
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (response.ok) {
-          const data = (await response.json()) as { status?: string };
-          // Verify it's our FortressAuth server by checking the response
-          if (data.status === 'ok') {
-            setDocsUrl(`http://localhost:${port}/docs`);
-            setStatus('found');
-            return;
-          }
-        }
-      } catch {}
-    }
-
-    // No server found - default to port 5000
-    setStatus('not-found');
-    setDocsUrl(`http://localhost:5000/docs`);
+    const healthy = await isApiHealthy(fetch, API_PROXY_ORIGIN);
+    setStatus(healthy ? 'found' : 'not-found');
   }, []);
 
   useEffect(() => {
@@ -62,9 +39,9 @@ export function Documentation() {
         <div className={styles.header}>
           <h2 className={styles.title}>{t('title')}</h2>
           <p className={styles.subtitle}>{t('subtitle')}</p>
-          {docsUrl && (
+          {status === 'found' && externalDocsUrl && (
             <a
-              href={docsUrl}
+              href={externalDocsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.externalLink}
@@ -98,9 +75,9 @@ export function Documentation() {
                 Retry
               </button>
             </div>
-          ) : status === 'found' && docsUrl ? (
+          ) : status === 'found' ? (
             <iframe
-              src={docsUrl}
+              src={API_DOCS_PROXY_URL}
               title="FortressAuth API Documentation"
               className={styles.iframe}
               loading="lazy"

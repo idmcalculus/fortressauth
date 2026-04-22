@@ -12,6 +12,7 @@ config:
   fortressauth-hetzner:dbServerType: cpx31
   fortressauth-hetzner:protectServers: false
   fortressauth-hetzner:appDomain: api.example.com
+  fortressauth-hetzner:frontendBaseUrl: https://fortressauth.com
   fortressauth-hetzner:appImage: docker.io/your-docker-user/fortressauth@sha256:<image-digest>
   fortressauth-hetzner:enableAppDeploy: true
   fortressauth-hetzner:deploySshUser: admin
@@ -29,7 +30,7 @@ config:
   fortressauth-hetzner:dbPassword:
     secure: "<set-with-pulumi-config --secret>"
   fortressauth-hetzner:appEnv:
-    CORS_ORIGINS: https://your-landing-domain.vercel.app
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
     EMAIL_PROVIDER: console
   fortressauth-hetzner:appSecretEnv:
     secure: "<set-with-pulumi-config --path --secret fortressauth-hetzner:appSecretEnv.SMTP_PASS>"

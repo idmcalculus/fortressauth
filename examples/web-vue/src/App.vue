@@ -212,6 +212,8 @@ async function handleSignOut() {
 // Tab modes for navigation
 // biome-ignore lint/correctness/noUnusedVariables: Variable is used in Vue template section
 const tabModes: AuthMode[] = ['signin', 'signup'];
+// biome-ignore lint/correctness/noUnusedVariables: Variable is used in Vue template section
+const logoUrl = `${import.meta.env.BASE_URL}logo.svg`;
 
 // biome-ignore lint/correctness/noUnusedVariables: Function is used in Vue template section
 function getTabLabel(tabMode: AuthMode): string {
@@ -232,7 +234,7 @@ function getTabLabel(tabMode: AuthMode): string {
   <main id="main-content" class="container" role="main">
     <header class="header">
       <img
-        src="/logo.svg"
+        :src="logoUrl"
         alt=""
         class="logo"
         aria-hidden="true"

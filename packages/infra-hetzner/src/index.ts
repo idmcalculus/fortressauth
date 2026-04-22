@@ -26,6 +26,13 @@ function assertIdentifier(value: string, name: string): string {
   return value;
 }
 
+function assertSameSite(value: string, name: string): 'strict' | 'lax' | 'none' {
+  if (value !== 'strict' && value !== 'lax' && value !== 'none') {
+    throw new Error(`Invalid ${name}. Expected one of: strict, lax, none.`);
+  }
+  return value;
+}
+
 function escapeSqlLiteral(value: string): string {
   return value.replace(/'/g, "''");
 }
@@ -124,6 +131,24 @@ const appDomain = config.require('appDomain').trim();
 if (!appDomain || appDomain.includes(' ')) {
   throw new Error('Invalid appDomain config value.');
 }
+
+const frontendBaseUrl = config.get('frontendBaseUrl')?.trim() || `https://${appDomain}`;
+let parsedFrontendBaseUrl: URL;
+try {
+  parsedFrontendBaseUrl = new URL(frontendBaseUrl);
+} catch {
+  throw new Error('Invalid frontendBaseUrl config value.');
+}
+
+if (parsedFrontendBaseUrl.protocol !== 'http:' && parsedFrontendBaseUrl.protocol !== 'https:') {
+  throw new Error('Invalid frontendBaseUrl config value.');
+}
+
+const cookieSameSite = assertSameSite(config.get('cookieSameSite') ?? 'lax', 'cookieSameSite');
+const csrfCookieSameSite = assertSameSite(
+  config.get('csrfCookieSameSite') ?? cookieSameSite,
+  'csrfCookieSameSite',
+);
 
 const appImage = config.require('appImage').trim();
 if (!appImage) {
@@ -271,11 +296,11 @@ const appRuntimeFiles = pulumi
       ['HOST', '0.0.0.0'],
       ['APP_IMAGE', appImage],
       ['DATABASE_URL', databaseUrl],
-      ['BASE_URL', `https://${appDomain}`],
+      ['BASE_URL', parsedFrontendBaseUrl.toString()],
       ['COOKIE_SECURE', 'true'],
-      ['COOKIE_SAMESITE', 'none'],
+      ['COOKIE_SAMESITE', cookieSameSite],
       ['CSRF_COOKIE_SECURE', 'true'],
-      ['CSRF_COOKIE_SAMESITE', 'none'],
+      ['CSRF_COOKIE_SAMESITE', csrfCookieSameSite],
       ['METRICS_ENABLED', 'true'],
       ['LOG_LEVEL', 'info'],
     ];

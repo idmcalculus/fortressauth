@@ -7,6 +7,6 @@ export const config = {
   matcher: [
     '/',
     '/(en|es|fr|de|zh|ja|pt|ru|ar|hi|yo)/:path*',
-    '/((?!api|auth|react-demo|vue-demo|svelte-demo|angular-demo|verify-email|reset-password|_next|_vercel|.*\\..*).*)',
+    '/((?!api|auth|react-demo|vue-demo|svelte-demo|angular-demo|verify-email|reset-password|_next|.*\\..*).*)',
   ],
 };
