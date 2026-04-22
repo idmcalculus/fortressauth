@@ -14,6 +14,7 @@ Pulumi stack to provision:
 - Existing SSH key name(s) already uploaded in Hetzner Cloud
 - Admin IP CIDR(s) for SSH access
 - Public DNS hostname for API (for example `api.example.com`)
+- Public frontend URL used for email links (for example `https://fortressauth.com`)
 - Published server Docker image digest (for example `docker.io/<user>/fortressauth@sha256:<digest>`)
 - PostgreSQL password
 - Optional server env overrides (`appEnv`, `appSecretEnv`)
@@ -39,6 +40,7 @@ Set secrets and config:
 ```bash
 pulumi config set hcloud:token --secret
 pulumi config set fortressauth-hetzner:appDomain api.example.com
+pulumi config set fortressauth-hetzner:frontendBaseUrl https://fortressauth.com
 pulumi config set fortressauth-hetzner:appImage docker.io/your-user/fortressauth@sha256:<digest>
 pulumi config set --path 'fortressauth-hetzner:sshKeyNames[0]' your-hetzner-ssh-key-name
 pulumi config set --path 'fortressauth-hetzner:adminIpv4Cidrs[0]' 203.0.113.10/32
@@ -60,7 +62,7 @@ pulumi config set fortressauth-hetzner:dbServerType cpx31
 pulumi config set fortressauth-hetzner:enableAppDeploy true
 pulumi config set fortressauth-hetzner:dbName fortressauth
 pulumi config set fortressauth-hetzner:dbUser fortressauth
-pulumi config set --path 'fortressauth-hetzner:appEnv.CORS_ORIGINS' https://landing.example.com
+pulumi config set --path 'fortressauth-hetzner:appEnv.CORS_ORIGINS' 'https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com'
 pulumi config set --path 'fortressauth-hetzner:appEnv.EMAIL_PROVIDER' console
 pulumi config set --path --secret 'fortressauth-hetzner:appSecretEnv.SMTP_PASS' '<smtp-password>'
 ```
@@ -99,6 +101,8 @@ If you publish an `AAAA` record, point it to `appPublicIpv6`.
 - PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`).
 - For production-grade recovery (PITR/offsite), add WAL archiving to external object storage.
 - App deploys are performed by Pulumi over SSH whenever `appImage` changes.
+- `frontendBaseUrl` controls `BASE_URL` for email verification/reset links separately from the API hostname.
+- Cookie defaults now assume the recommended shared top-level domain topology and use `SameSite=lax`. Override with `fortressauth-hetzner:cookieSameSite` and `fortressauth-hetzner:csrfCookieSameSite` only if your frontend/API are on different top-level domains.
 
 ## GitHub Actions CD
 
