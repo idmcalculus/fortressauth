@@ -4,7 +4,8 @@ FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV CI=true
-RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
+ARG PNPM_VERSION=10.33.0
+RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /app
 
@@ -16,7 +17,7 @@ RUN apk add --no-cache python3 make g++
 
 COPY . .
 RUN pnpm install --frozen-lockfile
-RUN pnpm build
+RUN pnpm --filter @fortressauth/server... build
 
 # Stage 3: Deployer (Prepare the production bundle)
 # This stage isolates the specific app and its production deps
