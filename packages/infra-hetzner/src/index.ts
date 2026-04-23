@@ -42,6 +42,15 @@ function assertDatabaseTopology(value: string, name: string): DatabaseTopology {
   return value;
 }
 
+function assertHostnameLabel(value: string, name: string): string {
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(value)) {
+    throw new Error(
+      `Invalid ${name}. Use lowercase letters, numbers, or hyphens; it must start and end with an alphanumeric character and be 63 chars or fewer.`,
+    );
+  }
+  return value;
+}
+
 function normalizeBaseUrl(value: URL): string {
   return value.toString().replace(/\/$/, '');
 }
@@ -139,6 +148,17 @@ const databaseTopology = assertDatabaseTopology(
   'databaseTopology',
 );
 const postgresImage = config.get('postgresImage')?.trim() ?? 'postgres:16-alpine';
+const enableTailscale = config.getBoolean('enableTailscale') ?? false;
+const tailscaleAuthKey = config.getSecret('tailscaleAuthKey');
+const tailscaleControlUrl = config.get('tailscaleControlUrl')?.trim();
+const tailscaleAppHostname = assertHostnameLabel(
+  config.get('tailscaleAppHostname') ?? `${namePrefix}-app`,
+  'tailscaleAppHostname',
+);
+const tailscaleDbHostname = assertHostnameLabel(
+  config.get('tailscaleDbHostname') ?? `${namePrefix}-db`,
+  'tailscaleDbHostname',
+);
 const networkZone = config.get('networkZone') ?? 'eu-central';
 const networkCidr = config.get('networkCidr') ?? '10.20.0.0/16';
 const subnetCidr = config.get('subnetCidr') ?? '10.20.1.0/24';
@@ -147,6 +167,12 @@ const dbPrivateIp = config.get('dbPrivateIp') ?? '10.20.1.20';
 
 if (!postgresImage) {
   throw new Error('Invalid postgresImage config value.');
+}
+
+if (enableTailscale && !tailscaleAuthKey) {
+  throw new Error(
+    'Missing required secret config fortressauth-hetzner:tailscaleAuthKey while enableTailscale=true.',
+  );
 }
 
 const appDomain = config.require('appDomain').trim();
@@ -426,17 +452,18 @@ ${isCoLocatedDatabase ? '  postgres_data:\n' : ''}`;
     };
   });
 
-const appUserData = sshPublicKeys.apply((keys) => {
-  const allKeys = [...keys];
-  if (deploySshPublicKey) {
-    allKeys.push(deploySshPublicKey);
-  }
+const appUserData = enableTailscale
+  ? pulumi.all([sshPublicKeys, tailscaleAuthKey] as const).apply(([keys, authKey]) => {
+      const allKeys = [...keys];
+      if (deploySshPublicKey) {
+        allKeys.push(deploySshPublicKey);
+      }
 
-  const appPackageList = isCoLocatedDatabase
-    ? 'ca-certificates cron curl unattended-upgrades'
-    : 'ca-certificates curl unattended-upgrades';
-  const coLocatedBackupSetup = isCoLocatedDatabase
-    ? `
+      const appPackageList = isCoLocatedDatabase
+        ? 'ca-certificates cron curl unattended-upgrades'
+        : 'ca-certificates curl unattended-upgrades';
+      const coLocatedBackupSetup = isCoLocatedDatabase
+        ? `
 systemctl enable cron
 systemctl start cron
 
@@ -463,9 +490,84 @@ cat >/etc/cron.d/pg_daily_backup <<'CRON'
 CRON
 chmod 0644 /etc/cron.d/pg_daily_backup
 `
-    : '';
+        : '';
 
-  return `#!/bin/bash
+      return `#!/bin/bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get upgrade -y
+apt-get install -y ${appPackageList}
+
+useradd -m -s /bin/bash admin
+usermod -aG sudo admin
+echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+mkdir -p /home/admin/.ssh
+cat >> /home/admin/.ssh/authorized_keys <<'EOF'
+${allKeys.join('\n')}
+EOF
+chown -R admin:admin /home/admin/.ssh
+chmod 700 /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
+sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
+
+curl -fsSL https://get.docker.com | sh
+apt-get install -y docker-compose-plugin
+systemctl enable docker
+systemctl start docker
+usermod -aG docker admin
+curl -fsSL https://tailscale.com/install.sh | sh
+systemctl enable tailscaled
+systemctl start tailscaled
+tailscale up --auth-key='${authKey || ''}' --hostname='${tailscaleAppHostname}'${tailscaleControlUrl ? ` --login-server=${tailscaleControlUrl}` : ''}
+
+mkdir -p /opt/fortressauth
+${coLocatedBackupSetup}
+iptables -A OUTPUT -d 169.254.169.254 -j REJECT
+`;
+    })
+  : sshPublicKeys.apply((keys) => {
+      const allKeys = [...keys];
+      if (deploySshPublicKey) {
+        allKeys.push(deploySshPublicKey);
+      }
+
+      const appPackageList = isCoLocatedDatabase
+        ? 'ca-certificates cron curl unattended-upgrades'
+        : 'ca-certificates curl unattended-upgrades';
+      const coLocatedBackupSetup = isCoLocatedDatabase
+        ? `
+systemctl enable cron
+systemctl start cron
+
+mkdir -p /var/backups/postgresql
+cat >/usr/local/bin/pg_daily_backup.sh <<'BACKUP'
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/var/backups/postgresql"
+COMPOSE_FILE="/opt/fortressauth/docker-compose.yml"
+ENV_FILE="/opt/fortressauth/.env"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
+mkdir -p "$BACKUP_DIR"
+
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \\
+  pg_dump -U ${dbUser} -d ${dbName} -Fc >"\${BACKUP_DIR}/${dbName}_\${STAMP}.dump"
+find "\${BACKUP_DIR}" -type f -name "${dbName}_*.dump" -mtime +7 -delete
+BACKUP
+chmod 0700 /usr/local/bin/pg_daily_backup.sh
+
+cat >/etc/cron.d/pg_daily_backup <<'CRON'
+15 2 * * * root /usr/local/bin/pg_daily_backup.sh
+CRON
+chmod 0644 /etc/cron.d/pg_daily_backup
+`
+        : '';
+
+      return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -496,18 +598,119 @@ mkdir -p /opt/fortressauth
 ${coLocatedBackupSetup}
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-});
+    });
 
 const dbUserData = isCoLocatedDatabase
   ? undefined
-  : pulumi.all([dbPassword, sshPublicKeys] as const).apply(([password, keys]) => {
-      const allKeys = [...keys];
-      if (deploySshPublicKey) {
-        allKeys.push(deploySshPublicKey);
-      }
-      const escapedPassword = escapeSqlLiteral(password || '');
+  : enableTailscale
+    ? pulumi
+        .all([dbPassword, sshPublicKeys, tailscaleAuthKey] as const)
+        .apply(([password, keys, authKey]) => {
+          const allKeys = [...keys];
+          if (deploySshPublicKey) {
+            allKeys.push(deploySshPublicKey);
+          }
+          const escapedPassword = escapeSqlLiteral(password || '');
 
-      return `#!/bin/bash
+          return `#!/bin/bash
+set -euxo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get upgrade -y
+apt-get install -y postgresql postgresql-contrib unattended-upgrades
+
+useradd -m -s /bin/bash admin
+usermod -aG sudo admin
+echo "admin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/admin
+mkdir -p /home/admin/.ssh
+cat >> /home/admin/.ssh/authorized_keys <<'EOF'
+${allKeys.join('\n')}
+EOF
+chown -R admin:admin /home/admin/.ssh
+chmod 700 /home/admin/.ssh
+chmod 600 /home/admin/.ssh/authorized_keys
+sed -i 's/^#\\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
+
+curl -fsSL https://tailscale.com/install.sh | sh
+systemctl enable tailscaled
+systemctl start tailscaled
+tailscale up --auth-key='${authKey || ''}' --hostname='${tailscaleDbHostname}'${tailscaleControlUrl ? ` --login-server=${tailscaleControlUrl}` : ''}
+
+PG_VERSION="$(ls /etc/postgresql | sort -V | tail -n 1)"
+PG_CONF="/etc/postgresql/\${PG_VERSION}/main/postgresql.conf"
+PG_HBA="/etc/postgresql/\${PG_VERSION}/main/pg_hba.conf"
+
+if grep -q "^#listen_addresses" "$PG_CONF"; then
+  sed -i "s/^#listen_addresses =.*/listen_addresses = 'localhost,${dbPrivateIp}'/" "$PG_CONF"
+elif grep -q "^listen_addresses" "$PG_CONF"; then
+  sed -i "s/^listen_addresses =.*/listen_addresses = 'localhost,${dbPrivateIp}'/" "$PG_CONF"
+else
+  echo "listen_addresses = 'localhost,${dbPrivateIp}'" >>"$PG_CONF"
+fi
+
+if ! grep -q "^password_encryption = scram-sha-256" "$PG_CONF"; then
+  echo "password_encryption = scram-sha-256" >>"$PG_CONF"
+fi
+
+if ! grep -q "^ssl = on" "$PG_CONF"; then
+  echo "ssl = on" >> "$PG_CONF"
+fi
+
+if ! grep -q "hostssl ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" "$PG_HBA"; then
+  echo "hostssl ${dbName} ${dbUser} ${appPrivateIp}/32 scram-sha-256" >>"$PG_HBA"
+fi
+
+systemctl enable postgresql
+systemctl restart postgresql
+
+runuser -u postgres -- psql <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${dbUser}') THEN
+    CREATE ROLE ${dbUser} LOGIN PASSWORD '${escapedPassword}';
+  ELSE
+    ALTER ROLE ${dbUser} WITH LOGIN PASSWORD '${escapedPassword}';
+  END IF;
+END $$;
+SQL
+
+if ! runuser -u postgres -- psql -tAc "SELECT 1 FROM pg_database WHERE datname='${dbName}'" | grep -q 1; then
+  runuser -u postgres -- createdb --owner=${dbUser} ${dbName}
+fi
+
+runuser -u postgres -- psql -d ${dbName} -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+
+mkdir -p /var/backups/postgresql
+cat >/usr/local/bin/pg_daily_backup.sh <<'BACKUP'
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/var/backups/postgresql"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
+runuser -u postgres -- pg_dump -Fc ${dbName} >"\${BACKUP_DIR}/${dbName}_\${STAMP}.dump"
+find "\${BACKUP_DIR}" -type f -name "${dbName}_*.dump" -mtime +7 -delete
+BACKUP
+chmod 0700 /usr/local/bin/pg_daily_backup.sh
+
+cat >/etc/cron.d/pg_daily_backup <<'CRON'
+15 2 * * * root /usr/local/bin/pg_daily_backup.sh
+CRON
+chmod 0644 /etc/cron.d/pg_daily_backup
+
+iptables -A OUTPUT -d 169.254.169.254 -j REJECT
+`;
+        })
+    : pulumi.all([dbPassword, sshPublicKeys] as const).apply(([password, keys]) => {
+        const allKeys = [...keys];
+        if (deploySshPublicKey) {
+          allKeys.push(deploySshPublicKey);
+        }
+        const escapedPassword = escapeSqlLiteral(password || '');
+
+        return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -592,7 +795,7 @@ chmod 0644 /etc/cron.d/pg_daily_backup
 
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-    });
+      });
 
 const appServer = new hcloud.Server(
   'appServer',
@@ -756,7 +959,20 @@ export const appPrivateAddress = appPrivateIp;
 export const dbPrivateAddress = activeDbPrivateAddress;
 export const dbServerId = dbServer ? dbServer.id : pulumi.output('co-located');
 export const sshApp = pulumi.interpolate`ssh admin@${appServer.ipv4Address}`;
+export const sshAppTailscale = enableTailscale
+  ? pulumi.output(`ssh admin@${tailscaleAppHostname}`)
+  : pulumi.output('disabled');
 export const sshDbViaApp = isCoLocatedDatabase
   ? pulumi.interpolate`ssh admin@${appServer.ipv4Address} -t 'cd /opt/fortressauth && sudo docker compose exec postgres psql -U ${dbUser} -d ${dbName}'`
   : pulumi.interpolate`ssh -J admin@${appServer.ipv4Address} admin@${dbPrivateIp}`;
+export const sshDbTailscale = enableTailscale
+  ? pulumi.output(`ssh admin@${isCoLocatedDatabase ? tailscaleAppHostname : tailscaleDbHostname}`)
+  : pulumi.output('disabled');
+export const tailscaleEnabled = pulumi.output(enableTailscale);
+export const tailscaleAppHostnameOutput = enableTailscale
+  ? pulumi.output(tailscaleAppHostname)
+  : pulumi.output('disabled');
+export const tailscaleDbHostnameOutput = enableTailscale
+  ? pulumi.output(isCoLocatedDatabase ? tailscaleAppHostname : tailscaleDbHostname)
+  : pulumi.output('disabled');
 export const databaseUrlTemplate = databaseUrlTemplateValue;

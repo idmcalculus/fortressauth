@@ -19,6 +19,7 @@ Pulumi stack to provision:
 - PostgreSQL password
 - Optional server env overrides (`appEnv`, `appSecretEnv`)
 - SSH private key for remote app deploy updates (`deploySshPrivateKey`)
+- Optional Tailscale auth key for private admin access (`tailscaleAuthKey`)
 
 ## Files
 
@@ -61,12 +62,16 @@ pulumi config set fortressauth-hetzner:appServerType cpx21
 pulumi config set fortressauth-hetzner:dbServerType cpx31
 pulumi config set fortressauth-hetzner:databaseTopology dedicated-vm
 pulumi config set fortressauth-hetzner:postgresImage postgres:16-alpine
+pulumi config set fortressauth-hetzner:enableTailscale false
+pulumi config set fortressauth-hetzner:tailscaleAppHostname fortressauth-dev-app
+pulumi config set fortressauth-hetzner:tailscaleDbHostname fortressauth-dev-db
 pulumi config set fortressauth-hetzner:enableAppDeploy true
 pulumi config set fortressauth-hetzner:dbName fortressauth
 pulumi config set fortressauth-hetzner:dbUser fortressauth
 pulumi config set --path 'fortressauth-hetzner:appEnv.CORS_ORIGINS' 'https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com'
 pulumi config set --path 'fortressauth-hetzner:appEnv.EMAIL_PROVIDER' console
 pulumi config set --path --secret 'fortressauth-hetzner:appSecretEnv.SMTP_PASS' '<smtp-password>'
+pulumi config set fortressauth-hetzner:tailscaleAuthKey --secret '<tailscale-auth-key>'
 ```
 
 Update a single env value later:
@@ -82,6 +87,37 @@ pulumi config set --path 'fortressauth-hetzner:appEnv.EMAIL_PROVIDER' ses
 - `fortressauth-hetzner:postgresImage` controls the PostgreSQL image in `co-located-container` mode and defaults to `postgres:16-alpine`.
 - In `co-located-container` mode, PostgreSQL stores data in the named Docker volume `postgres_data`, initializes `pgcrypto` on first boot, and writes daily local `pg_dump -Fc` backups on the app VM, retaining 7 days in `/var/backups/postgresql`.
 - Outputs stay stable across modes: `dbServerId` becomes `co-located` in single-node mode, `databaseUrlTemplate` reflects the active topology, and `sshDbViaApp` becomes an app-VM command pattern for `docker compose exec postgres psql`.
+
+## Tailscale Admin Access
+
+- Set `fortressauth-hetzner:enableTailscale=true` to install Tailscale during server bootstrap and join the node to your tailnet with `fortressauth-hetzner:tailscaleAuthKey`.
+- `fortressauth-hetzner:tailscaleAppHostname` defaults to `${namePrefix}-app`; `fortressauth-hetzner:tailscaleDbHostname` defaults to `${namePrefix}-db`.
+- When enabled, stack outputs `sshAppTailscale`, `sshDbTailscale`, `tailscaleAppHostnameOutput`, and `tailscaleDbHostnameOutput` provide the preferred admin endpoints.
+- This package currently keeps public SSH/firewall behavior unchanged so existing `pulumi up` and GitHub Actions deploys continue to work. Use Tailscale for day-to-day admin SSH, but keep at least one break-glass public SSH path until the deploy workflow is also moved onto the tailnet.
+- If you use a self-hosted control plane such as Headscale, set `fortressauth-hetzner:tailscaleControlUrl` as well.
+
+Example Tailscale-enabled single-node config:
+
+```bash
+pulumi config set fortressauth-hetzner:databaseTopology co-located-container
+pulumi config set fortressauth-hetzner:appServerType cx23
+pulumi config set fortressauth-hetzner:enableBackups true
+pulumi config set fortressauth-hetzner:enableTailscale true
+pulumi config set fortressauth-hetzner:tailscaleAppHostname fortressauth-app
+pulumi config set fortressauth-hetzner:tailscaleAuthKey --secret '<tailscale-auth-key>'
+```
+
+After deployment, your local SSH config can point at the MagicDNS hostname from the stack output:
+
+```sshconfig
+Host fortressauth-app
+  Hostname fortressauth-app
+  User admin
+  IdentityFile ~/.ssh/fortressauth_deploy_ci
+  IdentitiesOnly yes
+```
+
+If Tailscale shows a suffixed hostname such as `fortressauth-app-1`, that usually means an older offline node still exists with the original name. Remove the stale node in the Tailscale admin console, then run `sudo tailscale set --hostname=fortressauth-app` on the VM to reclaim the unsuffixed hostname.
 
 ## Recommended Low-Cost Single-Node Config
 
@@ -120,6 +156,7 @@ If you publish an `AAAA` record, point it to `appPublicIpv6`.
 
 - DB is private-only in `dedicated-vm` mode and co-located on the app VM in `co-located-container` mode.
 - Use output `sshDbViaApp` for the active access pattern. In single-node mode it resolves to an app-VM command that opens `psql` inside the PostgreSQL container.
+- If Tailscale is enabled, prefer `sshAppTailscale` and `sshDbTailscale` for admin access.
 - Hetzner server backups can be enabled with `enableBackups=true` (default).
 - Server delete/rebuild protection defaults to `true` only for `prod`/`production` stacks; non-production stacks default to `false` so replacements do not require a manual protection toggle. Override with `fortressauth-hetzner:protectServers` if needed.
 - PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`) on the db VM in `dedicated-vm` mode and on the app VM in `co-located-container` mode.
