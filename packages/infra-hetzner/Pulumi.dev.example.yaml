@@ -8,8 +8,14 @@ config:
   fortressauth-hetzner:subnetCidr: 10.20.1.0/24
   fortressauth-hetzner:appPrivateIp: 10.20.1.10
   fortressauth-hetzner:dbPrivateIp: 10.20.1.20
+  fortressauth-hetzner:databaseTopology: dedicated-vm
+  fortressauth-hetzner:postgresImage: postgres:16-alpine
   fortressauth-hetzner:appServerType: cpx21
   fortressauth-hetzner:dbServerType: cpx31
+  # Recommended low-cost single-node switch after a verified dump and reviewed preview:
+  # fortressauth-hetzner:databaseTopology: co-located-container
+  # fortressauth-hetzner:appServerType: cx23
+  # fortressauth-hetzner:enableBackups: true
   fortressauth-hetzner:protectServers: false
   fortressauth-hetzner:appDomain: api.example.com
   fortressauth-hetzner:frontendBaseUrl: https://fortressauth.com

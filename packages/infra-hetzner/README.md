@@ -2,10 +2,10 @@
 
 Pulumi stack to provision:
 
-- `app` VM (Docker + Caddy + FortressAuth server image)
-- `db` VM (PostgreSQL, private-only)
+- default `dedicated-vm` topology: `app` VM (Docker + Caddy + FortressAuth server image) plus private `db` VM (PostgreSQL)
+- optional `co-located-container` topology: a single `app` VM running FortressAuth, Caddy, and PostgreSQL in Docker Compose
 - private network/subnet
-- app and db firewalls
+- app firewall in all modes, plus db firewall in `dedicated-vm`
 - spread placement group
 
 ## What You Need
@@ -59,6 +59,8 @@ Optional secrets and config:
 pulumi config set fortressauth-hetzner:location nbg1
 pulumi config set fortressauth-hetzner:appServerType cpx21
 pulumi config set fortressauth-hetzner:dbServerType cpx31
+pulumi config set fortressauth-hetzner:databaseTopology dedicated-vm
+pulumi config set fortressauth-hetzner:postgresImage postgres:16-alpine
 pulumi config set fortressauth-hetzner:enableAppDeploy true
 pulumi config set fortressauth-hetzner:dbName fortressauth
 pulumi config set fortressauth-hetzner:dbUser fortressauth
@@ -73,17 +75,39 @@ Update a single env value later:
 pulumi config set --path 'fortressauth-hetzner:appEnv.EMAIL_PROVIDER' ses
 ```
 
+## Database Topologies
 
-Preview + apply:
+- `dedicated-vm` is the default and preserves the existing split-VM layout. Existing stacks do not change until `fortressauth-hetzner:databaseTopology` is explicitly switched.
+- `co-located-container` skips the db VM and db firewall, sets `DATABASE_URL=postgresql://<dbUser>:<dbPassword>@postgres:5432/<dbName>?sslmode=disable`, and runs PostgreSQL in Docker Compose on the app VM.
+- `fortressauth-hetzner:postgresImage` controls the PostgreSQL image in `co-located-container` mode and defaults to `postgres:16-alpine`.
+- In `co-located-container` mode, PostgreSQL stores data in the named Docker volume `postgres_data`, initializes `pgcrypto` on first boot, and writes daily local `pg_dump -Fc` backups on the app VM, retaining 7 days in `/var/backups/postgresql`.
+- Outputs stay stable across modes: `dbServerId` becomes `co-located` in single-node mode, `databaseUrlTemplate` reflects the active topology, and `sshDbViaApp` becomes an app-VM command pattern for `docker compose exec postgres psql`.
+
+## Recommended Low-Cost Single-Node Config
+
+For low-traffic deployments that still want an always-on VM and the existing Docker/Pulumi flow:
 
 ```bash
-pulumi preview
-pulumi up
+pulumi config set fortressauth-hetzner:databaseTopology co-located-container
+pulumi config set fortressauth-hetzner:appServerType cx23
+pulumi config set fortressauth-hetzner:enableBackups true
 ```
 
-Destroy:
+Keep Redis disabled unless you scale to multiple app instances. Resend and the rest of the application env stay unchanged.
+
+
+Preview first:
 
 ```bash
+pulumi preview --diff
+```
+
+`pulumi up` and `pulumi destroy` make destructive or billable infrastructure changes. Do not run them until the preview has been reviewed and explicitly approved.
+
+Apply or destroy only when approved:
+
+```bash
+pulumi up
 pulumi destroy
 ```
 
@@ -94,15 +118,62 @@ If you publish an `AAAA` record, point it to `appPublicIpv6`.
 
 ## Notes
 
-- DB is private-only (no public IPv4/IPv6).
-- Access DB host using jump host output: `sshDbViaApp`.
+- DB is private-only in `dedicated-vm` mode and co-located on the app VM in `co-located-container` mode.
+- Use output `sshDbViaApp` for the active access pattern. In single-node mode it resolves to an app-VM command that opens `psql` inside the PostgreSQL container.
 - Hetzner server backups can be enabled with `enableBackups=true` (default).
 - Server delete/rebuild protection defaults to `true` only for `prod`/`production` stacks; non-production stacks default to `false` so replacements do not require a manual protection toggle. Override with `fortressauth-hetzner:protectServers` if needed.
-- PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`).
+- PostgreSQL includes a daily local `pg_dump` backup job (`/usr/local/bin/pg_daily_backup.sh`) on the db VM in `dedicated-vm` mode and on the app VM in `co-located-container` mode.
 - For production-grade recovery (PITR/offsite), add WAL archiving to external object storage.
 - App deploys are performed by Pulumi over SSH whenever `appImage` changes.
 - `frontendBaseUrl` controls `BASE_URL` for email verification/reset links separately from the API hostname.
 - Cookie defaults now assume the recommended shared top-level domain topology and use `SameSite=lax`. Override with `fortressauth-hetzner:cookieSameSite` and `fortressauth-hetzner:csrfCookieSameSite` only if your frontend/API are on different top-level domains.
+
+## Dedicated-To-Co-Located Cutover Runbook
+
+1. Merge the code/docs change while the live stack stays on `dedicated-vm`.
+2. On the current db VM, create and verify a dump before changing topology:
+
+```bash
+ssh admin@<db-vm>
+sudo /usr/local/bin/pg_daily_backup.sh
+sudo ls -lh /var/backups/postgresql/fortressauth_*.dump
+```
+
+3. Copy the newest dump off the db VM and verify it is non-empty:
+
+```bash
+scp admin@<db-vm>:/var/backups/postgresql/fortressauth_<timestamp>.dump .
+test -s fortressauth_<timestamp>.dump
+```
+
+4. Change the stack config:
+
+```bash
+pulumi config set fortressauth-hetzner:databaseTopology co-located-container
+pulumi config set fortressauth-hetzner:appServerType cx23
+pulumi config set fortressauth-hetzner:enableBackups true
+```
+
+5. Run `pulumi preview --diff`. The expected paid-resource reduction is removal of the db VM and db firewall. Do not apply the change unless that preview is explicitly approved.
+6. After an approved `pulumi up`, copy the dump to the app VM, stop the app container, restore into the co-located PostgreSQL container, then start the app again:
+
+```bash
+scp fortressauth_<timestamp>.dump admin@<app-vm>:/tmp/
+ssh admin@<app-vm>
+cd /opt/fortressauth
+sudo docker compose stop app
+sudo docker compose exec -T postgres sh -lc 'pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"' </tmp/fortressauth_<timestamp>.dump
+sudo docker compose start app
+```
+
+7. Verify the deployment:
+
+```bash
+curl -fsS https://api.fortressauth.com/health
+curl -fsS https://api.fortressauth.com/openapi.json
+```
+
+Also verify at least one auth flow or an existing-user lookup and confirm the migrated user/session tables exist in PostgreSQL.
 
 ## GitHub Actions CD
 

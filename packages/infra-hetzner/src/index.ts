@@ -33,6 +33,15 @@ function assertSameSite(value: string, name: string): 'strict' | 'lax' | 'none' 
   return value;
 }
 
+type DatabaseTopology = 'dedicated-vm' | 'co-located-container';
+
+function assertDatabaseTopology(value: string, name: string): DatabaseTopology {
+  if (value !== 'dedicated-vm' && value !== 'co-located-container') {
+    throw new Error(`Invalid ${name}. Expected one of: dedicated-vm, co-located-container.`);
+  }
+  return value;
+}
+
 function normalizeBaseUrl(value: URL): string {
   return value.toString().replace(/\/$/, '');
 }
@@ -125,11 +134,20 @@ const location = config.get('location') ?? 'nbg1';
 const image = config.get('image') ?? 'ubuntu-24.04';
 const appServerType = config.get('appServerType') ?? 'cpx21';
 const dbServerType = config.get('dbServerType') ?? 'cpx31';
+const databaseTopology = assertDatabaseTopology(
+  config.get('databaseTopology') ?? 'dedicated-vm',
+  'databaseTopology',
+);
+const postgresImage = config.get('postgresImage')?.trim() ?? 'postgres:16-alpine';
 const networkZone = config.get('networkZone') ?? 'eu-central';
 const networkCidr = config.get('networkCidr') ?? '10.20.0.0/16';
 const subnetCidr = config.get('subnetCidr') ?? '10.20.1.0/24';
 const appPrivateIp = config.get('appPrivateIp') ?? '10.20.1.10';
 const dbPrivateIp = config.get('dbPrivateIp') ?? '10.20.1.20';
+
+if (!postgresImage) {
+  throw new Error('Invalid postgresImage config value.');
+}
 
 const appDomain = config.require('appDomain').trim();
 if (!appDomain || appDomain.includes(' ')) {
@@ -194,6 +212,11 @@ const appEnv = assertEnvRecord(config.getObject<unknown>('appEnv') ?? {}, 'appEn
 const appSecretEnv = (config.getSecretObject<unknown>('appSecretEnv') ?? pulumi.secret({})).apply(
   (value) => assertEnvRecord(value ?? {}, 'appSecretEnv'),
 );
+const isCoLocatedDatabase = databaseTopology === 'co-located-container';
+const activeDbPrivateAddress = isCoLocatedDatabase ? appPrivateIp : dbPrivateIp;
+const databaseHost = isCoLocatedDatabase ? 'postgres' : dbPrivateIp;
+const databaseSslMode = isCoLocatedDatabase ? 'disable' : 'no-verify';
+const databaseUrlTemplateValue = `postgresql://${dbUser}:<db-password>@${databaseHost}:5432/${dbName}?sslmode=${databaseSslMode}`;
 
 const enableBackups = config.getBoolean('enableBackups') ?? true;
 const defaultProtectServers = /^(prod|production)$/i.test(stack);
@@ -261,30 +284,32 @@ const appFirewall = new hcloud.Firewall('appFirewall', {
   ],
 });
 
-const dbFirewall = new hcloud.Firewall('dbFirewall', {
-  name: `${namePrefix}-db-fw`,
-  labels: {
-    ...commonLabels,
-    role: 'db',
-  },
-  rules: [
-    {
-      direction: 'in',
-      protocol: 'tcp',
-      port: '22',
-      sourceIps: adminSourceCidrs,
-    },
-    {
-      direction: 'in',
-      protocol: 'tcp',
-      port: '5432',
-      sourceIps: [`${appPrivateIp}/32`],
-    },
-  ],
-});
+const dbFirewall = isCoLocatedDatabase
+  ? undefined
+  : new hcloud.Firewall('dbFirewall', {
+      name: `${namePrefix}-db-fw`,
+      labels: {
+        ...commonLabels,
+        role: 'db',
+      },
+      rules: [
+        {
+          direction: 'in',
+          protocol: 'tcp',
+          port: '22',
+          sourceIps: adminSourceCidrs,
+        },
+        {
+          direction: 'in',
+          protocol: 'tcp',
+          port: '5432',
+          sourceIps: [`${appPrivateIp}/32`],
+        },
+      ],
+    });
 
 const appFirewallId = appFirewall.id.apply(parseHcloudId);
-const dbFirewallId = dbFirewall.id.apply(parseHcloudId);
+const dbFirewallId = dbFirewall ? dbFirewall.id.apply(parseHcloudId) : undefined;
 const sshPublicKeys = pulumi.all(
   sshKeyNames.map((name) => hcloud.getSshKeyOutput({ name }).publicKey),
 );
@@ -293,7 +318,7 @@ const appRuntimeFiles = pulumi
   .all([dbPassword, appSecretEnv] as const)
   .apply(([password, secretEnv]) => {
     const encodedPassword = encodeURIComponent(password || '');
-    const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${dbPrivateIp}:5432/${dbName}?sslmode=no-verify`;
+    const databaseUrl = `postgresql://${dbUser}:${encodedPassword}@${databaseHost}:5432/${dbName}?sslmode=${databaseSslMode}`;
 
     const defaultEnvEntries: [string, string][] = [
       ['NODE_ENV', 'production'],
@@ -308,6 +333,13 @@ const appRuntimeFiles = pulumi
       ['CSRF_COOKIE_SAMESITE', csrfCookieSameSite],
       ['METRICS_ENABLED', 'true'],
       ['LOG_LEVEL', 'info'],
+      ...(isCoLocatedDatabase
+        ? ([
+            ['POSTGRES_DB', dbName],
+            ['POSTGRES_USER', dbUser],
+            ['POSTGRES_PASSWORD', password || ''],
+          ] as [string, string][])
+        : []),
     ];
 
     const envContent = mergeEnvEntries(defaultEnvEntries, appEnv, secretEnv || {});
@@ -333,12 +365,35 @@ const appRuntimeFiles = pulumi
       - no-new-privileges:true
     cap_drop:
       - ALL
-    env_file:
+${isCoLocatedDatabase ? '    depends_on:\n      postgres:\n        condition: service_healthy\n' : ''}    env_file:
       - /opt/fortressauth/.env
     networks:
       - internal
 
-  caddy:
+${
+  isCoLocatedDatabase
+    ? `  postgres:
+    image: ${postgresImage}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: \${POSTGRES_DB}
+      POSTGRES_USER: \${POSTGRES_USER}
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /opt/fortressauth/initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - internal
+
+`
+    : ''
+}  caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
     depends_on:
@@ -359,12 +414,15 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
-`;
+${isCoLocatedDatabase ? '  postgres_data:\n' : ''}`;
 
     return {
       caddyfileContent,
       composeFileContent,
       envContent,
+      pullServices: isCoLocatedDatabase ? 'postgres app' : 'app',
+      managedServices: isCoLocatedDatabase ? 'postgres app caddy' : 'app caddy',
+      postgresInitSqlContent: 'CREATE EXTENSION IF NOT EXISTS pgcrypto;',
     };
   });
 
@@ -374,13 +432,46 @@ const appUserData = sshPublicKeys.apply((keys) => {
     allKeys.push(deploySshPublicKey);
   }
 
+  const appPackageList = isCoLocatedDatabase
+    ? 'ca-certificates cron curl unattended-upgrades'
+    : 'ca-certificates curl unattended-upgrades';
+  const coLocatedBackupSetup = isCoLocatedDatabase
+    ? `
+systemctl enable cron
+systemctl start cron
+
+mkdir -p /var/backups/postgresql
+cat >/usr/local/bin/pg_daily_backup.sh <<'BACKUP'
+#!/bin/bash
+set -euo pipefail
+
+BACKUP_DIR="/var/backups/postgresql"
+COMPOSE_FILE="/opt/fortressauth/docker-compose.yml"
+ENV_FILE="/opt/fortressauth/.env"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+
+mkdir -p "$BACKUP_DIR"
+
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T postgres \\
+  pg_dump -U ${dbUser} -d ${dbName} -Fc >"\${BACKUP_DIR}/${dbName}_\${STAMP}.dump"
+find "\${BACKUP_DIR}" -type f -name "${dbName}_*.dump" -mtime +7 -delete
+BACKUP
+chmod 0700 /usr/local/bin/pg_daily_backup.sh
+
+cat >/etc/cron.d/pg_daily_backup <<'CRON'
+15 2 * * * root /usr/local/bin/pg_daily_backup.sh
+CRON
+chmod 0644 /etc/cron.d/pg_daily_backup
+`
+    : '';
+
   return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get upgrade -y
-apt-get install -y ca-certificates curl unattended-upgrades
+apt-get install -y ${appPackageList}
 
 useradd -m -s /bin/bash admin
 usermod -aG sudo admin
@@ -402,19 +493,21 @@ systemctl start docker
 usermod -aG docker admin
 
 mkdir -p /opt/fortressauth
-
+${coLocatedBackupSetup}
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
 });
 
-const dbUserData = pulumi.all([dbPassword, sshPublicKeys] as const).apply(([password, keys]) => {
-  const allKeys = [...keys];
-  if (deploySshPublicKey) {
-    allKeys.push(deploySshPublicKey);
-  }
-  const escapedPassword = escapeSqlLiteral(password || '');
+const dbUserData = isCoLocatedDatabase
+  ? undefined
+  : pulumi.all([dbPassword, sshPublicKeys] as const).apply(([password, keys]) => {
+      const allKeys = [...keys];
+      if (deploySshPublicKey) {
+        allKeys.push(deploySshPublicKey);
+      }
+      const escapedPassword = escapeSqlLiteral(password || '');
 
-  return `#!/bin/bash
+      return `#!/bin/bash
 set -euxo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
@@ -499,7 +592,7 @@ chmod 0644 /etc/cron.d/pg_daily_backup
 
 iptables -A OUTPUT -d 169.254.169.254 -j REJECT
 `;
-});
+    });
 
 const appServer = new hcloud.Server(
   'appServer',
@@ -535,39 +628,42 @@ const appServer = new hcloud.Server(
   { dependsOn: [privateSubnet] },
 );
 
-const dbServer = new hcloud.Server(
-  'dbServer',
-  {
-    name: `${namePrefix}-db`,
-    image,
-    serverType: dbServerType,
-    location,
-    sshKeys: sshKeyNames,
-    backups: enableBackups,
-    deleteProtection: protectServers,
-    rebuildProtection: protectServers,
-    placementGroupId: spreadPlacementGroupId,
-    firewallIds: [dbFirewallId],
-    publicNets: [
-      {
-        ipv4Enabled: true,
-        ipv6Enabled: true,
-      },
-    ],
-    networks: [
-      {
-        networkId: privateNetworkId,
-        ip: dbPrivateIp,
-      },
-    ],
-    userData: dbUserData,
-    labels: {
-      ...commonLabels,
-      role: 'db',
-    },
-  },
-  { dependsOn: [privateSubnet] },
-);
+const dbServer =
+  !isCoLocatedDatabase && dbUserData
+    ? new hcloud.Server(
+        'dbServer',
+        {
+          name: `${namePrefix}-db`,
+          image,
+          serverType: dbServerType,
+          location,
+          sshKeys: sshKeyNames,
+          backups: enableBackups,
+          deleteProtection: protectServers,
+          rebuildProtection: protectServers,
+          placementGroupId: spreadPlacementGroupId,
+          firewallIds: dbFirewallId ? [dbFirewallId] : [],
+          publicNets: [
+            {
+              ipv4Enabled: true,
+              ipv6Enabled: true,
+            },
+          ],
+          networks: [
+            {
+              networkId: privateNetworkId,
+              ip: dbPrivateIp,
+            },
+          ],
+          userData: dbUserData,
+          labels: {
+            ...commonLabels,
+            role: 'db',
+          },
+        },
+        { dependsOn: [privateSubnet] },
+      )
+    : undefined;
 
 if (enableAppDeploy) {
   if (!deploySshPrivateKey) {
@@ -587,13 +683,23 @@ if (enableAppDeploy) {
   };
 
   const deployScript = appRuntimeFiles.apply(
-    ({ caddyfileContent, composeFileContent, envContent }) => `set -euo pipefail
+    ({
+      caddyfileContent,
+      composeFileContent,
+      envContent,
+      managedServices,
+      postgresInitSqlContent,
+      pullServices,
+    }) => `set -euo pipefail
 
 ENV_FILE="/opt/fortressauth/.env"
 COMPOSE_FILE="/opt/fortressauth/docker-compose.yml"
 CADDY_FILE="/opt/fortressauth/Caddyfile"
+INITDB_DIR="/opt/fortressauth/initdb"
+PGCRYPTO_SQL="$INITDB_DIR/001-pgcrypto.sql"
 
 sudo mkdir -p /opt/fortressauth
+${isCoLocatedDatabase ? 'sudo mkdir -p "$INITDB_DIR"\n' : ''}
 
 cat <<'ENVFILE' | sudo tee "$ENV_FILE" >/dev/null
 ${envContent}
@@ -607,15 +713,27 @@ CADDYFILE
 cat <<'COMPOSE' | sudo tee "$COMPOSE_FILE" >/dev/null
 ${composeFileContent}
 COMPOSE
+${
+  isCoLocatedDatabase
+    ? `cat <<'PGCRYPTO' | sudo tee "$PGCRYPTO_SQL" >/dev/null
+${postgresInitSqlContent}
+PGCRYPTO
+sudo chmod 0644 "$PGCRYPTO_SQL"
+`
+    : ''
+}
 
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull app
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recreate app caddy
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps app caddy
-sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 app caddy
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull ${pullServices}
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --force-recreate ${managedServices}
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps ${managedServices}
+sudo docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 ${managedServices}
 
 curl -fsS --retry 10 --retry-all-errors --retry-delay 3 -H "Host: ${appDomain}" http://127.0.0.1/health >/dev/null`,
   );
   const deployScriptWithBootstrapWait = pulumi.interpolate`cloud-init status --wait\n\n${deployScript}`;
+  const deployDependencies: pulumi.Resource[] = dbServer
+    ? [appFirewall, appServer, dbServer]
+    : [appFirewall, appServer];
 
   new command.remote.Command(
     'deployApp',
@@ -627,7 +745,7 @@ curl -fsS --retry 10 --retry-all-errors --retry-delay 3 -H "Host: ${appDomain}" 
       // Keep the remote command idempotent; a new image digest is the only redeploy trigger.
       triggers: [appImage],
     },
-    { dependsOn: [appFirewall, appServer, dbServer] },
+    { dependsOn: deployDependencies },
   );
 }
 
@@ -635,8 +753,10 @@ export const appUrl = pulumi.interpolate`https://${appDomain}`;
 export const appPublicIpv4 = appServer.ipv4Address;
 export const appPublicIpv6 = appServer.ipv6Address;
 export const appPrivateAddress = appPrivateIp;
-export const dbPrivateAddress = dbPrivateIp;
-export const dbServerId = dbServer.id;
+export const dbPrivateAddress = activeDbPrivateAddress;
+export const dbServerId = dbServer ? dbServer.id : pulumi.output('co-located');
 export const sshApp = pulumi.interpolate`ssh admin@${appServer.ipv4Address}`;
-export const sshDbViaApp = pulumi.interpolate`ssh -J admin@${appServer.ipv4Address} admin@${dbPrivateIp}`;
-export const databaseUrlTemplate = `postgresql://${dbUser}:<db-password>@${dbPrivateIp}:5432/${dbName}?sslmode=no-verify`;
+export const sshDbViaApp = isCoLocatedDatabase
+  ? pulumi.interpolate`ssh admin@${appServer.ipv4Address} -t 'cd /opt/fortressauth && sudo docker compose exec postgres psql -U ${dbUser} -d ${dbName}'`
+  : pulumi.interpolate`ssh -J admin@${appServer.ipv4Address} admin@${dbPrivateIp}`;
+export const databaseUrlTemplate = databaseUrlTemplateValue;
