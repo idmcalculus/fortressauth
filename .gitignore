@@ -168,3 +168,7 @@ cookies.txt
 
 # Generated example runtime config
 examples/web-angular/src/assets/runtime-config.js
+
+# Local Pulumi stack settings
+packages/infra-hetzner/Pulumi.*.yaml
+!packages/infra-hetzner/Pulumi.dev.example.yaml

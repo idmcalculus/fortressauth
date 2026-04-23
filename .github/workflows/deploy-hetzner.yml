@@ -49,6 +49,7 @@ jobs:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
           PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_STACK_SETTINGS_B64: ${{ secrets.PULUMI_STACK_SETTINGS_B64 }}
           HETZNER_DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.HETZNER_DEPLOY_SSH_PRIVATE_KEY }}
         run: |
           set -euo pipefail
@@ -60,6 +61,11 @@ jobs:
 
           if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
             echo "Missing environment secret PULUMI_ACCESS_TOKEN." >&2
+            exit 1
+          fi
+
+          if [ -z "${PULUMI_STACK_SETTINGS_B64:-}" ]; then
+            echo "Missing environment secret PULUMI_STACK_SETTINGS_B64." >&2
             exit 1
           fi
 
@@ -115,6 +121,21 @@ jobs:
 
       - name: Set up Pulumi
         uses: pulumi/actions@v6
+
+      - name: Write stack settings file
+        working-directory: packages/infra-hetzner
+        env:
+          PULUMI_STACK_SETTINGS_B64: ${{ secrets.PULUMI_STACK_SETTINGS_B64 }}
+          PULUMI_STACK: ${{ vars.PULUMI_STACK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STACK_NAME="${PULUMI_STACK##*/}"
+          STACK_SETTINGS_FILE="Pulumi.${STACK_NAME}.yaml"
+
+          printf '%s' "${PULUMI_STACK_SETTINGS_B64}" | base64 --decode > "${STACK_SETTINGS_FILE}"
+          chmod 600 "${STACK_SETTINGS_FILE}"
 
       - name: Detect runner public IPv4
         id: runner_ip

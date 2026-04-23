@@ -25,6 +25,7 @@ Pulumi stack to provision:
 
 - `Pulumi.yaml` - Pulumi project definition
 - `Pulumi.dev.example.yaml` - stack config template
+- `Pulumi.<stack>.yaml` - local stack settings file, ignored from git
 - `src/index.ts` - infrastructure and bootstrap logic
 
 ## Bootstrap
@@ -34,6 +35,7 @@ cd /Users/idmcalculus/Downloads/fortressauth/packages/infra-hetzner
 pnpm install
 pulumi login
 pulumi stack init dev
+cp Pulumi.dev.example.yaml Pulumi.dev.yaml
 ```
 
 Set secrets and config:
@@ -73,6 +75,17 @@ pulumi config set --path 'fortressauth-hetzner:appEnv.EMAIL_PROVIDER' console
 pulumi config set --path --secret 'fortressauth-hetzner:appSecretEnv.SMTP_PASS' '<smtp-password>'
 pulumi config set fortressauth-hetzner:tailscaleAuthKey --secret '<tailscale-auth-key>'
 ```
+
+Local stack settings files such as `Pulumi.dev.yaml` are ignored from git. Keep them local, and sync the current stack settings into the GitHub environment secret `PULUMI_STACK_SETTINGS_B64` whenever CI/CD should use the updated stack config.
+
+Example sync command:
+
+```bash
+cd /Users/idmcalculus/Downloads/fortressauth/packages/infra-hetzner
+base64 < Pulumi.dev.yaml | tr -d '\n'
+```
+
+Copy that output into the GitHub environment secret `PULUMI_STACK_SETTINGS_B64` for the Hetzner deployment environment.
 
 Update a single env value later:
 
@@ -229,8 +242,16 @@ Required repository secrets:
 - `DOCKER_USERNAME`
 - `DOCKER_PASSWORD`
 - `PULUMI_ACCESS_TOKEN`
+- `PULUMI_STACK_SETTINGS_B64` (base64-encoded contents of the local `Pulumi.<stack>.yaml` file)
 - `HETZNER_DEPLOY_SSH_PRIVATE_KEY` (private key matching a configured admin SSH key)
 
 Required repository variable:
 
 - `PULUMI_STACK` (example: `idmcalculus/fortressauth-hetzner/dev`)
+
+Deployment process going forward:
+
+1. Update local stack config with `pulumi config set ...` in `packages/infra-hetzner`.
+2. Refresh the GitHub environment secret `PULUMI_STACK_SETTINGS_B64` from the current local `Pulumi.<stack>.yaml`.
+3. Push code to `main` or trigger `workflow_dispatch`.
+4. GitHub Actions writes the stack settings file at runtime, sets the deploy image and SSH key overrides, runs `pulumi preview --diff`, then `pulumi up`.
