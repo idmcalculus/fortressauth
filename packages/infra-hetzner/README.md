@@ -82,7 +82,7 @@ Example sync command:
 
 ```bash
 cd /Users/idmcalculus/Downloads/fortressauth/packages/infra-hetzner
-base64 < Pulumi.dev.yaml | tr -d '\n'
+base64 < Pulumi.dev.yaml | tr -d '\n'; echo
 ```
 
 Copy that output into the GitHub environment secret `PULUMI_STACK_SETTINGS_B64` for the Hetzner deployment environment.

@@ -134,7 +134,7 @@ jobs:
           STACK_NAME="${PULUMI_STACK##*/}"
           STACK_SETTINGS_FILE="Pulumi.${STACK_NAME}.yaml"
 
-          printf '%s' "${PULUMI_STACK_SETTINGS_B64}" | base64 --decode > "${STACK_SETTINGS_FILE}"
+          printf '%s' "${PULUMI_STACK_SETTINGS_B64}" | tr -d '[:space:]' | base64 --decode > "${STACK_SETTINGS_FILE}"
           chmod 600 "${STACK_SETTINGS_FILE}"
 
       - name: Detect runner public IPv4
