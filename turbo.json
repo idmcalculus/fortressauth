@@ -20,6 +20,13 @@
       ]
     },
     "landing#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ],
       "env": [
         "AUTH_API_URL",
         "NEXT_PUBLIC_DOCS_URL",
@@ -30,24 +37,49 @@
       ]
     },
     "fortressauth-web-react#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
       "env": [
         "VITE_API_URL",
         "DEMO_BASE_PATH"
       ]
     },
     "fortressauth-web-vue#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
       "env": [
         "VITE_API_URL",
         "DEMO_BASE_PATH"
       ]
     },
     "fortressauth-web-svelte#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".svelte-kit/**",
+        "build/**"
+      ],
       "env": [
         "VITE_API_URL",
         "DEMO_BASE_PATH"
       ]
     },
     "fortressauth-web-angular#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        "dist/**"
+      ],
       "env": [
         "ANGULAR_API_URL",
         "DEMO_BASE_PATH"

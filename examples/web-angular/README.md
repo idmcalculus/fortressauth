@@ -37,7 +37,7 @@ The Angular demo now supports deploy-time configuration without editing source f
 ```bash
 ANGULAR_API_URL=https://api.fortressauth.com
 DEMO_BASE_PATH=/
-pnpm --filter fortressauth-web-angular build
+pnpm --filter fortressauth-web-angular... build
 ```
 
 Netlify production uses `DEMO_BASE_PATH=/` because the demo is deployed at the root of `https://angular-demo.fortressauth.com`. Use `DEMO_BASE_PATH=/angular-demo/` only when the demo is mounted under the landing domain.

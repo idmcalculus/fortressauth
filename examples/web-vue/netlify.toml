@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm exec turbo run build --filter=fortressauth-web-vue"
+  command = "pnpm exec turbo run build --filter=fortressauth-web-vue..."
   publish = "examples/web-vue/dist"
   ignore = "node scripts/netlify-build-policy.mjs vue"
 

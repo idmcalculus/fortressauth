@@ -204,7 +204,7 @@ const sites: FrontendSiteSpec[] = [
     siteId: getExistingSiteId(config, 'landing', 'fortressauth-landing'),
   },
   {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-react',
+    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-react...',
     deployPreviews: false,
     domain: reactDemoDomain,
     env: {
@@ -223,7 +223,7 @@ const sites: FrontendSiteSpec[] = [
     siteId: getExistingSiteId(config, 'react', 'fortressauth-react-demo'),
   },
   {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-vue',
+    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-vue...',
     deployPreviews: false,
     domain: vueDemoDomain,
     env: {
@@ -242,7 +242,7 @@ const sites: FrontendSiteSpec[] = [
     siteId: getExistingSiteId(config, 'vue', 'fortressauth-vue-demo'),
   },
   {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-svelte',
+    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-svelte...',
     deployPreviews: false,
     domain: svelteDemoDomain,
     env: {
@@ -261,7 +261,7 @@ const sites: FrontendSiteSpec[] = [
     siteId: getExistingSiteId(config, 'svelte', 'fortressauth-svelte-demo'),
   },
   {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-angular',
+    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-angular...',
     deployPreviews: false,
     domain: angularDemoDomain,
     env: {

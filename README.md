@@ -113,7 +113,7 @@ Use workspace filters when you only need one surface:
 ```bash
 pnpm --filter @fortressauth/core test
 pnpm --filter @fortressauth/server dev
-pnpm --filter fortressauth-web-react build
+pnpm --filter fortressauth-web-react... build
 ```
 
 ## Frontend Deployment

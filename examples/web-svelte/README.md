@@ -37,7 +37,7 @@ The Svelte demo is prerendered with `@sveltejs/adapter-static` for Netlify:
 ```bash
 VITE_API_URL=https://api.fortressauth.com
 DEMO_BASE_PATH=/
-pnpm --filter fortressauth-web-svelte build
+pnpm --filter fortressauth-web-svelte... build
 ```
 
 Use `DEMO_BASE_PATH=/svelte-demo` only when the demo is mounted under the landing domain instead of deployed at the root of its own host.

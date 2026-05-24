@@ -39,10 +39,10 @@ Create five Git-connected Netlify sites from the GitHub repo. For each site, lea
 | Site | Package directory | Build command | Publish directory |
 | --- | --- | --- | --- |
 | Landing | `landing` | `pnpm exec turbo run build --filter=landing` | `landing/.next` |
-| React demo | `examples/web-react` | `pnpm exec turbo run build --filter=fortressauth-web-react` | `examples/web-react/dist` |
-| Vue demo | `examples/web-vue` | `pnpm exec turbo run build --filter=fortressauth-web-vue` | `examples/web-vue/dist` |
-| Svelte demo | `examples/web-svelte` | `pnpm exec turbo run build --filter=fortressauth-web-svelte` | `examples/web-svelte/build` |
-| Angular demo | `examples/web-angular` | `pnpm exec turbo run build --filter=fortressauth-web-angular` | `examples/web-angular/dist/web-angular/browser` |
+| React demo | `examples/web-react` | `pnpm exec turbo run build --filter=fortressauth-web-react...` | `examples/web-react/dist` |
+| Vue demo | `examples/web-vue` | `pnpm exec turbo run build --filter=fortressauth-web-vue...` | `examples/web-vue/dist` |
+| Svelte demo | `examples/web-svelte` | `pnpm exec turbo run build --filter=fortressauth-web-svelte...` | `examples/web-svelte/build` |
+| Angular demo | `examples/web-angular` | `pnpm exec turbo run build --filter=fortressauth-web-angular...` | `examples/web-angular/dist/web-angular/browser` |
 
 Each package directory has a `netlify.toml` with the same build settings. The demo configs include a defensive ignore command that skips deploy preview and branch deploy contexts if those get enabled before Pulumi applies.
 

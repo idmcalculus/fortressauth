@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm exec turbo run build --filter=fortressauth-web-svelte"
+  command = "pnpm exec turbo run build --filter=fortressauth-web-svelte..."
   publish = "examples/web-svelte/build"
   ignore = "node scripts/netlify-build-policy.mjs svelte"
 
