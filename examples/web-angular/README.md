@@ -40,7 +40,7 @@ DEMO_BASE_PATH=/
 pnpm --filter fortressauth-web-angular... build
 ```
 
-Netlify production uses `DEMO_BASE_PATH=/` because the demo is deployed at the root of `https://angular-demo.fortressauth.com`. Use `DEMO_BASE_PATH=/angular-demo/` only when the demo is mounted under the landing domain.
+Use `DEMO_BASE_PATH=/` when the demo is deployed at the root of its own host. The production landing site now embeds only the React demo at `https://fortressauth.com/demo`; use `DEMO_BASE_PATH=/angular-demo/` only for ad hoc Angular checks mounted under the landing domain.
 
 ## SDK Usage
 

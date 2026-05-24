@@ -1,0 +1,5 @@
+config:
+  fortressauth-netlify:teamId: 5ef12c1cf664670220ce451d
+  fortressauth-netlify:teamSlug: idmcalculus
+  fortressauth-netlify:productionBranch: main
+  fortressauth-netlify:authApiUrl: https://api.fortressauth.com/

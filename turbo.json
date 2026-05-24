@@ -30,10 +30,7 @@
       "env": [
         "AUTH_API_URL",
         "NEXT_PUBLIC_DOCS_URL",
-        "NEXT_PUBLIC_REACT_DEMO_URL",
-        "NEXT_PUBLIC_VUE_DEMO_URL",
-        "NEXT_PUBLIC_SVELTE_DEMO_URL",
-        "NEXT_PUBLIC_ANGULAR_DEMO_URL"
+        "NEXT_PUBLIC_LIVE_DEMO_URL"
       ]
     },
     "fortressauth-web-react#build": {

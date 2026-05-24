@@ -29,8 +29,11 @@ export default defineConfig({
       exclude: [
         'src/__tests__/**',
         'src/app/[locale]/layout.tsx',
+        'src/app/[locale]/docs/**',
         'src/app/layout.tsx',
         'src/app/api/**',
+        'src/app/reset-password/page.tsx',
+        'src/app/verify-email/page.tsx',
         'src/middleware.ts',
         'src/proxy.ts',
         'src/app/page.tsx',

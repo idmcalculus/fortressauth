@@ -14,11 +14,14 @@ describe('Hero', () => {
   it('renders action buttons with correct links', () => {
     render(<Hero />);
 
+    const tryDemoLink = screen.getByText('hero.tryDemo');
+    expect(tryDemoLink.closest('a')).toHaveAttribute('href', '/demo');
+
     const getStartedLink = screen.getByText('hero.getStarted');
     expect(getStartedLink.closest('a')).toHaveAttribute('href', '#docs');
 
     const viewDocsLink = screen.getByText('hero.viewDocs');
-    expect(viewDocsLink.closest('a')).toHaveAttribute('href', '#examples');
+    expect(viewDocsLink.closest('a')).toHaveAttribute('href', '/docs');
   });
 
   it('renders stats with translated labels', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Database, ExternalLink, Lock, Shield, Zap } from 'lucide-react';
+import { ArrowRight, Database, Lock, Shield, Zap } from 'lucide-react';
 import Image from 'next/image';
 import { useTranslations } from 'next-intl';
 import styles from './Hero.module.css';
@@ -39,29 +39,20 @@ export function Hero() {
           <p className={styles.description}>{t('description')}</p>
 
           <div className={styles.actions}>
-            <a href="#docs" className={styles.primaryButton}>
-              {t('getStarted')}
+            <a href="/demo" className={styles.primaryButton}>
+              {t('tryDemo')}
               <ArrowRight
                 style={{ width: '20px', height: '20px', color: 'inherit' }}
                 aria-hidden="true"
               />
             </a>
 
-            <a href="#examples" className={styles.secondaryButton}>
-              {t('viewDocs')}
+            <a href="#docs" className={styles.secondaryButton}>
+              {t('getStarted')}
             </a>
 
-            <a
-              href="https://github.com/idmcalculus/fortressauth"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.tertiaryButton}
-            >
-              {t('tryDemo')}
-              <ExternalLink
-                style={{ width: '18px', height: '18px', color: 'inherit' }}
-                aria-hidden="true"
-              />
+            <a href="/docs" className={styles.tertiaryButton}>
+              {t('viewDocs')}
             </a>
           </div>
 

@@ -10,7 +10,7 @@ type EnvValueSpec = {
 interface FrontendSiteSpec {
   buildCommand: string;
   deployPreviews: boolean;
-  domain: string;
+  domain?: string;
   domainAliases?: string[];
   env: Record<string, EnvValueSpec>;
   key: string;
@@ -119,11 +119,13 @@ function createFrontendSite(spec: FrontendSiteSpec, teamId: string, productionBr
     stopBuilds: false,
   });
 
-  const domainSettings = new netlify.SiteDomainSettings(`${spec.key}-domain-settings`, {
-    customDomain: spec.domain,
-    domainAliases: spec.domainAliases ?? [],
-    siteId: spec.siteId,
-  });
+  const domainSettings = spec.domain
+    ? new netlify.SiteDomainSettings(`${spec.key}-domain-settings`, {
+        customDomain: spec.domain,
+        domainAliases: spec.domainAliases ?? [],
+        siteId: spec.siteId,
+      })
+    : undefined;
 
   const environmentVariables = createEnvironmentVariables(spec.key, teamId, spec.siteId, spec.env);
 
@@ -157,18 +159,6 @@ const reactDemoDomain = normalizeDomain(
   config.get('reactDemoDomain') ?? 'react-demo.fortressauth.com',
   'reactDemoDomain',
 );
-const vueDemoDomain = normalizeDomain(
-  config.get('vueDemoDomain') ?? 'vue-demo.fortressauth.com',
-  'vueDemoDomain',
-);
-const svelteDemoDomain = normalizeDomain(
-  config.get('svelteDemoDomain') ?? 'svelte-demo.fortressauth.com',
-  'svelteDemoDomain',
-);
-const angularDemoDomain = normalizeDomain(
-  config.get('angularDemoDomain') ?? 'angular-demo.fortressauth.com',
-  'angularDemoDomain',
-);
 
 const sites: FrontendSiteSpec[] = [
   {
@@ -181,21 +171,9 @@ const sites: FrontendSiteSpec[] = [
         scopes: NEXT_RUNTIME_SCOPES,
         value: authApiUrl,
       },
-      NEXT_PUBLIC_ANGULAR_DEMO_URL: {
-        scopes: NEXT_RUNTIME_SCOPES,
-        value: `https://${angularDemoDomain}`,
-      },
-      NEXT_PUBLIC_REACT_DEMO_URL: {
+      NEXT_PUBLIC_LIVE_DEMO_URL: {
         scopes: NEXT_RUNTIME_SCOPES,
         value: `https://${reactDemoDomain}`,
-      },
-      NEXT_PUBLIC_SVELTE_DEMO_URL: {
-        scopes: NEXT_RUNTIME_SCOPES,
-        value: `https://${svelteDemoDomain}`,
-      },
-      NEXT_PUBLIC_VUE_DEMO_URL: {
-        scopes: NEXT_RUNTIME_SCOPES,
-        value: `https://${vueDemoDomain}`,
       },
     },
     key: 'landing',
@@ -222,63 +200,6 @@ const sites: FrontendSiteSpec[] = [
     publishDirectory: 'examples/web-react/dist',
     siteId: getExistingSiteId(config, 'react', 'fortressauth-react-demo'),
   },
-  {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-vue...',
-    deployPreviews: false,
-    domain: vueDemoDomain,
-    env: {
-      DEMO_BASE_PATH: {
-        scopes: BUILD_SCOPES,
-        value: '/',
-      },
-      VITE_API_URL: {
-        scopes: BUILD_SCOPES,
-        value: authApiUrl,
-      },
-    },
-    key: 'vue',
-    packageDirectory: 'examples/web-vue',
-    publishDirectory: 'examples/web-vue/dist',
-    siteId: getExistingSiteId(config, 'vue', 'fortressauth-vue-demo'),
-  },
-  {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-svelte...',
-    deployPreviews: false,
-    domain: svelteDemoDomain,
-    env: {
-      DEMO_BASE_PATH: {
-        scopes: BUILD_SCOPES,
-        value: '/',
-      },
-      VITE_API_URL: {
-        scopes: BUILD_SCOPES,
-        value: authApiUrl,
-      },
-    },
-    key: 'svelte',
-    packageDirectory: 'examples/web-svelte',
-    publishDirectory: 'examples/web-svelte/build',
-    siteId: getExistingSiteId(config, 'svelte', 'fortressauth-svelte-demo'),
-  },
-  {
-    buildCommand: 'pnpm exec turbo run build --filter=fortressauth-web-angular...',
-    deployPreviews: false,
-    domain: angularDemoDomain,
-    env: {
-      ANGULAR_API_URL: {
-        scopes: BUILD_SCOPES,
-        value: authApiUrl,
-      },
-      DEMO_BASE_PATH: {
-        scopes: BUILD_SCOPES,
-        value: '/',
-      },
-    },
-    key: 'angular',
-    packageDirectory: 'examples/web-angular',
-    publishDirectory: 'examples/web-angular/dist/web-angular/browser',
-    siteId: getExistingSiteId(config, 'angular', 'fortressauth-angular-demo'),
-  },
 ];
 
 const managedSites = Object.fromEntries(
@@ -288,10 +209,9 @@ const managedSites = Object.fromEntries(
 export const netlifyTeamId = teamId;
 export const repositorySetup = 'Git-connected Netlify sites are bootstrapped outside Pulumi.';
 export const landingSiteId = pulumi.output(sites[0]?.siteId);
+export const reactDemoSiteId = pulumi.output(sites[1]?.siteId);
 export const landingHostname = landingDomain;
 export const wwwLandingHostname = wwwLandingDomain;
 export const reactDemoHostname = reactDemoDomain;
-export const vueDemoHostname = vueDemoDomain;
-export const svelteDemoHostname = svelteDemoDomain;
-export const angularDemoHostname = angularDemoDomain;
+export const liveDemoPath = '/demo';
 export const managedSiteKeys = Object.keys(managedSites);

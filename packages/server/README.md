@@ -169,7 +169,7 @@ For production deployments:
 ```bash
 # Shared top-level domain example
 BASE_URL=https://fortressauth.com
-CORS_ORIGINS=https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
+CORS_ORIGINS=https://fortressauth.com,https://react-demo.fortressauth.com
 COOKIE_SECURE=true
 COOKIE_SAMESITE=lax
 CSRF_COOKIE_SECURE=true
@@ -180,7 +180,7 @@ CSRF_COOKIE_SAMESITE=lax
 1. Set `COOKIE_SECURE=true` (requires HTTPS)
 2. Use `COOKIE_SAMESITE=lax` and `CSRF_COOKIE_SAMESITE=lax` when the frontend and API share the same top-level domain
 3. Use `COOKIE_SAMESITE=none` and `CSRF_COOKIE_SAMESITE=none` when the frontend and API are on different top-level domains
-4. Include every browser frontend origin in `CORS_ORIGINS` when demos or apps call the API directly
+4. Include every browser frontend origin in `CORS_ORIGINS` when demos or apps call the API directly. The production `/demo` page embeds `https://react-demo.fortressauth.com`, so both landing and React demo origins are required.
 5. Only allow specific origins (avoid wildcards)
 
 ## Email Providers

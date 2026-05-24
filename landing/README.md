@@ -48,15 +48,13 @@ FortressAuth's clean production setup is:
 - `landing/` on Netlify at `https://fortressauth.com`
 - `https://www.fortressauth.com` redirects to the apex domain
 - API on its own domain, for example `https://api.fortressauth.com`
-- Each web demo deployed separately on its own root-domain deployment:
-  - `https://react-demo.fortressauth.com`
-  - `https://vue-demo.fortressauth.com`
-  - `https://svelte-demo.fortressauth.com`
-  - `https://angular-demo.fortressauth.com`
+- One production live demo at `https://fortressauth.com/demo`
+- The `/demo` page embeds the React demo from `https://react-demo.fortressauth.com`
+- Vue, Svelte, and Angular examples remain code/integration examples rather than production live demos
 
-This keeps the landing app simple and avoids depending on same-domain path mounting in production.
+This keeps the public demo experience on the landing domain while allowing the React demo to remain a separate Git-connected Netlify project.
 
-Netlify deploy previews remain enabled for `landing`, but they are treated as UI/docs previews only. Do not rely on preview deployments for end-to-end auth verification flows until a staging API exists. Production demo links should stay pointed at the stable demo subdomains above, even in preview builds. Demo deploy previews are disabled because unstable preview origins should not be valid auth origins.
+Netlify deploy previews remain enabled for `landing`, but they are treated as UI/docs previews only. Do not rely on preview deployments for end-to-end auth verification flows until a staging API exists. React demo deploy previews are disabled because unstable preview origins should not be valid auth origins.
 
 ### API origin configuration
 
@@ -96,26 +94,23 @@ Override that only if you need a different deployed docs origin:
 NEXT_PUBLIC_DOCS_URL=https://api.fortressauth.com/docs
 ```
 
-### Demo link environment variables
+### Live demo configuration
 
-For separate demo deployments, set absolute URLs:
+The default production setup is:
 
 ```bash
-NEXT_PUBLIC_REACT_DEMO_URL=https://react-demo.fortressauth.com
-NEXT_PUBLIC_VUE_DEMO_URL=https://vue-demo.fortressauth.com
-NEXT_PUBLIC_SVELTE_DEMO_URL=https://svelte-demo.fortressauth.com
-NEXT_PUBLIC_ANGULAR_DEMO_URL=https://angular-demo.fortressauth.com
+NEXT_PUBLIC_LIVE_DEMO_URL=https://react-demo.fortressauth.com
 ```
 
-Only use relative paths such as `/react-demo` when production hosting really serves those paths on the same domain.
+`/demo` renders the page users see. The iframe target is the stable React demo subdomain.
 
-When a production demo URL is not configured, the landing page now hides that demo link instead of shipping a broken relative URL.
+Because `react-demo.fortressauth.com` shares the `fortressauth.com` site, the API can keep `COOKIE_SAMESITE=lax`; `CORS_ORIGINS` still needs both `https://fortressauth.com` and `https://react-demo.fortressauth.com`.
 
 ### Netlify and IaC ownership
 
 - Netlify's GitHub integration is the primary deployment path for landing previews and production releases.
 - `landing/netlify.toml` defines the landing build command, publish directory, and `www` to apex redirect.
-- `packages/infra-netlify` manages existing Netlify site build settings, custom domains, deploy preview flags, and project environment variables with Pulumi.
+- `packages/infra-netlify` manages existing landing and React demo Netlify site build settings, custom domains, deploy preview flags, and project environment variables with Pulumi.
 - GitHub Actions is used for IaC preview/apply and for post-deploy production smoke checks, not for uploading frontend artifacts to Netlify.
 
 ## Project Structure
@@ -124,6 +119,7 @@ When a production demo URL is not configured, the landing page now hides that de
 landing/
 ├── src/
 │   ├── app/
+│   │   ├── demo/              # Live demo page and iframe frame
 │   │   ├── [locale]/          # Internationalized routes
 │   │   │   ├── layout.tsx     # Root layout with i18n
 │   │   │   └── page.tsx       # Home page

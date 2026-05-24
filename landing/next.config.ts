@@ -61,7 +61,6 @@ const nextConfig: NextConfig = {
       },
     ];
 
-    // Local demo proxying is only needed for development.
     if (isDevelopment) {
       rules.push(
         {

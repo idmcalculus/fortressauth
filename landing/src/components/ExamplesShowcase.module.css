@@ -30,6 +30,32 @@
   margin: 0 auto;
 }
 
+.demoCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-md) var(--spacing-xl);
+  min-height: 48px;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 20px rgba(78, 205, 196, 0.3);
+  transition: all var(--transition-base);
+}
+
+.demoCta:hover {
+  color: var(--color-accent);
+  background: transparent;
+  border-color: var(--color-accent);
+  box-shadow: none;
+}
+
 /* Carousel styles */
 .carouselWrapper {
   position: relative;
@@ -197,24 +223,6 @@
   margin-top: auto;
 }
 
-.demoLink {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 2px solid transparent;
-  border-radius: var(--radius-md);
-  text-decoration: none;
-  transition: all var(--transition-base);
-}
-
-.demoLink:hover {
-  background: transparent;
-  color: var(--color-accent);
-  border-color: var(--color-accent);
-}
-
 .codeLink {
   font-size: var(--font-size-sm);
   font-weight: 600;
@@ -231,13 +239,6 @@
   background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
   color: white;
   border-color: transparent;
-}
-
-/* When codeLink is hovered, make previous demoLink look outlined */
-.cardActions:has(.codeLink:hover) .demoLink:not(:hover) {
-  background: transparent;
-  color: var(--color-accent);
-  border-color: var(--color-accent);
 }
 
 /* Tablet: Vertical scroll with 3 visible cards */
@@ -351,15 +352,7 @@
     gap: var(--spacing-sm);
   }
 
-  .demoLink,
   .codeLink {
     text-align: center;
   }
-}
-
-/* When demoLink is hovered, make adjacent codeLink look filled */
-.demoLink:hover + .codeLink {
-  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-dark));
-  color: white;
-  border-color: transparent;
 }

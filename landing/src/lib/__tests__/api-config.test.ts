@@ -30,6 +30,10 @@ describe('api-config', () => {
     expect(() => requireAuthApiOrigin(createEnv({}))).toThrow(MISSING_AUTH_API_URL_ERROR);
   });
 
+  it('treats blank AUTH_API_URL as missing', () => {
+    expect(getAuthApiOrigin(createEnv({ AUTH_API_URL: '   ' }))).toBe('');
+  });
+
   it('throws when AUTH_API_URL is invalid', () => {
     expect(() => requireAuthApiOrigin(createEnv({ AUTH_API_URL: 'localhost:5000' }))).toThrow(
       MISSING_AUTH_API_URL_ERROR,
@@ -42,6 +46,12 @@ describe('api-config', () => {
         createEnv({ NEXT_PUBLIC_AUTH_API_URL: 'https://public-api.example.com/' }),
       ),
     ).toBe('https://public-api.example.com');
+  });
+
+  it('falls back to AUTH_API_URL for the public API origin', () => {
+    expect(getPublicApiOrigin(createEnv({ AUTH_API_URL: 'https://api.example.com/' }))).toBe(
+      'https://api.example.com',
+    );
   });
 
   it('derives docs URL from AUTH_API_URL when no explicit docs URL is set', () => {
@@ -58,6 +68,14 @@ describe('api-config', () => {
         }),
       ),
     ).toBe('https://docs.example.com/reference');
+  });
+
+  it('allows a relative docs URL override', () => {
+    expect(getDocumentationUrl(createEnv({ NEXT_PUBLIC_DOCS_URL: '/docs/' }))).toBe('/docs');
+  });
+
+  it('returns null when no docs URL can be derived', () => {
+    expect(getDocumentationUrl(createEnv({ NEXT_PUBLIC_DOCS_URL: 'not-a-url' }))).toBeNull();
   });
 
   it('returns true when the configured API is healthy', async () => {

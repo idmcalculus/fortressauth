@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import HomePage from '../page';
+
+const documentationProps = vi.hoisted(() => [] as string[]);
 
 // Mock all components used in page.tsx
 vi.mock('@/components/Navigation', () => ({ Navigation: () => <nav>Navigation</nav> }));
@@ -14,10 +16,18 @@ vi.mock('@/components/ExamplesShowcase', () => ({
   ExamplesShowcase: () => <section>ExamplesShowcase</section>,
 }));
 vi.mock('@/components/Documentation', () => ({
-  Documentation: () => <section>Documentation</section>,
+  Documentation: ({ externalDocsUrl }: { externalDocsUrl: string }) => {
+    documentationProps.push(externalDocsUrl);
+    return <section>Documentation</section>;
+  },
 }));
 
 describe('HomePage', () => {
+  afterEach(() => {
+    documentationProps.length = 0;
+    vi.unstubAllEnvs();
+  });
+
   it('renders all sections', () => {
     render(
       <ThemeProvider>
@@ -31,5 +41,31 @@ describe('HomePage', () => {
     expect(screen.getByText('CodeShowcase')).toBeInTheDocument();
     expect(screen.getByText('ExamplesShowcase')).toBeInTheDocument();
     expect(screen.getByText('Documentation')).toBeInTheDocument();
+    expect(documentationProps.at(-1)).toBe('/api/proxy/docs/');
+  });
+
+  it('uses the configured docs URL in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_DOCS_URL', 'https://docs.example.com/reference/');
+
+    render(
+      <ThemeProvider>
+        <HomePage />
+      </ThemeProvider>,
+    );
+
+    expect(documentationProps.at(-1)).toBe('https://docs.example.com/reference');
+  });
+
+  it('falls back to proxied docs in production when docs URL is unavailable', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    render(
+      <ThemeProvider>
+        <HomePage />
+      </ThemeProvider>,
+    );
+
+    expect(documentationProps.at(-1)).toBe('/api/proxy/docs/');
   });
 });

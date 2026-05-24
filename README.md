@@ -123,21 +123,18 @@ The supported production topology is:
 - `landing/` on Netlify at `https://fortressauth.com`
 - `https://www.fortressauth.com` redirects to the apex domain
 - API on its own domain such as `https://api.fortressauth.com`
-- Each web demo deployed separately on its own subdomain:
-  - `https://react-demo.fortressauth.com`
-  - `https://vue-demo.fortressauth.com`
-  - `https://svelte-demo.fortressauth.com`
-  - `https://angular-demo.fortressauth.com`
+- One production live demo at `https://fortressauth.com/demo`, embedding the React demo at `https://react-demo.fortressauth.com`
+- Vue, Svelte, and Angular examples remain integration-code examples and may exist on default Netlify domains for ad hoc checks
 
-`landing/` uses `AUTH_API_URL` everywhere it needs backend access and requires that env var in every environment. In local integrated dev, `pnpm dev` treats a loopback `AUTH_API_URL` port as the preferred starting point and will move to the next free local API port if needed while keeping the whole stack aligned. Demo links are driven by `NEXT_PUBLIC_*_DEMO_URL`.
+`landing/` uses `AUTH_API_URL` everywhere it needs backend access and requires that env var in every environment. In local integrated dev, `pnpm dev` treats a loopback `AUTH_API_URL` port as the preferred starting point and will move to the next free local API port if needed while keeping the whole stack aligned. The production demo page uses `NEXT_PUBLIC_LIVE_DEMO_URL=https://react-demo.fortressauth.com`.
 
 Deployment ownership is split intentionally:
 
 - **Netlify Git integration** performs frontend production deployments on merge to `main` and landing deploy previews
-- **Pulumi (`packages/infra-netlify`)** manages existing Netlify site build settings, deploy preview flags, custom domains, and project environment variables
+- **Pulumi (`packages/infra-netlify`)** manages existing Netlify landing and React demo site build settings, deploy preview flags, custom domains, and project environment variables
 - **GitHub Actions** validates IaC, applies Netlify site-setting changes, and runs production smoke checks after frontend smoke is enabled
 
-Landing previews remain enabled, but they are UI/docs previews only. Do not treat them as full auth-flow environments until a staging API exists. Demo previews are disabled because unstable preview origins should not be treated as valid auth origins.
+Landing previews remain enabled, but they are UI/docs previews only. Do not treat them as full auth-flow environments until a staging API exists. React demo previews are disabled because unstable preview origins should not be treated as valid auth origins.
 
 ## Documentation Map
 
@@ -155,7 +152,7 @@ The root docs are intentionally small. Use package docs for the details that bel
 - `CI` runs on pushes and pull requests to `main`
 - `Deploy AWS` runs after successful `CI` on `main`, or manually via `workflow_dispatch` (target environment selectable: `aws-dev` or `aws-prod`)
 - `Deploy Netlify Infra` runs `pulumi preview`/`pulumi up` for `packages/infra-netlify`
-- `Smoke Frontend` checks the deployed landing site, docs proxy, and demo URLs after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
+- `Smoke Frontend` checks the deployed landing site, docs proxy, `/demo`, and `https://react-demo.fortressauth.com` after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
 - `Deploy AWS` builds and pushes a fresh image to Amazon ECR for each successful deploy and smoke-tests `/health` and `/openapi.json`
 - `Publish` runs from a GitHub Release and requires a successful `Deploy AWS` run for the same commit before it publishes npm packages and Docker images
 

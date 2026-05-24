@@ -54,7 +54,7 @@ config:
   fortressauth-aws:appEnv:
     EMAIL_PROVIDER: console
     BREACHED_PASSWORD_CHECK: 'true'
-    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com,http://localhost:3001,http://localhost:5173,http://localhost:5174
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174
   # Names of secret env vars Pulumi should provision in Secrets Manager.
   # Values are populated post-deploy via `aws secretsmanager put-secret-value`.
   fortressauth-aws:secretEnvKeys:

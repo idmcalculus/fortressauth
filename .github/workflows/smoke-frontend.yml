@@ -6,14 +6,8 @@ on:
     paths:
       - landing/**
       - examples/web-react/**
-      - examples/web-vue/**
-      - examples/web-svelte/**
-      - examples/web-angular/**
       - packages/infra-netlify/**
       - packages/react-sdk/**
-      - packages/vue-sdk/**
-      - packages/svelte-sdk/**
-      - packages/angular-sdk/**
       - scripts/netlify-build-policy.mjs
       - package.json
       - pnpm-lock.yaml
@@ -108,7 +102,5 @@ jobs:
           wait_for_redirect "https://www.fortressauth.com/" "https://fortressauth.com/"
           wait_for_content "https://fortressauth.com/api/proxy/health" '"status":"ok"'
           wait_for_content "https://fortressauth.com/api/proxy/docs/" "openapi.json"
+          wait_for_content "https://fortressauth.com/demo/" "Live Auth Demo"
           wait_for_content "https://react-demo.fortressauth.com/" "FortressAuth"
-          wait_for_content "https://vue-demo.fortressauth.com/" "FortressAuth"
-          wait_for_content "https://svelte-demo.fortressauth.com/" "FortressAuth"
-          wait_for_content "https://angular-demo.fortressauth.com/" "FortressAuth"

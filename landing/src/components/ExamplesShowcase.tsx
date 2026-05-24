@@ -1,7 +1,7 @@
 'use client';
 
 import useEmblaCarousel from 'embla-carousel-react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -13,7 +13,6 @@ import {
   SiSvelte,
   SiVuedotjs,
 } from 'react-icons/si';
-import { getExamplesDemoUrls } from '@/lib/demo-config';
 import styles from './ExamplesShowcase.module.css';
 
 const baseExamples = [
@@ -22,64 +21,49 @@ const baseExamples = [
     icon: SiNodedotjs,
     techStack: ['Node.js', 'TypeScript', 'SQLite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/basic-usage',
-    demoUrl: null,
   },
   {
     id: 'web-react',
     icon: SiReact,
     techStack: ['React', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-react',
-    demoUrl: null,
   },
   {
     id: 'web-vue',
     icon: SiVuedotjs,
     techStack: ['Vue 3', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-vue',
-    demoUrl: null,
   },
   {
     id: 'web-svelte',
     icon: SiSvelte,
     techStack: ['Svelte 5', 'TypeScript', 'Vite'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-svelte',
-    demoUrl: null,
   },
   {
     id: 'web-angular',
     icon: SiAngular,
     techStack: ['Angular', 'TypeScript', 'RxJS'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/web-angular',
-    demoUrl: null,
   },
   {
     id: 'mobile-expo',
     icon: SiExpo,
     techStack: ['Expo', 'React Native', 'TypeScript'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/mobile-expo',
-    demoUrl: null,
   },
   {
     id: 'desktop-electron',
     icon: SiElectron,
     techStack: ['Electron', 'JavaScript', 'Node.js'],
     repoUrl: 'https://github.com/idmcalculus/fortressauth/tree/main/examples/desktop-electron',
-    demoUrl: null,
   },
 ];
 
 export function ExamplesShowcase() {
-  const demoUrls = getExamplesDemoUrls();
-  const examples = [
-    baseExamples[0],
-    { ...baseExamples[1], demoUrl: demoUrls.react },
-    { ...baseExamples[2], demoUrl: demoUrls.vue },
-    { ...baseExamples[3], demoUrl: demoUrls.svelte },
-    { ...baseExamples[4], demoUrl: demoUrls.angular },
-    baseExamples[5],
-    baseExamples[6],
-  ];
+  const examples = baseExamples;
   const t = useTranslations('examples');
+  const heroT = useTranslations('hero');
   const [emblaRef, emblaApi] = useEmblaCarousel({
     align: 'start',
     slidesToScroll: 1,
@@ -119,6 +103,10 @@ export function ExamplesShowcase() {
         <div className={styles.header}>
           <h2 className={styles.title}>{t('title')}</h2>
           <p className={styles.subtitle}>{t('subtitle')}</p>
+          <a href="/demo" className={styles.demoCta}>
+            {heroT('tryDemo')}
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
         </div>
 
         <div className={styles.carouselWrapper}>
@@ -152,11 +140,6 @@ export function ExamplesShowcase() {
                         ))}
                       </div>
                       <div className={styles.cardActions}>
-                        {example.demoUrl && (
-                          <a href={`${example.demoUrl}/`} className={styles.demoLink}>
-                            {t('viewDemo')} →
-                          </a>
-                        )}
                         <a
                           href={example.repoUrl}
                           target="_blank"
