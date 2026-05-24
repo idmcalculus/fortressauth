@@ -88,7 +88,8 @@ async function apiRequest<T>(
     if (requiresCsrf) {
       try {
         csrfToken = await getCsrfToken(baseUrl);
-      } catch {
+      } catch (csrfError) {
+        console.warn('[fortressauth] CSRF token unavailable; request will likely 403', csrfError);
         csrfToken = undefined;
       }
     }
@@ -96,6 +97,7 @@ async function apiRequest<T>(
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
       credentials: 'include',
+      signal: init?.signal ?? AbortSignal.timeout(15_000),
       headers: {
         'Content-Type': 'application/json',
         ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
@@ -103,8 +105,8 @@ async function apiRequest<T>(
       },
     });
 
-    const contentType = res.headers.get('content-type');
-    if (contentType?.includes('application/json')) {
+    const contentType = res.headers?.get?.('content-type') ?? null;
+    if (contentType === null || contentType.includes('application/json')) {
       const data = (await res.json()) as ApiResponse<T>;
       if (!retry && requiresCsrf && !data.success && data.error === 'CSRF_TOKEN_INVALID') {
         clearCsrfToken(baseUrl);

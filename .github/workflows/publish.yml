@@ -51,7 +51,7 @@ jobs:
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner,
               repo,
-              workflow_id: 'deploy-hetzner.yml',
+              workflow_id: 'deploy-aws.yml',
               head_sha: releaseSha,
               per_page: 20,
             });
@@ -59,7 +59,7 @@ jobs:
             const successfulRun = data.workflow_runs.find((run) => run.conclusion === 'success');
             if (!successfulRun) {
               core.setFailed(
-                `No successful "Deploy Hetzner" run found for commit ${releaseSha}. ` +
+                `No successful "Deploy AWS" run found for commit ${releaseSha}. ` +
                   `Deploy this commit first, then rerun this workflow.`,
               );
               return;

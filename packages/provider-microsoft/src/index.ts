@@ -6,6 +6,7 @@ import type {
   Result,
 } from '@fortressauth/core';
 import { err, ok } from '@fortressauth/core';
+import { httpJson } from '@fortressauth/oauth-core';
 
 const DEFAULT_TENANT = 'common';
 
@@ -16,6 +17,25 @@ export interface MicrosoftProviderConfig {
   /** Tenant ID or well-known values like 'common', 'organizations', 'consumers'. */
   tenantId?: string;
   scopes?: string[];
+}
+
+interface MicrosoftTokenResponse {
+  access_token?: unknown;
+  refresh_token?: unknown;
+  expires_in?: unknown;
+  id_token?: unknown;
+  error?: unknown;
+}
+
+interface MicrosoftUserInfoResponse {
+  sub?: unknown;
+  email?: unknown;
+  preferred_username?: unknown;
+  upn?: unknown;
+  unique_name?: unknown;
+  name?: unknown;
+  email_verified?: unknown;
+  picture?: unknown;
 }
 
 export class MicrosoftOAuthProvider implements OAuthProviderPort {
@@ -59,96 +79,96 @@ export class MicrosoftOAuthProvider implements OAuthProviderPort {
     code: string,
     options?: { codeVerifier?: string },
   ): Promise<Result<OAuthTokens, AuthErrorCode>> {
-    try {
-      const params = new URLSearchParams();
-      params.set('client_id', this.config.clientId);
-      params.set('grant_type', 'authorization_code');
-      params.set('code', code);
-      params.set('redirect_uri', this.config.redirectUri);
+    const params = new URLSearchParams();
+    params.set('client_id', this.config.clientId);
+    params.set('grant_type', 'authorization_code');
+    params.set('code', code);
+    params.set('redirect_uri', this.config.redirectUri);
 
-      if (this.config.clientSecret) {
-        params.set('client_secret', this.config.clientSecret);
-      }
-      if (options?.codeVerifier) {
-        params.set('code_verifier', options.codeVerifier);
-      }
+    if (this.config.clientSecret) {
+      params.set('client_secret', this.config.clientSecret);
+    }
+    if (options?.codeVerifier) {
+      params.set('code_verifier', options.codeVerifier);
+    }
 
-      const response = await fetch(`${this.getAuthority()}/token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Accept: 'application/json',
-        },
-        body: params.toString(),
-      });
+    const result = await httpJson<MicrosoftTokenResponse>(`${this.getAuthority()}/token`, {
+      provider: 'microsoft',
+      operation: 'token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: params.toString(),
+    });
 
-      if (!response.ok) {
-        return err('OAUTH_AUTH_FAILED');
-      }
-
-      const data = (await response.json()) as {
-        access_token: string;
-        refresh_token?: string;
-        expires_in?: number;
-        id_token?: string;
-        error?: string;
-      };
-
-      if (data.error) {
-        return err('OAUTH_AUTH_FAILED');
-      }
-
-      return ok({
-        accessToken: data.access_token,
-        ...(data.refresh_token && { refreshToken: data.refresh_token }),
-        ...(data.expires_in && { expiresIn: data.expires_in }),
-        ...(data.id_token && { idToken: data.id_token }),
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_AUTH_FAILED');
     }
+
+    const data = result.data;
+    if (data.error || typeof data.access_token !== 'string') {
+      return err('OAUTH_AUTH_FAILED');
+    }
+
+    return ok({
+      accessToken: data.access_token,
+      ...(typeof data.refresh_token === 'string' ? { refreshToken: data.refresh_token } : {}),
+      ...(typeof data.expires_in === 'number' ? { expiresIn: data.expires_in } : {}),
+      ...(typeof data.id_token === 'string' ? { idToken: data.id_token } : {}),
+    });
   }
 
   async getUserInfo(accessToken: string): Promise<Result<OAuthUser, AuthErrorCode>> {
-    try {
-      const response = await fetch('https://graph.microsoft.com/oidc/userinfo', {
+    const result = await httpJson<MicrosoftUserInfoResponse>(
+      'https://graph.microsoft.com/oidc/userinfo',
+      {
+        provider: 'microsoft',
+        operation: 'userinfo',
+        errorCode: 'OAUTH_USER_INFO_FAILED',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-      });
+      },
+    );
 
-      if (!response.ok) {
-        return err('OAUTH_USER_INFO_FAILED');
-      }
-
-      const data = (await response.json()) as {
-        sub?: string;
-        email?: string;
-        preferred_username?: string;
-        upn?: string;
-        unique_name?: string;
-        name?: string;
-        email_verified?: boolean;
-        picture?: string;
-      };
-
-      const email = data.email ?? data.preferred_username ?? data.upn ?? data.unique_name;
-
-      if (!data.sub || !email) {
-        return err('OAUTH_USER_INFO_FAILED');
-      }
-
-      const name = data.name ?? data.preferred_username ?? data.unique_name;
-
-      return ok({
-        id: data.sub,
-        email,
-        emailVerified: data.email_verified ?? false,
-        ...(name && { name }),
-        ...(data.picture && { picture: data.picture }),
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_USER_INFO_FAILED');
     }
+
+    const data = result.data;
+    const sub = typeof data.sub === 'string' ? data.sub : null;
+    const email =
+      typeof data.email === 'string'
+        ? data.email
+        : typeof data.preferred_username === 'string'
+          ? data.preferred_username
+          : typeof data.upn === 'string'
+            ? data.upn
+            : typeof data.unique_name === 'string'
+              ? data.unique_name
+              : null;
+
+    if (!sub || !email) {
+      return err('OAUTH_USER_INFO_FAILED');
+    }
+
+    const name =
+      typeof data.name === 'string'
+        ? data.name
+        : typeof data.preferred_username === 'string'
+          ? data.preferred_username
+          : typeof data.unique_name === 'string'
+            ? data.unique_name
+            : undefined;
+
+    return ok({
+      id: sub,
+      email,
+      emailVerified: data.email_verified === true,
+      ...(name ? { name } : {}),
+      ...(typeof data.picture === 'string' ? { picture: data.picture } : {}),
+    });
   }
 }

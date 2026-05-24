@@ -48,7 +48,7 @@ jobs:
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             case "${file}" in
-              packages/infra-hetzner/*|packages/infra-netlify/*)
+              packages/infra-aws/*|packages/infra-netlify/*)
                 infra=true
                 ;;
               packages/*)
@@ -109,17 +109,17 @@ jobs:
         env:
           CI: true
 
-      - name: Lint infra package
-        run: pnpm --filter @fortressauth/infra-hetzner lint
-
-      - name: Typecheck infra package
-        run: pnpm --filter @fortressauth/infra-hetzner typecheck
-
       - name: Lint Netlify infra package
         run: pnpm --filter @fortressauth/infra-netlify lint
 
       - name: Typecheck Netlify infra package
         run: pnpm --filter @fortressauth/infra-netlify typecheck
+
+      - name: Lint AWS infra package
+        run: pnpm --filter @fortressauth/infra-aws lint
+
+      - name: Typecheck AWS infra package
+        run: pnpm --filter @fortressauth/infra-aws typecheck
 
   test:
     runs-on: ubuntu-latest

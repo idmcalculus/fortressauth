@@ -6,12 +6,27 @@ import type {
   Result,
 } from '@fortressauth/core';
 import { err, ok } from '@fortressauth/core';
+import { httpJson } from '@fortressauth/oauth-core';
 
 export interface LinkedInProviderConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
   scopes?: string[];
+}
+
+interface LinkedInTokenResponse {
+  access_token?: unknown;
+  refresh_token?: unknown;
+  expires_in?: unknown;
+}
+
+interface LinkedInUserInfoResponse {
+  sub?: unknown;
+  email?: unknown;
+  name?: unknown;
+  picture?: unknown;
+  email_verified?: unknown;
 }
 
 export class LinkedInOAuthProvider implements OAuthProviderPort {
@@ -42,80 +57,75 @@ export class LinkedInOAuthProvider implements OAuthProviderPort {
     code: string,
     options?: { codeVerifier?: string },
   ): Promise<Result<OAuthTokens, AuthErrorCode>> {
-    try {
-      const params = new URLSearchParams();
-      params.set('client_id', this.config.clientId);
-      params.set('client_secret', this.config.clientSecret);
-      params.set('grant_type', 'authorization_code');
-      params.set('code', code);
-      params.set('redirect_uri', this.config.redirectUri);
+    const params = new URLSearchParams();
+    params.set('client_id', this.config.clientId);
+    params.set('client_secret', this.config.clientSecret);
+    params.set('grant_type', 'authorization_code');
+    params.set('code', code);
+    params.set('redirect_uri', this.config.redirectUri);
 
-      if (options?.codeVerifier) {
-        params.set('code_verifier', options.codeVerifier);
-      }
+    if (options?.codeVerifier) {
+      params.set('code_verifier', options.codeVerifier);
+    }
 
-      const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+    const result = await httpJson<LinkedInTokenResponse>(
+      'https://www.linkedin.com/oauth/v2/accessToken',
+      {
+        provider: 'linkedin',
+        operation: 'token',
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: params.toString(),
-      });
+      },
+    );
 
-      if (!response.ok) {
-        return err('OAUTH_AUTH_FAILED');
-      }
-
-      const data = (await response.json()) as {
-        access_token: string;
-        refresh_token?: string;
-        expires_in?: number;
-      };
-
-      return ok({
-        accessToken: data.access_token,
-        ...(data.refresh_token && { refreshToken: data.refresh_token }),
-        ...(data.expires_in && { expiresIn: data.expires_in }),
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_AUTH_FAILED');
     }
+
+    const data = result.data;
+    if (typeof data.access_token !== 'string') {
+      return err('OAUTH_AUTH_FAILED');
+    }
+
+    return ok({
+      accessToken: data.access_token,
+      ...(typeof data.refresh_token === 'string' ? { refreshToken: data.refresh_token } : {}),
+      ...(typeof data.expires_in === 'number' ? { expiresIn: data.expires_in } : {}),
+    });
   }
 
   async getUserInfo(accessToken: string): Promise<Result<OAuthUser, AuthErrorCode>> {
-    try {
-      // Modern LinkedIn (OIDC) userinfo endpoint
-      const response = await fetch('https://api.linkedin.com/v2/userinfo', {
+    // Modern LinkedIn (OIDC) userinfo endpoint
+    const result = await httpJson<LinkedInUserInfoResponse>(
+      'https://api.linkedin.com/v2/userinfo',
+      {
+        provider: 'linkedin',
+        operation: 'userinfo',
+        errorCode: 'OAUTH_USER_INFO_FAILED',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-      });
+      },
+    );
 
-      if (!response.ok) {
-        return err('OAUTH_USER_INFO_FAILED');
-      }
-
-      const data = (await response.json()) as {
-        sub: string;
-        email?: string;
-        name: string;
-        picture?: string;
-        email_verified?: boolean;
-      };
-
-      if (!data.sub || !data.email) {
-        return err('OAUTH_USER_INFO_FAILED');
-      }
-
-      return ok({
-        id: data.sub,
-        email: data.email,
-        emailVerified: data.email_verified ?? false,
-        name: data.name,
-        ...(data.picture && { picture: data.picture }),
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_USER_INFO_FAILED');
     }
+
+    const data = result.data;
+    if (typeof data.sub !== 'string' || typeof data.email !== 'string') {
+      return err('OAUTH_USER_INFO_FAILED');
+    }
+
+    return ok({
+      id: data.sub,
+      email: data.email,
+      emailVerified: data.email_verified === true,
+      ...(typeof data.name === 'string' ? { name: data.name } : {}),
+      ...(typeof data.picture === 'string' ? { picture: data.picture } : {}),
+    });
   }
 }

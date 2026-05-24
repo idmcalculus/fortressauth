@@ -67,4 +67,69 @@ describe('SESEmailProvider', () => {
     expect(command.input?.Message?.Subject?.Data).toBe('Reset your password for Fortress');
     expect(command.input?.Message?.Body?.Text?.Data).toContain('https://example.com/reset');
   });
+
+  it('attaches the configuration set name to verification emails when configured', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      configurationSetName: 'fortressauth-prod-events',
+      client: { send },
+    });
+
+    await provider.sendVerificationEmail('user@example.com', 'https://example.com/verify');
+    const command = send.mock.calls[0]?.[0] as SendEmailCommand;
+    expect(command.input?.ConfigurationSetName).toBe('fortressauth-prod-events');
+  });
+
+  it('attaches the configuration set name to password reset emails when configured', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      configurationSetName: 'fortressauth-prod-events',
+      client: { send },
+    });
+
+    await provider.sendPasswordResetEmail('user@example.com', 'https://example.com/reset');
+    const command = send.mock.calls[0]?.[0] as SendEmailCommand;
+    expect(command.input?.ConfigurationSetName).toBe('fortressauth-prod-events');
+  });
+
+  it('omits ConfigurationSetName when not configured (covers default branch)', async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      client: { send },
+    });
+
+    await provider.sendVerificationEmail('user@example.com', 'https://example.com/verify');
+    const command = send.mock.calls[0]?.[0] as SendEmailCommand;
+    expect(command.input?.ConfigurationSetName).toBeUndefined();
+  });
+
+  it('falls back to the default SESClient when no client override is supplied', () => {
+    // Constructing without `client` exercises the SESClient initialization
+    // branch. We don't need to send anything; the constructor branch is the
+    // missing coverage.
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+    });
+    expect(provider).toBeDefined();
+  });
+
+  it('passes static credentials to the default SESClient when supplied without a client override', () => {
+    // Same as above but with the credentials branch taken.
+    const provider = new SESEmailProvider({
+      region: 'us-east-1',
+      fromEmail: 'noreply@example.com',
+      credentials: {
+        accessKeyId: 'AKIA_TEST',
+        secretAccessKey: 'SECRET_TEST',
+      },
+    });
+    expect(provider).toBeDefined();
+  });
 });

@@ -33,10 +33,23 @@ async function apiRequest<T>(
 
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
+      signal: init?.signal ?? AbortSignal.timeout(15_000),
       headers,
     });
-    const data = (await res.json()) as ApiResponse<T>;
-    return data;
+
+    const contentType = res.headers?.get?.('content-type') ?? null;
+    if (contentType === null || contentType.includes('application/json')) {
+      return (await res.json()) as ApiResponse<T>;
+    }
+
+    if (res.ok) {
+      return { success: true } as ApiResponse<T>;
+    }
+
+    return {
+      success: false,
+      error: `HTTP_${res.status}`,
+    };
   } catch (error) {
     return {
       success: false,
@@ -59,7 +72,13 @@ export class FortressAuth {
   constructor(config?: AuthConfig & { storage?: AuthStorage }) {
     this.baseUrl = resolveBaseUrl(config?.baseUrl);
     this.storage = config?.storage ?? getDefaultStorage(config?.storagePrefix);
-    this.init();
+    this.init().catch((err) => {
+      console.warn('[fortressauth] electron init failed', err);
+      this.updateState({
+        loading: false,
+        error: err instanceof Error ? err.message : 'INIT_FAILED',
+      });
+    });
   }
 
   private async init() {

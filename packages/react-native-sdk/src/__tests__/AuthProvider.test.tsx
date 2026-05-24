@@ -433,3 +433,38 @@ describe('useUser (React Native)', () => {
     expect(result.current.user?.email).toBe('test@example.com');
   });
 });
+
+describe('signInWithOAuth (React Native)', () => {
+  it('opens the provider authorization URL via Linking', async () => {
+    const { Linking } = await import('react-native');
+    const openURL = vi.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: createWrapper('https://api.example.com'),
+    });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      await result.current.signInWithOAuth('google');
+    });
+
+    expect(openURL).toHaveBeenCalledWith('https://api.example.com/auth/oauth/google');
+    openURL.mockRestore();
+  });
+});
+
+describe('storage error handling (React Native)', () => {
+  it('falls back to setLoading(false) when stored-token read rejects on mount', async () => {
+    storageData.clear();
+    mockStorage.getItem.mockRejectedValueOnce(new Error('keychain locked'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useAuth(), { wrapper: createWrapper() });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.user).toBeNull();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});

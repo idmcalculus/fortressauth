@@ -6,25 +6,40 @@ This document describes the current release path for FortressAuth. The repositor
 
 1. Prepare the release commit on `main`
 2. Let `CI` pass for that commit
-3. Let `Deploy Hetzner` succeed for that same commit
+3. Let `Deploy AWS` succeed for that same commit (production environment)
 4. Create a GitHub Release for that deployed commit
 5. Let the `Publish` workflow publish npm packages and Docker images
 
-The important constraint is step 3: `Publish` checks that the exact release commit already has a successful `Deploy Hetzner` run.
+The important constraint is step 3: `Publish` checks that the exact release commit already has a successful `Deploy AWS` run.
 
 ## Required Secrets and Variables
 
-### GitHub Actions secrets
+### GitHub Actions secrets (per environment)
 
+`aws-dev` environment:
+- `PULUMI_ACCESS_TOKEN`
+
+`aws-prod` environment:
+- `PULUMI_ACCESS_TOKEN`
+
+Repository secrets (for `Publish`):
 - `NPM_TOKEN`
 - `DOCKER_USERNAME`
 - `DOCKER_PASSWORD`
-- `PULUMI_ACCESS_TOKEN`
-- `HETZNER_DEPLOY_SSH_PRIVATE_KEY`
 
-### GitHub Actions variables
+### GitHub Actions variables (per environment)
 
-- `PULUMI_STACK`
+`aws-dev` environment:
+- `AWS_REGION` (`eu-west-1`)
+- `AWS_ROLE_TO_ASSUME` (OIDC role ARN in dev account, e.g. `arn:aws:iam::552072248716:role/github-actions-fortressauth-deploy`)
+- `PULUMI_STACK` (`idmcalculus/fortressauth-aws/dev`)
+
+`aws-prod` environment:
+- `AWS_REGION` (`eu-west-1`)
+- `AWS_ROLE_TO_ASSUME` (OIDC role ARN in prod account, e.g. `arn:aws:iam::437040615654:role/github-actions-fortressauth-deploy`)
+- `PULUMI_STACK` (`idmcalculus/fortressauth-aws/prod`)
+
+`aws-prod` environment also enforces required reviewers for production deploys.
 
 ## Release Preparation Checklist
 
@@ -57,9 +72,14 @@ The release commit must be the one you intend to tag and publish.
 
 ### 4. Wait for deployment of that commit
 
-`Deploy Hetzner` is the gate before release publication. It now always builds a fresh Docker image from the commit being deployed and updates the stack to that image digest.
+`Deploy AWS` is the gate before release publication. The workflow:
 
-Manual deploys are available through `workflow_dispatch` if needed.
+- Authenticates to the target AWS account via OIDC federation (no static keys).
+- Builds the server Docker image and pushes to the per-stack Amazon ECR repository.
+- Runs `pulumi up` against the matching `fortressauth-aws/<stack>` stack so the ECS Fargate service rolls to the new image digest.
+- Smoke-tests `/health` and `/openapi.json` once tasks become healthy.
+
+Push to `main` deploys to `aws-dev` automatically. Production deploys (`aws-prod`) run via `workflow_dispatch` or after a `aws-dev` deploy succeeds, and require reviewer approval through GitHub Environments.
 
 ### 5. Verify the live deployment
 
@@ -70,11 +90,11 @@ curl -fsS https://api.fortressauth.com/health
 curl -fsS https://api.fortressauth.com/openapi.json
 ```
 
-If you want to sync your local Pulumi stack file with the most recent deployment before manual infra work:
+If you need to sync your local Pulumi stack file with the most recent deployment before manual infra work:
 
 ```bash
-cd packages/infra-hetzner
-pulumi stack select idmcalculus/fortressauth-hetzner/dev
+cd packages/infra-aws
+pulumi stack select idmcalculus/fortressauth-aws/prod
 pulumi config refresh --force
 ```
 
@@ -96,7 +116,7 @@ The `Publish` workflow is triggered by `release.created` and does the following:
 ### Verify deploy status
 
 - resolves the release tag to a commit SHA
-- checks for a successful `Deploy Hetzner` run for that same SHA
+- checks for a successful `Deploy AWS` run for that same SHA
 - fails fast if the commit has not been deployed successfully
 
 ### Publish npm packages
@@ -135,7 +155,7 @@ The workflow builds architecture-specific images for:
 - `linux/amd64`
 - `linux/arm64`
 
-It then merges them into multi-arch tags:
+It then merges them into multi-arch tags published to Docker Hub (the public distribution channel for self-hosters). This is separate from the private ECR images used by the AWS deployment:
 
 - `docker.io/<DOCKER_USERNAME>/fortressauth:vX.Y.Z`
 - `docker.io/<DOCKER_USERNAME>/fortressauth:latest`
@@ -155,12 +175,12 @@ After publishing, verify:
 
 This means the release tag points to a commit that was never successfully deployed. Deploy that commit first, then rerun `Publish`.
 
-### Local `Pulumi.dev.yaml` is stale after CI deploys
+### Local `Pulumi.<stack>.yaml` is stale after CI deploys
 
 That is expected. CI updates stack config in its own checkout. Use:
 
 ```bash
-cd packages/infra-hetzner
+cd packages/infra-aws
 pulumi config refresh --force
 ```
 

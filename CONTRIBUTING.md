@@ -63,7 +63,7 @@ Typical places to update are:
 - `README.md` for repo-level navigation and workflow changes
 - package-specific READMEs for package-specific usage
 - `PUBLISHING.md` for release workflow changes
-- `packages/infra-hetzner/README.md` for Hetzner deploy changes
+- `packages/infra-aws/README.md` for AWS deploy changes
 
 ## Branches and commits
 

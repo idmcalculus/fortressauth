@@ -82,7 +82,7 @@ export class ResendEmailProvider implements EmailProviderPort {
 
     if (error) {
       console.error('[email] Failed to send verification email:', error);
-      throw new Error(`Failed to send verification email: ${error.message}`);
+      throw new Error(`Failed to send verification email: ${error.message}`, { cause: error });
     }
   }
 
@@ -102,7 +102,7 @@ export class ResendEmailProvider implements EmailProviderPort {
 
     if (error) {
       console.error('[email] Failed to send password reset email:', error);
-      throw new Error(`Failed to send password reset email: ${error.message}`);
+      throw new Error(`Failed to send password reset email: ${error.message}`, { cause: error });
     }
   }
 }

@@ -1,0 +1,79 @@
+config:
+  aws:region: eu-west-1
+
+  # Refuse to plan or apply against the wrong AWS account. The account ID
+  # below must match the one resolved by the active AWS_PROFILE. Replace
+  # with the dev member account ID for your organization.
+  fortressauth-aws:expectedAccountId: '552072248716'
+
+  # Application
+  fortressauth-aws:appDomain: dev-api.fortressauth.com
+  fortressauth-aws:hostedZoneName: dev-api.fortressauth.com
+  fortressauth-aws:frontendBaseUrl: https://fortressauth.com
+  fortressauth-aws:cookieSameSite: lax
+  fortressauth-aws:csrfCookieSameSite: lax
+
+  # Container
+  fortressauth-aws:appImage: 552072248716.dkr.ecr.eu-west-1.amazonaws.com/fortressauth-dev/server:bootstrap
+  fortressauth-aws:taskCpu: 256
+  fortressauth-aws:taskMemoryMib: 512
+  # Bootstrap order:
+  #   1. Set desiredCount: 0 for the first `pulumi up` to create ECR, ALB,
+  #      RDS, etc. without trying to start tasks.
+  #   2. Build and push the real FortressAuth image to the ECR repository
+  #      that the first apply created.
+  #   3. Set fortressauth-aws:appImage to the real ECR digest and bump
+  #      desiredCount to 1, then `pulumi up` again to roll the service.
+  # The deploy-aws GitHub workflow does steps 2 and 3 automatically.
+  fortressauth-aws:desiredCount: 0
+  fortressauth-aws:containerPort: 3000
+  fortressauth-aws:logRetentionDays: 14
+
+  # Database
+  fortressauth-aws:dbName: fortressauth
+  fortressauth-aws:dbUser: fortressauth
+  fortressauth-aws:dbInstanceClass: db.t4g.micro
+  fortressauth-aws:dbAllocatedStorageGb: 20
+  fortressauth-aws:dbBackupRetentionDays: 1
+  fortressauth-aws:dbMultiAz: false
+  fortressauth-aws:dbDeletionProtection: false
+  fortressauth-aws:dbSkipFinalSnapshot: true
+  fortressauth-aws:dbPostgresVersion: '17.10'
+
+  # Email (SES). The domain identity is provisioned outside Pulumi via
+  # console/CLI in eu-west-1 (DKIM + SPF + DMARC + custom MAIL FROM). This
+  # stack only manages the configuration set and SNS topic.
+  fortressauth-aws:sesIdentityDomain: fortressauth.com
+  fortressauth-aws:sesFromAddress: noreply@fortressauth.com
+  fortressauth-aws:sesFromName: FortressAuth (dev)
+  fortressauth-aws:sesReplyToAddress: noreply@fortressauth.com
+  fortressauth-aws:bounceNotificationEmail: damilola.ige+ses-bounces-dev@jaydeetechltd.com
+  fortressauth-aws:sesManageIdentity: false
+
+  # Network
+  fortressauth-aws:vpcCidr: 10.30.0.0/16
+  fortressauth-aws:availabilityZones: 2
+
+  # Bootstrap mode skips ACM certificate provisioning + HTTPS listener on
+  # the first apply so the hosted zone NS records can be delegated before
+  # ACM tries to validate. Flip to false on the second apply once
+  # delegation is in place.
+  fortressauth-aws:bootstrap: true
+
+  # App env
+  fortressauth-aws:appEnv:
+    EMAIL_PROVIDER: ses
+    BREACHED_PASSWORD_CHECK: 'true'
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
+
+  # Names of secret env vars Pulumi should provision in Secrets Manager.
+  # Values are populated post-deploy via `aws secretsmanager put-secret-value`.
+  fortressauth-aws:secretEnvKeys:
+    - RESEND_API_KEY
+    - GOOGLE_CLIENT_SECRET
+    - GITHUB_CLIENT_SECRET
+    - APPLE_CLIENT_SECRET
+    - DISCORD_CLIENT_SECRET
+    - LINKEDIN_CLIENT_SECRET
+    - TWITTER_CLIENT_SECRET
+    - MICROSOFT_CLIENT_SECRET

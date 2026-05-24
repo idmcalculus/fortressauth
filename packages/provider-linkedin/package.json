@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fortressauth/core": "workspace:*"
+    "@fortressauth/core": "workspace:*",
+    "@fortressauth/oauth-core": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",

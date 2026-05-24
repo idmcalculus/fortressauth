@@ -17,6 +17,9 @@ async function apiRequest<T>(
   init?: RequestInit,
   token?: string | null,
 ): Promise<ApiResponse<T>> {
+  // Manual timeout (lib.dom.AbortSignal.timeout is not in this package's TS lib).
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -30,15 +33,30 @@ async function apiRequest<T>(
 
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
+      signal: init?.signal ?? controller.signal,
       headers,
     });
-    const data = (await res.json()) as ApiResponse<T>;
-    return data;
+
+    const contentType = res.headers?.get?.('content-type') ?? null;
+    if (contentType === null || contentType.includes('application/json')) {
+      return (await res.json()) as ApiResponse<T>;
+    }
+
+    if (res.ok) {
+      return { success: true } as ApiResponse<T>;
+    }
+
+    return {
+      success: false,
+      error: `HTTP_${res.status}`,
+    };
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -64,11 +82,16 @@ export const AuthProvider = ({
 
   // Load token on mount
   useEffect(() => {
-    storage.getItem(TOKEN_STORAGE_KEY).then((storedToken) => {
-      if (storedToken) {
-        setToken(storedToken);
-      }
-    });
+    storage
+      .getItem(TOKEN_STORAGE_KEY)
+      .then((storedToken) => {
+        if (storedToken) {
+          setToken(storedToken);
+        }
+      })
+      .catch((err) => {
+        console.warn('[fortressauth] failed to read stored token', err);
+      });
   }, [storage]);
 
   const refreshUser = useCallback(async () => {
@@ -90,13 +113,19 @@ export const AuthProvider = ({
       void refreshUser();
     } else {
       // Check for stored token
-      storage.getItem(TOKEN_STORAGE_KEY).then((storedToken) => {
-        if (storedToken) {
-          setToken(storedToken);
-        } else {
+      storage
+        .getItem(TOKEN_STORAGE_KEY)
+        .then((storedToken) => {
+          if (storedToken) {
+            setToken(storedToken);
+          } else {
+            setLoading(false);
+          }
+        })
+        .catch((err) => {
+          console.warn('[fortressauth] failed to read stored token', err);
           setLoading(false);
-        }
-      });
+        });
     }
   }, [token, refreshUser, storage]);
 

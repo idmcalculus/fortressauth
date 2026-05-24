@@ -1,0 +1,31 @@
+{
+  "name": "@fortressauth/infra-aws",
+  "version": "0.1.13",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "pulumi:preview": "pulumi preview --diff",
+    "pulumi:up": "pulumi up",
+    "pulumi:destroy": "pulumi destroy"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^7.6.0",
+    "@pulumi/awsx": "^3.0.0",
+    "@pulumi/pulumi": "^3.203.0",
+    "@pulumi/random": "^4.18.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "@types/node": "^25.0.3",
+    "@vitest/coverage-v8": "^4.0.16",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.16"
+  }
+}

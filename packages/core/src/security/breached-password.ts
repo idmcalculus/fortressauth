@@ -72,7 +72,19 @@ export async function isBreachedPassword(
     }
 
     return false;
-  } catch {
+  } catch (error) {
+    // Fail-open: an HIBP outage must not block sign-ups. Log so operators
+    // can see when the check is degraded; suppress AbortError noise since
+    // we deliberately abort on timeout.
+    const isAbort =
+      error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError');
+    if (!isAbort) {
+      console.warn('[fortressauth] breached-password lookup failed; allowing password', error);
+    } else {
+      console.warn(
+        `[fortressauth] breached-password lookup timed out after ${config.timeoutMs}ms; allowing password`,
+      );
+    }
     return false;
   } finally {
     if (timeoutId) {

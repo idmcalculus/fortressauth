@@ -14,13 +14,14 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 - Adapters layer: infrastructure implementations in `packages/adapter-sql/`, `packages/adapter-mongodb/`, `packages/server/`, and `packages/email-*`.
 - OAuth layer: shared primitives in `packages/oauth-core/` and concrete providers in `packages/provider-*`.
 - Client SDKs: `packages/react-sdk/`, `packages/vue-sdk/`, `packages/angular-sdk/`, `packages/svelte-sdk/`, `packages/react-native-sdk/`, `packages/expo-sdk/`, and `packages/electron-sdk/`.
-- Infrastructure automation: `packages/infra-hetzner/` and `packages/infra-netlify/`.
+- Infrastructure automation: `packages/infra-aws/` and `packages/infra-netlify/`.
 - Marketing and launch materials: `.kiro/specs/fortressauth-platform/marketing/`.
 
 **Pulumi And Codex Workflow**
 - Use the enabled `pulumi@local-plugins` Codex plugin for Pulumi authoring, migration, provider upgrades, Automation API work, ESC, and reusable components.
 - Use the plugin-provided MCP server named `pulumi` for Pulumi Registry lookups and Pulumi Cloud stack/resource questions after authenticating with `codex mcp login pulumi`.
-- Keep Pulumi code changes scoped to `packages/infra-hetzner/` and `packages/infra-netlify/` unless a broader infrastructure change is explicitly requested.
+- Keep Pulumi code changes scoped to `packages/infra-aws/` and `packages/infra-netlify/` unless a broader infrastructure change is explicitly requested.
+- The active production target is AWS via `packages/infra-aws/`. Stacks are `idmcalculus/fortressauth-aws/dev` (account 552072248716) and `idmcalculus/fortressauth-aws/prod` (account 437040615654), both in eu-west-1.
 - Prefer `pulumi preview` for validation when the needed stack config and provider credentials are available.
 - Do not run `pulumi up`, `pulumi destroy`, or delegate mutating work to Pulumi Neo without explicit user confirmation.
 - When changing Pulumi behavior, update the relevant package README and GitHub Actions workflow docs if the operational process changes.

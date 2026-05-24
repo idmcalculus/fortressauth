@@ -142,4 +142,92 @@ describe('RedisRateLimiter', () => {
       expect(result.remaining).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe('redis failure modes', () => {
+    let warn: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      warn = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    it('check() fails open by default and returns allowed=true on Redis errors', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmget.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(failingRedis as never);
+
+      const result = await limiter.check('user@example.com', 'login');
+      expect(result.allowed).toBe(true);
+      // Default config has 5 tokens; we should have 4 remaining when failing open.
+      expect(result.remaining).toBe(4);
+      expect(result.retryAfterMs).toBe(0);
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('check failed (failureMode=open)'),
+        expect.any(Error),
+      );
+    });
+
+    it('check() fails closed when failureMode is "closed"', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmget.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(failingRedis as never, { failureMode: 'closed' });
+
+      const result = await limiter.check('user@example.com', 'login');
+      expect(result.allowed).toBe(false);
+      expect(result.remaining).toBe(0);
+      expect(result.retryAfterMs).toBeGreaterThan(0);
+    });
+
+    it('consume() swallows Redis errors and does not throw', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmget.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(failingRedis as never);
+
+      await expect(limiter.consume('user@example.com', 'login')).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('consume failed'),
+        expect.any(Error),
+      );
+    });
+
+    it('reset() swallows Redis errors and does not throw', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.del.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(failingRedis as never);
+
+      await expect(limiter.reset('user@example.com', 'login')).resolves.toBeUndefined();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('reset failed'), expect.any(Error));
+    });
+
+    it('check() runs pexpire in finally even when hmset rejects', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmset.mockRejectedValueOnce(new Error('hmset failed'));
+      const limiter = new RedisRateLimiter(failingRedis as never);
+
+      // The hmset throws inside the inner try/finally; the outer try catches
+      // and we fall through to fail-open. pexpire still runs (best-effort
+      // catch on its own promise).
+      await limiter.check('user@example.com', 'login');
+      expect(failingRedis.pexpire).toHaveBeenCalled();
+    });
+
+    it('throttles repeated identical errors to one log per minute', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmget.mockRejectedValue(new Error('persistent outage'));
+      const limiter = new RedisRateLimiter(failingRedis as never);
+
+      // Two failures in quick succession should produce one log line.
+      await limiter.check('a', 'login');
+      await limiter.check('b', 'login');
+      expect(warn).toHaveBeenCalledTimes(1);
+
+      // After ~61s, the next failure should log again.
+      vi.advanceTimersByTime(61_000);
+      await limiter.check('c', 'login');
+      expect(warn).toHaveBeenCalledTimes(2);
+    });
+  });
 });

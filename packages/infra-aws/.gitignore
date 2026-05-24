@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.turbo/
+
+# Pulumi local stack settings (keep examples committed, real config local)
+Pulumi.dev.yaml
+Pulumi.prod.yaml
+Pulumi.staging.yaml

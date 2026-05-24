@@ -1,10 +1,26 @@
 import type { OAuthProviderPort, OAuthTokens, OAuthUser, Result } from '@fortressauth/core';
 import { err, ok } from '@fortressauth/core';
+import { httpJson } from '@fortressauth/oauth-core';
 
 export interface GoogleProviderConfig {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
+}
+
+interface GoogleTokenResponse {
+  access_token?: unknown;
+  id_token?: unknown;
+  refresh_token?: unknown;
+  expires_in?: unknown;
+}
+
+interface GoogleUserInfoResponse {
+  sub?: unknown;
+  email?: unknown;
+  email_verified?: unknown;
+  name?: unknown;
+  picture?: unknown;
 }
 
 export class GoogleOAuthProvider implements OAuthProviderPort {
@@ -41,66 +57,69 @@ export class GoogleOAuthProvider implements OAuthProviderPort {
     code: string,
     options?: { codeVerifier?: string },
   ): Promise<Result<OAuthTokens, 'OAUTH_AUTH_FAILED'>> {
-    try {
-      const params = new URLSearchParams();
-      params.set('client_id', this.config.clientId);
-      params.set('client_secret', this.config.clientSecret);
-      params.set('code', code);
-      params.set('redirect_uri', this.config.redirectUri);
-      params.set('grant_type', 'authorization_code');
+    const params = new URLSearchParams();
+    params.set('client_id', this.config.clientId);
+    params.set('client_secret', this.config.clientSecret);
+    params.set('code', code);
+    params.set('redirect_uri', this.config.redirectUri);
+    params.set('grant_type', 'authorization_code');
 
-      if (options?.codeVerifier) {
-        params.set('code_verifier', options.codeVerifier);
-      }
+    if (options?.codeVerifier) {
+      params.set('code_verifier', options.codeVerifier);
+    }
 
-      const response = await fetch(this.tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
+    const result = await httpJson<GoogleTokenResponse>(this.tokenUrl, {
+      provider: 'google',
+      operation: 'token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
 
-      if (!response.ok) {
-        return err('OAUTH_AUTH_FAILED');
-      }
-
-      const data = await response.json();
-
-      return ok({
-        accessToken: data.access_token,
-        idToken: data.id_token,
-        refreshToken: data.refresh_token,
-        expiresIn: data.expires_in,
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_AUTH_FAILED');
     }
+
+    const data = result.data;
+    if (typeof data.access_token !== 'string') {
+      return err('OAUTH_AUTH_FAILED');
+    }
+
+    return ok({
+      accessToken: data.access_token,
+      ...(typeof data.id_token === 'string' ? { idToken: data.id_token } : {}),
+      ...(typeof data.refresh_token === 'string' ? { refreshToken: data.refresh_token } : {}),
+      ...(typeof data.expires_in === 'number' ? { expiresIn: data.expires_in } : {}),
+    });
   }
 
   async getUserInfo(accessToken: string): Promise<Result<OAuthUser, 'OAUTH_USER_INFO_FAILED'>> {
-    try {
-      const response = await fetch(this.userInfoUrl, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+    const result = await httpJson<GoogleUserInfoResponse>(this.userInfoUrl, {
+      provider: 'google',
+      operation: 'userinfo',
+      errorCode: 'OAUTH_USER_INFO_FAILED',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
-      if (!response.ok) {
-        return err('OAUTH_USER_INFO_FAILED');
-      }
-
-      const data = await response.json();
-
-      return ok({
-        id: data.sub,
-        email: data.email,
-        emailVerified: data.email_verified,
-        name: data.name,
-        picture: data.picture,
-      });
-    } catch (_error) {
+    if (!result.success) {
       return err('OAUTH_USER_INFO_FAILED');
     }
+
+    const data = result.data;
+    if (typeof data.sub !== 'string' || typeof data.email !== 'string') {
+      return err('OAUTH_USER_INFO_FAILED');
+    }
+
+    return ok({
+      id: data.sub,
+      email: data.email,
+      emailVerified: data.email_verified === true,
+      ...(typeof data.name === 'string' ? { name: data.name } : {}),
+      ...(typeof data.picture === 'string' ? { picture: data.picture } : {}),
+    });
   }
 }

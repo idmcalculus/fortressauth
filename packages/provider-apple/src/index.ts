@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import { createSign } from 'node:crypto';
 import type { OAuthProviderPort, OAuthTokens, OAuthUser, Result } from '@fortressauth/core';
 import { err, ok } from '@fortressauth/core';
+import { httpJson } from '@fortressauth/oauth-core';
 
 const APPLE_AUDIENCE = 'https://appleid.apple.com';
 const DEFAULT_CLIENT_SECRET_TTL_SECONDS = 5 * 60;
@@ -33,6 +34,13 @@ export interface AppleProviderConfig {
   clientSecret?: string; // Optional: provide a pre-generated secret
   privateKey?: string; // Required to generate a client secret if not provided
   clientSecretExpiresIn?: number; // Seconds, max 6 months per Apple docs
+}
+
+interface AppleTokenResponse {
+  access_token?: unknown;
+  id_token?: unknown;
+  refresh_token?: unknown;
+  expires_in?: unknown;
 }
 
 export class AppleOAuthProvider implements OAuthProviderPort {
@@ -117,42 +125,53 @@ export class AppleOAuthProvider implements OAuthProviderPort {
     code: string,
     options?: { codeVerifier?: string },
   ): Promise<Result<OAuthTokens, 'OAUTH_AUTH_FAILED'>> {
+    let clientSecret: string;
     try {
-      const clientSecret = this.getClientSecret();
-
-      const params = new URLSearchParams();
-      params.set('client_id', this.config.clientId);
-      params.set('client_secret', clientSecret);
-      params.set('code', code);
-      params.set('redirect_uri', this.config.redirectUri);
-      params.set('grant_type', 'authorization_code');
-      if (options?.codeVerifier) {
-        params.set('code_verifier', options.codeVerifier);
-      }
-
-      const response = await fetch(this.tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: params,
-      });
-
-      if (!response.ok) {
-        return err('OAUTH_AUTH_FAILED');
-      }
-
-      const data = await response.json();
-
-      return ok({
-        accessToken: data.access_token,
-        idToken: data.id_token,
-        refreshToken: data.refresh_token,
-        expiresIn: data.expires_in,
-      });
-    } catch (_error) {
+      clientSecret = this.getClientSecret();
+    } catch (error) {
+      // Misconfiguration (missing privateKey, invalid key format) is logged
+      // here so operators can diagnose; we still return the standard
+      // OAUTH_AUTH_FAILED so we don't leak which key is missing to the
+      // client.
+      console.error('[oauth:apple] failed to generate client secret', error);
       return err('OAUTH_AUTH_FAILED');
     }
+
+    const params = new URLSearchParams();
+    params.set('client_id', this.config.clientId);
+    params.set('client_secret', clientSecret);
+    params.set('code', code);
+    params.set('redirect_uri', this.config.redirectUri);
+    params.set('grant_type', 'authorization_code');
+    if (options?.codeVerifier) {
+      params.set('code_verifier', options.codeVerifier);
+    }
+
+    const result = await httpJson<AppleTokenResponse>(this.tokenUrl, {
+      provider: 'apple',
+      operation: 'token',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+
+    if (!result.success) {
+      return err('OAUTH_AUTH_FAILED');
+    }
+
+    const data = result.data;
+    if (typeof data.access_token !== 'string') {
+      return err('OAUTH_AUTH_FAILED');
+    }
+
+    return ok({
+      accessToken: data.access_token,
+      ...(typeof data.id_token === 'string' ? { idToken: data.id_token } : {}),
+      ...(typeof data.refresh_token === 'string' ? { refreshToken: data.refresh_token } : {}),
+      ...(typeof data.expires_in === 'number' ? { expiresIn: data.expires_in } : {}),
+    });
   }
 
   async getUserInfo(accessToken: string): Promise<Result<OAuthUser, 'OAUTH_USER_INFO_FAILED'>> {
@@ -193,7 +212,8 @@ export class AppleOAuthProvider implements OAuthProviderPort {
         emailVerified: payload.email_verified === 'true' || payload.email_verified === true,
         name: '', // Name is only in the initial request, not the JWT
       });
-    } catch (_error) {
+    } catch (error) {
+      console.error('[oauth:apple] getUserInfo failed', error);
       return err('OAUTH_USER_INFO_FAILED');
     }
   }

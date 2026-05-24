@@ -14,6 +14,7 @@ export interface SESEmailProviderOptions {
   region: string;
   fromEmail: string;
   fromName?: string | undefined;
+  configurationSetName?: string | undefined;
   credentials?: {
     accessKeyId: string;
     secretAccessKey: string;
@@ -29,6 +30,7 @@ export class SESEmailProvider implements EmailProviderPort {
   private readonly from: string;
   private readonly templates: EmailTemplateSet;
   private readonly appName?: string | undefined;
+  private readonly configurationSetName?: string | undefined;
 
   constructor(options: SESEmailProviderOptions) {
     const credentials = options.credentials
@@ -48,6 +50,7 @@ export class SESEmailProvider implements EmailProviderPort {
     this.from = options.fromName ? `${options.fromName} <${options.fromEmail}>` : options.fromEmail;
     this.templates = mergeEmailTemplates(DEFAULT_EMAIL_TEMPLATES, options.templates);
     this.appName = options.appName;
+    this.configurationSetName = options.configurationSetName;
   }
 
   async sendVerificationEmail(email: string, verificationLink: string): Promise<void> {
@@ -68,6 +71,7 @@ export class SESEmailProvider implements EmailProviderPort {
             Text: { Data: text, Charset: 'UTF-8' },
           },
         },
+        ...(this.configurationSetName ? { ConfigurationSetName: this.configurationSetName } : {}),
       }),
     );
   }
@@ -90,6 +94,7 @@ export class SESEmailProvider implements EmailProviderPort {
             Text: { Data: text, Charset: 'UTF-8' },
           },
         },
+        ...(this.configurationSetName ? { ConfigurationSetName: this.configurationSetName } : {}),
       }),
     );
   }

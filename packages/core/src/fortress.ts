@@ -169,7 +169,9 @@ export class FortressAuth {
 
     if (result.success) {
       const verificationLink = `${this.config.urls.baseUrl}/verify-email?token=${rawVerificationToken}`;
-      await this.emailProvider.sendVerificationEmail(email, verificationLink);
+      await this.sendEmailSafely('sendVerificationEmail', () =>
+        this.emailProvider.sendVerificationEmail(email, verificationLink),
+      );
     }
 
     return result;
@@ -435,7 +437,9 @@ export class FortressAuth {
     await this.repository.createPasswordResetToken(token);
 
     const resetLink = `${this.config.urls.baseUrl}/reset-password?token=${rawToken}`;
-    await this.emailProvider.sendPasswordResetEmail(normalizedEmail, resetLink);
+    await this.sendEmailSafely('sendPasswordResetEmail', () =>
+      this.emailProvider.sendPasswordResetEmail(normalizedEmail, resetLink),
+    );
 
     return ok(undefined);
   }
@@ -699,7 +703,9 @@ export class FortressAuth {
 
     if (verificationEmail) {
       const verificationLink = `${this.config.urls.baseUrl}/verify-email?token=${verificationEmail.rawToken}`;
-      await this.emailProvider.sendVerificationEmail(verificationEmail.email, verificationLink);
+      await this.sendEmailSafely('sendVerificationEmail', () =>
+        this.emailProvider.sendVerificationEmail(verificationEmail.email, verificationLink),
+      );
     }
 
     return result;
@@ -723,6 +729,24 @@ export class FortressAuth {
   private async consumeRateLimit(action: string, identifiers: string[]): Promise<void> {
     for (const identifier of identifiers) {
       await this.rateLimiter.consume(identifier, action);
+    }
+  }
+
+  /**
+   * Sends transactional email without allowing transport errors to fail the
+   * caller. Email transports (SES, SendGrid, SMTP, Resend) routinely throw on
+   * throttling, transient network issues, or recipient policy bounces. We have
+   * already committed the user/account/token to the database by the time we
+   * call out to the provider, so an exception here would convert a successful
+   * flow into a 500 and leave the database in a confusing state. Log and
+   * continue instead; the user can re-trigger via "resend verification" or
+   * "request password reset" endpoints.
+   */
+  private async sendEmailSafely(label: string, send: () => Promise<void>): Promise<void> {
+    try {
+      await send();
+    } catch (error) {
+      console.error(`[fortressauth] email send failed (${label})`, error);
     }
   }
 

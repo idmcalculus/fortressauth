@@ -88,49 +88,76 @@ export class SqlAdapter implements AuthRepository {
     return this.isSqlite() ? value.toISOString() : value;
   }
 
-  async findUserByEmail(email: string): Promise<User | null> {
-    const row = await this.db
-      .selectFrom('users')
-      .selectAll()
-      .where('email', '=', email.toLowerCase())
-      .executeTakeFirst();
-
-    if (!row) {
-      return null;
+  /**
+   * Wraps a repository operation so that driver-level errors (pg, mysql2,
+   * better-sqlite3, Kysely) are logged with the originating method name
+   * before they bubble up. Without this, a failure deep in the driver shows
+   * up at the route layer as a bare `INTERNAL_ERROR` with no breadcrumb to
+   * the offending query.
+   *
+   * Errors that are part of the normal control flow (e.g. duplicate-key
+   * caught and converted to `EMAIL_EXISTS` inside `createUser`) never reach
+   * this catch because they are handled by the method itself.
+   */
+  private async run<T>(method: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      console.error(`[sql-adapter] ${method} failed (dialect=${this.dialect})`, error);
+      throw error;
     }
+  }
 
-    return User.rehydrate({
-      id: row.id,
-      email: row.email,
-      emailVerified: this.parseBoolean(row.email_verified),
-      createdAt: this.parseDate(row.created_at),
-      updatedAt: this.parseDate(row.updated_at),
-      lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+  async findUserByEmail(email: string): Promise<User | null> {
+    return this.run('findUserByEmail', async () => {
+      const row = await this.db
+        .selectFrom('users')
+        .selectAll()
+        .where('email', '=', email.toLowerCase())
+        .executeTakeFirst();
+
+      if (!row) {
+        return null;
+      }
+
+      return User.rehydrate({
+        id: row.id,
+        email: row.email,
+        emailVerified: this.parseBoolean(row.email_verified),
+        createdAt: this.parseDate(row.created_at),
+        updatedAt: this.parseDate(row.updated_at),
+        lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+      });
     });
   }
 
   async findUserById(id: string): Promise<User | null> {
-    const row = await this.db
-      .selectFrom('users')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst();
+    return this.run('findUserById', async () => {
+      const row = await this.db
+        .selectFrom('users')
+        .selectAll()
+        .where('id', '=', id)
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return User.rehydrate({
-      id: row.id,
-      email: row.email,
-      emailVerified: this.parseBoolean(row.email_verified),
-      createdAt: this.parseDate(row.created_at),
-      updatedAt: this.parseDate(row.updated_at),
-      lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+      return User.rehydrate({
+        id: row.id,
+        email: row.email,
+        emailVerified: this.parseBoolean(row.email_verified),
+        createdAt: this.parseDate(row.created_at),
+        updatedAt: this.parseDate(row.updated_at),
+        lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+      });
     });
   }
 
   async createUser(user: User): Promise<Result<void, 'EMAIL_EXISTS'>> {
+    // Note: not wrapped in run() because we intentionally translate
+    // duplicate-key errors into a Result and don't want them logged as
+    // adapter failures.
     try {
       await this.db
         .insertInto('users')
@@ -149,312 +176,357 @@ export class SqlAdapter implements AuthRepository {
       if (isDuplicateKeyError(error)) {
         return err('EMAIL_EXISTS');
       }
+      console.error(`[sql-adapter] createUser failed (dialect=${this.dialect})`, error);
       throw error;
     }
   }
 
   async updateUser(user: User): Promise<void> {
-    await this.db
-      .updateTable('users')
-      .set({
-        email: user.email,
-        email_verified: this.serializeBoolean(user.emailVerified),
-        updated_at: this.serializeDate(user.updatedAt),
-        locked_until: user.lockedUntil ? this.serializeDate(user.lockedUntil) : null,
-      })
-      .where('id', '=', user.id)
-      .execute();
+    return this.run('updateUser', async () => {
+      await this.db
+        .updateTable('users')
+        .set({
+          email: user.email,
+          email_verified: this.serializeBoolean(user.emailVerified),
+          updated_at: this.serializeDate(user.updatedAt),
+          locked_until: user.lockedUntil ? this.serializeDate(user.lockedUntil) : null,
+        })
+        .where('id', '=', user.id)
+        .execute();
+    });
   }
 
   async findAccountByProvider(providerId: string, providerUserId: string): Promise<Account | null> {
-    const row = await this.db
-      .selectFrom('accounts')
-      .selectAll()
-      .where('provider_id', '=', providerId)
-      .where('provider_user_id', '=', providerUserId)
-      .executeTakeFirst();
+    return this.run('findAccountByProvider', async () => {
+      const row = await this.db
+        .selectFrom('accounts')
+        .selectAll()
+        .where('provider_id', '=', providerId)
+        .where('provider_user_id', '=', providerUserId)
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return Account.rehydrate({
-      id: row.id,
-      userId: row.user_id,
-      providerId: row.provider_id as ProviderId,
-      providerUserId: row.provider_user_id,
-      passwordHash: row.password_hash,
-      createdAt: this.parseDate(row.created_at),
+      return Account.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        providerId: row.provider_id as ProviderId,
+        providerUserId: row.provider_user_id,
+        passwordHash: row.password_hash,
+        createdAt: this.parseDate(row.created_at),
+      });
     });
   }
 
   async findEmailAccountByUserId(userId: string): Promise<Account | null> {
-    const row = await this.db
-      .selectFrom('accounts')
-      .selectAll()
-      .where('user_id', '=', userId)
-      .where('provider_id', '=', 'email')
-      .executeTakeFirst();
+    return this.run('findEmailAccountByUserId', async () => {
+      const row = await this.db
+        .selectFrom('accounts')
+        .selectAll()
+        .where('user_id', '=', userId)
+        .where('provider_id', '=', 'email')
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return Account.rehydrate({
-      id: row.id,
-      userId: row.user_id,
-      providerId: row.provider_id as ProviderId,
-      providerUserId: row.provider_user_id,
-      passwordHash: row.password_hash,
-      createdAt: this.parseDate(row.created_at),
+      return Account.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        providerId: row.provider_id as ProviderId,
+        providerUserId: row.provider_user_id,
+        passwordHash: row.password_hash,
+        createdAt: this.parseDate(row.created_at),
+      });
     });
   }
 
   async createAccount(account: Account): Promise<void> {
-    await this.db
-      .insertInto('accounts')
-      .values({
-        id: account.id,
-        user_id: account.userId,
-        provider_id: account.providerId,
-        provider_user_id: account.providerUserId,
-        password_hash: account.passwordHash,
-        created_at: this.serializeDate(account.createdAt),
-      })
-      .execute();
+    return this.run('createAccount', async () => {
+      await this.db
+        .insertInto('accounts')
+        .values({
+          id: account.id,
+          user_id: account.userId,
+          provider_id: account.providerId,
+          provider_user_id: account.providerUserId,
+          password_hash: account.passwordHash,
+          created_at: this.serializeDate(account.createdAt),
+        })
+        .execute();
+    });
   }
 
   async updateEmailAccountPassword(userId: string, passwordHash: string): Promise<void> {
-    await this.db
-      .updateTable('accounts')
-      .set({ password_hash: passwordHash })
-      .where('user_id', '=', userId)
-      .where('provider_id', '=', 'email')
-      .execute();
+    return this.run('updateEmailAccountPassword', async () => {
+      await this.db
+        .updateTable('accounts')
+        .set({ password_hash: passwordHash })
+        .where('user_id', '=', userId)
+        .where('provider_id', '=', 'email')
+        .execute();
+    });
   }
 
   async findSessionBySelector(selector: string): Promise<Session | null> {
-    const row = await this.db
-      .selectFrom('sessions')
-      .selectAll()
-      .where('selector', '=', selector)
-      .executeTakeFirst();
+    return this.run('findSessionBySelector', async () => {
+      const row = await this.db
+        .selectFrom('sessions')
+        .selectAll()
+        .where('selector', '=', selector)
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return Session.rehydrate({
-      id: row.id,
-      userId: row.user_id,
-      selector: row.selector,
-      verifierHash: row.verifier_hash,
-      expiresAt: this.parseDate(row.expires_at),
-      ipAddress: row.ip_address,
-      userAgent: row.user_agent,
-      createdAt: this.parseDate(row.created_at),
+      return Session.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        selector: row.selector,
+        verifierHash: row.verifier_hash,
+        expiresAt: this.parseDate(row.expires_at),
+        ipAddress: row.ip_address,
+        userAgent: row.user_agent,
+        createdAt: this.parseDate(row.created_at),
+      });
     });
   }
 
   async createSession(session: Session): Promise<void> {
-    await this.db
-      .insertInto('sessions')
-      .values({
-        id: session.id,
-        user_id: session.userId,
-        selector: session.selector,
-        verifier_hash: session.verifierHash,
-        expires_at: this.serializeDate(session.expiresAt),
-        ip_address: session.ipAddress,
-        user_agent: session.userAgent,
-        created_at: this.serializeDate(session.createdAt),
-      })
-      .execute();
+    return this.run('createSession', async () => {
+      await this.db
+        .insertInto('sessions')
+        .values({
+          id: session.id,
+          user_id: session.userId,
+          selector: session.selector,
+          verifier_hash: session.verifierHash,
+          expires_at: this.serializeDate(session.expiresAt),
+          ip_address: session.ipAddress,
+          user_agent: session.userAgent,
+          created_at: this.serializeDate(session.createdAt),
+        })
+        .execute();
+    });
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await this.db.deleteFrom('sessions').where('id', '=', sessionId).execute();
+    return this.run('deleteSession', async () => {
+      await this.db.deleteFrom('sessions').where('id', '=', sessionId).execute();
+    });
   }
 
   async deleteSessionsByUserId(userId: string): Promise<void> {
-    await this.db.deleteFrom('sessions').where('user_id', '=', userId).execute();
+    return this.run('deleteSessionsByUserId', async () => {
+      await this.db.deleteFrom('sessions').where('user_id', '=', userId).execute();
+    });
   }
 
   async createEmailVerificationToken(token: EmailVerificationToken): Promise<void> {
-    await this.db
-      .insertInto('email_verifications')
-      .values({
-        id: token.id,
-        user_id: token.userId,
-        selector: token.selector,
-        verifier_hash: token.verifierHash,
-        expires_at: this.serializeDate(token.expiresAt),
-        created_at: this.serializeDate(token.createdAt),
-      })
-      .execute();
+    return this.run('createEmailVerificationToken', async () => {
+      await this.db
+        .insertInto('email_verifications')
+        .values({
+          id: token.id,
+          user_id: token.userId,
+          selector: token.selector,
+          verifier_hash: token.verifierHash,
+          expires_at: this.serializeDate(token.expiresAt),
+          created_at: this.serializeDate(token.createdAt),
+        })
+        .execute();
+    });
   }
 
   async findEmailVerificationBySelector(selector: string): Promise<EmailVerificationToken | null> {
-    const row = await this.db
-      .selectFrom('email_verifications')
-      .selectAll()
-      .where('selector', '=', selector)
-      .executeTakeFirst();
+    return this.run('findEmailVerificationBySelector', async () => {
+      const row = await this.db
+        .selectFrom('email_verifications')
+        .selectAll()
+        .where('selector', '=', selector)
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return EmailVerificationToken.rehydrate({
-      id: row.id,
-      userId: row.user_id,
-      selector: row.selector,
-      verifierHash: row.verifier_hash,
-      expiresAt: this.parseDate(row.expires_at),
-      createdAt: this.parseDate(row.created_at),
-    });
-  }
-
-  async deleteEmailVerification(id: string): Promise<void> {
-    await this.db.deleteFrom('email_verifications').where('id', '=', id).execute();
-  }
-
-  async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
-    await this.db
-      .insertInto('password_resets')
-      .values({
-        id: token.id,
-        user_id: token.userId,
-        selector: token.selector,
-        verifier_hash: token.verifierHash,
-        expires_at: this.serializeDate(token.expiresAt),
-        created_at: this.serializeDate(token.createdAt),
-      })
-      .execute();
-  }
-
-  async findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null> {
-    const row = await this.db
-      .selectFrom('password_resets')
-      .selectAll()
-      .where('selector', '=', selector)
-      .executeTakeFirst();
-
-    if (!row) {
-      return null;
-    }
-
-    return PasswordResetToken.rehydrate({
-      id: row.id,
-      userId: row.user_id,
-      selector: row.selector,
-      verifierHash: row.verifier_hash,
-      expiresAt: this.parseDate(row.expires_at),
-      createdAt: this.parseDate(row.created_at),
-    });
-  }
-
-  async findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]> {
-    const rows = await this.db
-      .selectFrom('password_resets')
-      .selectAll()
-      .where('user_id', '=', userId)
-      .orderBy('created_at', 'asc')
-      .execute();
-
-    return rows.map((row) =>
-      PasswordResetToken.rehydrate({
+      return EmailVerificationToken.rehydrate({
         id: row.id,
         userId: row.user_id,
         selector: row.selector,
         verifierHash: row.verifier_hash,
         expiresAt: this.parseDate(row.expires_at),
         createdAt: this.parseDate(row.created_at),
-      }),
-    );
+      });
+    });
+  }
+
+  async deleteEmailVerification(id: string): Promise<void> {
+    return this.run('deleteEmailVerification', async () => {
+      await this.db.deleteFrom('email_verifications').where('id', '=', id).execute();
+    });
+  }
+
+  async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
+    return this.run('createPasswordResetToken', async () => {
+      await this.db
+        .insertInto('password_resets')
+        .values({
+          id: token.id,
+          user_id: token.userId,
+          selector: token.selector,
+          verifier_hash: token.verifierHash,
+          expires_at: this.serializeDate(token.expiresAt),
+          created_at: this.serializeDate(token.createdAt),
+        })
+        .execute();
+    });
+  }
+
+  async findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null> {
+    return this.run('findPasswordResetBySelector', async () => {
+      const row = await this.db
+        .selectFrom('password_resets')
+        .selectAll()
+        .where('selector', '=', selector)
+        .executeTakeFirst();
+
+      if (!row) {
+        return null;
+      }
+
+      return PasswordResetToken.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        selector: row.selector,
+        verifierHash: row.verifier_hash,
+        expiresAt: this.parseDate(row.expires_at),
+        createdAt: this.parseDate(row.created_at),
+      });
+    });
+  }
+
+  async findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]> {
+    return this.run('findPasswordResetsByUserId', async () => {
+      const rows = await this.db
+        .selectFrom('password_resets')
+        .selectAll()
+        .where('user_id', '=', userId)
+        .orderBy('created_at', 'asc')
+        .execute();
+
+      return rows.map((row) =>
+        PasswordResetToken.rehydrate({
+          id: row.id,
+          userId: row.user_id,
+          selector: row.selector,
+          verifierHash: row.verifier_hash,
+          expiresAt: this.parseDate(row.expires_at),
+          createdAt: this.parseDate(row.created_at),
+        }),
+      );
+    });
   }
 
   async deletePasswordReset(id: string): Promise<void> {
-    await this.db.deleteFrom('password_resets').where('id', '=', id).execute();
+    return this.run('deletePasswordReset', async () => {
+      await this.db.deleteFrom('password_resets').where('id', '=', id).execute();
+    });
   }
 
   async createOAuthState(state: OAuthState): Promise<void> {
-    await this.db
-      .insertInto('oauth_states')
-      .values({
-        id: state.id,
-        provider_id: state.providerId,
-        state: state.state,
-        code_verifier: state.codeVerifier,
-        redirect_uri: state.redirectUri,
-        expires_at: this.serializeDate(state.expiresAt),
-        created_at: this.serializeDate(state.createdAt),
-      })
-      .execute();
+    return this.run('createOAuthState', async () => {
+      await this.db
+        .insertInto('oauth_states')
+        .values({
+          id: state.id,
+          provider_id: state.providerId,
+          state: state.state,
+          code_verifier: state.codeVerifier,
+          redirect_uri: state.redirectUri,
+          expires_at: this.serializeDate(state.expiresAt),
+          created_at: this.serializeDate(state.createdAt),
+        })
+        .execute();
+    });
   }
 
   async findOAuthStateByState(state: string): Promise<OAuthState | null> {
-    const row = await this.db
-      .selectFrom('oauth_states')
-      .selectAll()
-      .where('state', '=', state)
-      .executeTakeFirst();
+    return this.run('findOAuthStateByState', async () => {
+      const row = await this.db
+        .selectFrom('oauth_states')
+        .selectAll()
+        .where('state', '=', state)
+        .executeTakeFirst();
 
-    if (!row) {
-      return null;
-    }
+      if (!row) {
+        return null;
+      }
 
-    return OAuthState.rehydrate({
-      id: row.id,
-      providerId: row.provider_id as OAuthProviderId,
-      state: row.state,
-      codeVerifier: row.code_verifier,
-      redirectUri: row.redirect_uri,
-      expiresAt: this.parseDate(row.expires_at),
-      createdAt: this.parseDate(row.created_at),
+      return OAuthState.rehydrate({
+        id: row.id,
+        providerId: row.provider_id as OAuthProviderId,
+        state: row.state,
+        codeVerifier: row.code_verifier,
+        redirectUri: row.redirect_uri,
+        expiresAt: this.parseDate(row.expires_at),
+        createdAt: this.parseDate(row.created_at),
+      });
     });
   }
 
   async deleteOAuthState(id: string): Promise<void> {
-    await this.db.deleteFrom('oauth_states').where('id', '=', id).execute();
+    return this.run('deleteOAuthState', async () => {
+      await this.db.deleteFrom('oauth_states').where('id', '=', id).execute();
+    });
   }
 
   async recordLoginAttempt(attempt: LoginAttempt): Promise<void> {
-    await this.db
-      .insertInto('login_attempts')
-      .values({
-        id: attempt.id,
-        user_id: attempt.userId,
-        email: attempt.email,
-        ip_address: attempt.ipAddress,
-        success: this.serializeBoolean(attempt.success),
-        created_at: this.serializeDate(attempt.createdAt),
-      })
-      .execute();
+    return this.run('recordLoginAttempt', async () => {
+      await this.db
+        .insertInto('login_attempts')
+        .values({
+          id: attempt.id,
+          user_id: attempt.userId,
+          email: attempt.email,
+          ip_address: attempt.ipAddress,
+          success: this.serializeBoolean(attempt.success),
+          created_at: this.serializeDate(attempt.createdAt),
+        })
+        .execute();
+    });
   }
 
   async countRecentFailedAttempts(email: string, windowMs: number): Promise<number> {
-    const cutoffDate = new Date(Date.now() - windowMs);
-    // For SQLite, we need to compare as ISO string; for other DBs, use Date
-    const cutoffValue = this.isSqlite() ? cutoffDate.toISOString() : cutoffDate;
+    return this.run('countRecentFailedAttempts', async () => {
+      const cutoffDate = new Date(Date.now() - windowMs);
+      // For SQLite, we need to compare as ISO string; for other DBs, use Date
+      const cutoffValue = this.isSqlite() ? cutoffDate.toISOString() : cutoffDate;
 
-    const result = await this.db
-      .selectFrom('login_attempts')
-      .select((eb) => eb.fn.countAll<number>().as('count'))
-      .where('email', '=', email.toLowerCase())
-      .where('success', '=', this.serializeBoolean(false) as boolean)
-      .where('created_at', '>=', cutoffValue as Date)
-      .executeTakeFirst();
+      const result = await this.db
+        .selectFrom('login_attempts')
+        .select((eb) => eb.fn.countAll<number>().as('count'))
+        .where('email', '=', email.toLowerCase())
+        .where('success', '=', this.serializeBoolean(false) as boolean)
+        .where('created_at', '>=', cutoffValue as Date)
+        .executeTakeFirst();
 
-    return Number(result?.count ?? 0);
+      return Number(result?.count ?? 0);
+    });
   }
 
   async transaction<T>(fn: (repo: AuthRepository) => Promise<T>): Promise<T> {
-    return await this.db.transaction().execute(async (trx) => {
-      const txAdapter = new SqlAdapter(trx as unknown as Kysely<Database>, {
-        dialect: this.dialect,
-      });
-      return await fn(txAdapter);
-    });
+    return this.run('transaction', async () =>
+      this.db.transaction().execute(async (trx) => {
+        const txAdapter = new SqlAdapter(trx as unknown as Kysely<Database>, {
+          dialect: this.dialect,
+        });
+        return await fn(txAdapter);
+      }),
+    );
   }
 }

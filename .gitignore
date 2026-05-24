@@ -170,5 +170,6 @@ cookies.txt
 examples/web-angular/src/assets/runtime-config.js
 
 # Local Pulumi stack settings
-packages/infra-hetzner/Pulumi.*.yaml
-!packages/infra-hetzner/Pulumi.dev.example.yaml
+packages/infra-aws/Pulumi.*.yaml
+!packages/infra-aws/Pulumi.dev.example.yaml
+!packages/infra-aws/Pulumi.prod.example.yaml

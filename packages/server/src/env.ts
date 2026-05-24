@@ -64,6 +64,13 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val ?? 'info'),
   REDIS_URL: z.string().optional(),
+  TRUSTED_PROXY_HOP_COUNT: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(8)
+    .optional()
+    .transform((val) => val ?? 0),
   CORS_ORIGINS: z
     .string()
     .optional()
@@ -118,6 +125,10 @@ const envSchema = z.object({
     .or(z.literal(''))
     .transform((val) => val || undefined),
   SES_FROM_NAME: z
+    .string()
+    .optional()
+    .transform((val) => val || undefined),
+  SES_CONFIGURATION_SET_NAME: z
     .string()
     .optional()
     .transform((val) => val || undefined),
@@ -236,4 +247,25 @@ const envSchema = z.object({
     ),
 });
 
-export const env = envSchema.parse(process.env);
+export const env = (() => {
+  const result = envSchema.safeParse(process.env);
+  if (result.success) {
+    return result.data;
+  }
+
+  // Format Zod errors into a developer-friendly summary instead of dumping
+  // a multi-screen JSON tree to stderr. Each line lists the offending
+  // variable and the reason; this is what an operator actually wants to see
+  // when their container fails to start.
+  const lines = result.error.issues.map(
+    (issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`,
+  );
+  console.error('[fortressauth] Invalid environment configuration:');
+  for (const line of lines) {
+    console.error(line);
+  }
+  console.error(
+    '[fortressauth] Fix the variables above (commonly in .env or your container env) and restart.',
+  );
+  process.exit(1);
+})();

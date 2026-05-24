@@ -80,7 +80,8 @@ async function apiRequest<T>(
     if (requiresCsrf) {
       try {
         csrfToken = await getCsrfToken(baseUrl);
-      } catch {
+      } catch (csrfError) {
+        console.warn('[fortressauth] CSRF token unavailable; request will likely 403', csrfError);
         csrfToken = undefined;
       }
     }
@@ -88,18 +89,34 @@ async function apiRequest<T>(
     const res = await fetch(`${baseUrl}${path}`, {
       ...init,
       credentials: 'include',
+      signal: init?.signal ?? AbortSignal.timeout(15_000),
       headers: {
         'Content-Type': 'application/json',
         ...(csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {}),
         ...(init?.headers ?? {}),
       },
     });
-    const data = (await res.json()) as ApiResponse<T>;
-    if (!retry && requiresCsrf && !data.success && data.error === 'CSRF_TOKEN_INVALID') {
-      clearCsrfToken(baseUrl);
-      return apiRequest(baseUrl, path, init, true);
+
+    const contentType = res.headers?.get?.('content-type') ?? null;
+    // If the server explicitly says JSON, or the response object can't tell
+    // us (test fixtures, legacy callers), attempt to parse as JSON.
+    if (contentType === null || contentType.includes('application/json')) {
+      const data = (await res.json()) as ApiResponse<T>;
+      if (!retry && requiresCsrf && !data.success && data.error === 'CSRF_TOKEN_INVALID') {
+        clearCsrfToken(baseUrl);
+        return apiRequest(baseUrl, path, init, true);
+      }
+      return data;
     }
-    return data;
+
+    if (res.ok) {
+      return { success: true } as ApiResponse<T>;
+    }
+
+    return {
+      success: false,
+      error: `HTTP_${res.status}`,
+    };
   } catch (error) {
     return {
       success: false,
@@ -208,7 +225,10 @@ export function createAuthStore(config?: AuthConfig) {
 
   // Initialize by fetching user (only in browser)
   if (typeof window !== 'undefined') {
-    refreshUser();
+    refreshUser().catch((err) => {
+      console.warn('[fortressauth] initial refreshUser failed', err);
+      updateState({ loading: false });
+    });
   }
 
   return {

@@ -1,0 +1,198 @@
+name: Deploy AWS
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment (aws-dev or aws-prod)
+        required: true
+        default: aws-dev
+        type: choice
+        options:
+          - aws-dev
+          - aws-prod
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aws-${{ github.event.inputs.environment || 'aws-dev' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'aws-dev' }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: >-
+            ${{
+              github.event_name == 'workflow_run'
+                && github.event.workflow_run.head_sha
+                || github.sha
+            }}
+
+      - name: Resolve deployment ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEPLOY_SHA="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}"
+          echo "DEPLOY_SHA=${DEPLOY_SHA}" >>"${GITHUB_ENV}"
+          echo "Deploying ref ${GITHUB_REF} at commit ${DEPLOY_SHA}"
+
+      - name: Validate deployment config
+        shell: bash
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          PULUMI_STACK: ${{ vars.PULUMI_STACK }}
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for var in AWS_REGION AWS_ROLE_TO_ASSUME PULUMI_STACK PULUMI_ACCESS_TOKEN; do
+            if [ -z "${!var:-}" ]; then
+              echo "Missing environment variable or secret: ${var}" >&2
+              missing=1
+            fi
+          done
+          [ "${missing}" = "0" ]
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: gha-fortressauth-${{ github.run_id }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Resolve ECR repository
+        id: ecr-repo
+        shell: bash
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          PULUMI_STACK: ${{ vars.PULUMI_STACK }}
+        run: |
+          set -euo pipefail
+          STACK_NAME="${PULUMI_STACK##*/}"
+          REPO_NAME="fortressauth-${STACK_NAME}/server"
+          REGISTRY="${{ steps.ecr-login.outputs.registry }}"
+          IMAGE_BASE="${REGISTRY}/${REPO_NAME}"
+          # The repository is created by Pulumi on first apply. If it does
+          # not exist yet, this build job must be skipped so a bootstrap
+          # `pulumi up` can run first to create it.
+          if ! aws ecr describe-repositories --region "${AWS_REGION}" --repository-names "${REPO_NAME}" >/dev/null 2>&1; then
+            echo "ECR repository ${REPO_NAME} not found yet. Skipping image build; the Pulumi apply step will create the repository on first run." >&2
+            echo "skip_build=true" >>"${GITHUB_OUTPUT}"
+            echo "image_base=${IMAGE_BASE}" >>"${GITHUB_OUTPUT}"
+            echo "repo_name=${REPO_NAME}" >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "skip_build=false" >>"${GITHUB_OUTPUT}"
+          echo "image_base=${IMAGE_BASE}" >>"${GITHUB_OUTPUT}"
+          echo "repo_name=${REPO_NAME}" >>"${GITHUB_OUTPUT}"
+
+      - name: Set up Docker Buildx
+        if: steps.ecr-repo.outputs.skip_build != 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push app image
+        if: steps.ecr-repo.outputs.skip_build != 'true'
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ecr-repo.outputs.image_base }}:sha-${{ env.DEPLOY_SHA }}
+            ${{ steps.ecr-repo.outputs.image_base }}:main
+          cache-from: type=gha,scope=deploy-aws
+          cache-to: type=gha,mode=max,scope=deploy-aws
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          CI: true
+
+      - name: Set up Pulumi
+        uses: pulumi/actions@v6
+
+      - name: Apply Pulumi update
+        working-directory: packages/infra-aws
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_STACK: ${{ vars.PULUMI_STACK }}
+          SKIP_BUILD: ${{ steps.ecr-repo.outputs.skip_build }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pulumi stack select "${PULUMI_STACK}"
+
+          if [ "${SKIP_BUILD}" = "true" ]; then
+            echo "First-run bootstrap: ECR not yet present. Running pulumi up with the placeholder appImage from stack config so the repository is created."
+          else
+            IMAGE_REF="${{ steps.ecr-repo.outputs.image_base }}@${IMAGE_DIGEST}"
+            echo "Deploying image ${IMAGE_REF}"
+            pulumi config set fortressauth-aws:appImage "${IMAGE_REF}" --stack "${PULUMI_STACK}"
+          fi
+
+          pulumi preview --stack "${PULUMI_STACK}" --diff
+          pulumi up --yes --stack "${PULUMI_STACK}"
+
+      - name: Smoke test deployed app
+        if: steps.ecr-repo.outputs.skip_build != 'true'
+        working-directory: packages/infra-aws
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          PULUMI_STACK: ${{ vars.PULUMI_STACK }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BOOTSTRAP="$(pulumi config get fortressauth-aws:bootstrap --stack "${PULUMI_STACK}" 2>/dev/null || echo "true")"
+          if [ "${BOOTSTRAP}" = "true" ]; then
+            echo "Bootstrap mode is on; skipping smoke tests until DNS delegation + cert validation are complete."
+            exit 0
+          fi
+          APP_URL="$(pulumi stack output appUrl --stack "${PULUMI_STACK}")"
+          curl -fsS --retry 30 --retry-all-errors --retry-delay 5 \
+            "${APP_URL}/health" >/dev/null
+          curl -fsS --retry 30 --retry-all-errors --retry-delay 5 \
+            "${APP_URL}/openapi.json" >/dev/null

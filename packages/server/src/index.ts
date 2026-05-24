@@ -27,6 +27,7 @@ import { Kysely, MysqlDialect, PostgresDialect, SqliteDialect } from 'kysely';
 import { createPool } from 'mysql2';
 import { Pool, type PoolConfig } from 'pg';
 import { collectDefaultMetrics, register as metricsRegistry } from 'prom-client';
+import { z } from 'zod';
 import { createEmailProvider } from './email-provider.js';
 import { env } from './env.js';
 import { ErrorResponseFactory } from './errors/error-response-factory.js';
@@ -74,6 +75,11 @@ function createDatabase(): DatabaseContext {
     }
 
     const pool = new Pool(poolConfig);
+    // Without an `error` listener, idle-client errors emitted by node-postgres
+    // become uncaughtExceptions and crash the process. Log them instead.
+    pool.on('error', (error) => {
+      console.error('[pg pool] idle client error', error);
+    });
     const db = new Kysely<Database>({ dialect: new PostgresDialect({ pool }) });
     return {
       db,
@@ -84,6 +90,11 @@ function createDatabase(): DatabaseContext {
 
   if (isMysql) {
     const pool = createPool(url);
+    // mysql2 pools emit `error` on idle-connection failures; without a listener
+    // these crash the process.
+    pool.on('error', (error: unknown) => {
+      console.error('[mysql pool] idle connection error', error);
+    });
     const db = new Kysely<Database>({ dialect: new MysqlDialect({ pool }) });
     return {
       db,
@@ -217,13 +228,39 @@ const fortressConfigInput: FortressConfigInput = {
   },
 };
 
-const resolvedConfig = FortressConfigSchema.parse(fortressConfigInput);
+const resolvedConfig = (() => {
+  const parsed = FortressConfigSchema.safeParse(fortressConfigInput);
+  if (parsed.success) {
+    return parsed.data;
+  }
+  console.error('[fortressauth] Invalid Fortress configuration assembled from env:');
+  for (const issue of parsed.error.issues) {
+    console.error(`  - ${issue.path.join('.') || '(root)'}: ${issue.message}`);
+  }
+  process.exit(1);
+})();
 
 // Initialize rate limiter
 let redisClient: Redis | null = null;
 let rateLimiter: RateLimiterPort;
 if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
-  redisClient = new Redis(env.REDIS_URL);
+  redisClient = new Redis(env.REDIS_URL, {
+    // ioredis retries forever by default. Cap retries during a per-command
+    // outage so a Redis blip doesn't pile up unbounded queued commands.
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+  });
+  // Without an `error` listener, ioredis emits `error` events that bubble
+  // to the process as unhandled errors and crash the server.
+  redisClient.on('error', (error) => {
+    console.error('[redis] connection error', error);
+  });
+  redisClient.on('end', () => {
+    console.warn('[redis] connection closed');
+  });
+  redisClient.on('reconnecting', (delay: number) => {
+    console.warn(`[redis] reconnecting in ${delay}ms`);
+  });
   rateLimiter = new RedisRateLimiter(redisClient, {
     actions: {
       login: resolvedConfig.rateLimit.login,
@@ -279,6 +316,9 @@ const emailProvider = createEmailProvider({
           fromEmail: env.SES_FROM_ADDRESS,
           ...(env.SES_FROM_NAME ? { fromName: env.SES_FROM_NAME } : {}),
           ...(sesCredentials ? { credentials: sesCredentials } : {}),
+          ...(env.SES_CONFIGURATION_SET_NAME
+            ? { configurationSetName: env.SES_CONFIGURATION_SET_NAME }
+            : {}),
         }
       : undefined,
   sendgrid:
@@ -555,22 +595,101 @@ function createError(errorCode: AuthErrorCode, details?: string, error?: Error) 
   };
 }
 
+// ---------------------------------------------------------------------------
+// Request body schemas
+// ---------------------------------------------------------------------------
+// We intentionally keep these schemas minimal: the goal is to convert obviously
+// malformed input (missing fields, wrong types, non-object body) into a 400
+// before it reaches the orchestrator. Domain rules (password strength, email
+// format) remain authoritative in `@fortressauth/core/security/validation`.
+const credentialsSchema = z.object({
+  email: z.string().min(1).max(320),
+  password: z.string().min(1).max(4096),
+});
+
+const tokenOnlySchema = z.object({
+  token: z.string().min(1).max(256),
+});
+
+const requestPasswordResetSchema = z.object({
+  email: z.string().min(1).max(320),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1).max(256),
+  newPassword: z.string().min(1).max(4096),
+});
+
+/**
+ * Reads JSON from the request and validates it against the supplied schema.
+ * Returns either the parsed value or a structured error suitable for use in
+ * the route's `c.json(response, status)` call.
+ *
+ * Maps schema failures (missing `email`, wrong types, etc.) to
+ * `INVALID_EMAIL` or `INVALID_PASSWORD` where unambiguous, otherwise falls
+ * back to `INVALID_EMAIL` as the closest 400-class code from our existing
+ * AuthErrorCode set. The mapping is conservative so we don't have to extend
+ * the public error code surface.
+ */
+async function parseJsonBody<T extends z.ZodTypeAny>(
+  c: { req: { json: () => Promise<unknown> } },
+  schema: T,
+): Promise<
+  { ok: true; data: z.output<T> } | { ok: false; errorCode: AuthErrorCode; details: string }
+> {
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch (error) {
+    return {
+      ok: false,
+      errorCode: 'INVALID_EMAIL',
+      details: `Malformed JSON body: ${error instanceof Error ? error.message : 'unknown'}`,
+    };
+  }
+
+  const result = schema.safeParse(raw);
+  if (result.success) {
+    return { ok: true, data: result.data };
+  }
+
+  // Pick the most relevant error code based on which field failed first.
+  const firstIssue = result.error.issues[0];
+  const fieldPath = firstIssue?.path.join('.') ?? '';
+  const errorCode: AuthErrorCode = fieldPath.includes('password')
+    ? 'INVALID_PASSWORD'
+    : 'INVALID_EMAIL';
+
+  return {
+    ok: false,
+    errorCode,
+    details: result.error.issues
+      .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('; '),
+  };
+}
+
 // Auth routes
 app.post('/auth/signup', async (c) => {
   try {
-    const body = await c.req.json();
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const parsed = await parseJsonBody(c, credentialsSchema);
+    if (!parsed.ok) {
+      const { response, status } = createError(parsed.errorCode, parsed.details);
+      return c.json(response, status);
+    }
+
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
 
     const result = await fortress.signUp({
-      email: body.email,
-      password: body.password,
+      email: parsed.data.email,
+      password: parsed.data.password,
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
     });
 
     if (!result.success) {
-      const { response, status } = createError(result.error, `Signup failed for ${body.email}`);
+      const { response, status } = createError(result.error, 'Signup failed');
       return c.json(response, status);
     }
 
@@ -600,19 +719,24 @@ app.post('/auth/signup', async (c) => {
 
 app.post('/auth/login', async (c) => {
   try {
-    const body = await c.req.json();
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const parsed = await parseJsonBody(c, credentialsSchema);
+    if (!parsed.ok) {
+      const { response, status } = createError(parsed.errorCode, parsed.details);
+      return c.json(response, status);
+    }
+
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
 
     const result = await fortress.signIn({
-      email: body.email,
-      password: body.password,
+      email: parsed.data.email,
+      password: parsed.data.password,
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
     });
 
     if (!result.success) {
-      const { response, status } = createError(result.error, `Login failed for ${body.email}`);
+      const { response, status } = createError(result.error, 'Login failed');
       return c.json(response, status);
     }
 
@@ -708,10 +832,15 @@ app.get('/auth/csrf', (c) => {
 
 app.post('/auth/verify-email', async (c) => {
   try {
-    const body = await c.req.json();
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const parsed = await parseJsonBody(c, tokenOnlySchema);
+    if (!parsed.ok) {
+      const { response, status } = createError(parsed.errorCode, parsed.details);
+      return c.json(response, status);
+    }
+
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
-    const result = await fortress.verifyEmail(body.token, {
+    const result = await fortress.verifyEmail(parsed.data.token, {
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
     });
@@ -735,8 +864,13 @@ app.post('/auth/verify-email', async (c) => {
 
 app.post('/auth/request-password-reset', async (c) => {
   try {
-    const body = await c.req.json();
-    const result = await fortress.requestPasswordReset(body.email);
+    const parsed = await parseJsonBody(c, requestPasswordResetSchema);
+    if (!parsed.ok) {
+      const { response, status } = createError(parsed.errorCode, parsed.details);
+      return c.json(response, status);
+    }
+
+    const result = await fortress.requestPasswordReset(parsed.data.email);
 
     if (!result.success) {
       const { response, status } = createError(result.error, 'Password reset request failed');
@@ -757,12 +891,17 @@ app.post('/auth/request-password-reset', async (c) => {
 
 app.post('/auth/reset-password', async (c) => {
   try {
-    const body = await c.req.json();
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const parsed = await parseJsonBody(c, resetPasswordSchema);
+    if (!parsed.ok) {
+      const { response, status } = createError(parsed.errorCode, parsed.details);
+      return c.json(response, status);
+    }
+
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
     const result = await fortress.resetPassword({
-      token: body.token,
-      newPassword: body.newPassword,
+      token: parsed.data.token,
+      newPassword: parsed.data.newPassword,
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
     });
@@ -823,7 +962,7 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
   }
 
   try {
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
 
     const result = await fortress.handleOAuthCallback(provider, providerId, code, state, {
@@ -868,26 +1007,26 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
 
 // Apple uses form_post for its callback, so we need a POST route too
 app.post('/auth/oauth/apple/callback', async (c) => {
-  const body = await c.req.parseBody();
-  const code = body.code as string;
-  const state = body.state as string;
-
-  if (!code || !state) {
-    const { response, status } = createError(
-      'OAUTH_AUTH_FAILED',
-      'Invalid Apple callback parameters',
-    );
-    return c.json(response, status);
-  }
-
-  const provider = oauthProviders.apple;
-  if (!provider) {
-    const { response, status } = createError('OAUTH_NOT_SUPPORTED', 'Apple provider not enabled');
-    return c.json(response, status);
-  }
-
   try {
-    const ipAddress = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
+    const body = await c.req.parseBody();
+    const code = typeof body.code === 'string' ? body.code : null;
+    const state = typeof body.state === 'string' ? body.state : null;
+
+    if (!code || !state) {
+      const { response, status } = createError(
+        'OAUTH_AUTH_FAILED',
+        'Invalid Apple callback parameters',
+      );
+      return c.json(response, status);
+    }
+
+    const provider = oauthProviders.apple;
+    if (!provider) {
+      const { response, status } = createError('OAUTH_NOT_SUPPORTED', 'Apple provider not enabled');
+      return c.json(response, status);
+    }
+
+    const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
 
     const result = await fortress.handleOAuthCallback(provider, 'apple', code, state, {
@@ -918,30 +1057,88 @@ app.post('/auth/oauth/apple/callback', async (c) => {
 // Export app for testing
 export { app };
 
-// Graceful shutdown handler
-function gracefulShutdown(signal: string): void {
-  console.log(`\n${signal} received. Shutting down gracefully...`);
-  void close();
-  if (redisClient) {
-    redisClient.quit().catch((error: Error) => console.error('Error closing Redis', error));
+// Reference to the running HTTP server, captured at startup so the graceful
+// shutdown handler can stop accepting new connections before tearing down
+// dependencies. `null` when the module is imported in tests rather than run
+// as the main module.
+let httpServer: import('node:http').Server | import('node:http2').Http2Server | null = null;
+
+// Tracks whether shutdown is in progress so a second SIGTERM/SIGINT does not
+// kick off a parallel teardown.
+let isShuttingDown = false;
+
+// Graceful shutdown handler. Stops the HTTP listener (so health checks and
+// load balancers can drain), closes the database pool, quits Redis, and only
+// then exits. Each step is wrapped in `Promise.allSettled` so a single
+// failure does not prevent the others from running.
+async function gracefulShutdown(signal: string, exitCode = 0): Promise<void> {
+  if (isShuttingDown) {
+    return;
   }
-  console.log('Database connection closed.');
-  process.exit(0);
+  isShuttingDown = true;
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  const shutdownTimeoutMs = 10_000;
+  const timeout = setTimeout(() => {
+    console.error(`[shutdown] Timed out after ${shutdownTimeoutMs}ms; forcing exit.`);
+    process.exit(exitCode === 0 ? 1 : exitCode);
+  }, shutdownTimeoutMs);
+  // Don't keep the event loop alive solely for the timeout.
+  timeout.unref();
+
+  const tasks: Promise<unknown>[] = [];
+
+  if (httpServer) {
+    tasks.push(
+      new Promise<void>((resolve) => {
+        httpServer?.close((err) => {
+          if (err) {
+            console.error('[shutdown] HTTP server close failed', err);
+          }
+          resolve();
+        });
+      }),
+    );
+  }
+
+  tasks.push(
+    Promise.resolve()
+      .then(() => close())
+      .catch((error: unknown) => {
+        console.error('[shutdown] Database close failed', error);
+      }),
+  );
+
+  if (redisClient) {
+    tasks.push(
+      redisClient.quit().catch((error: unknown) => {
+        console.error('[shutdown] Redis quit failed', error);
+      }),
+    );
+  }
+
+  await Promise.allSettled(tasks);
+  clearTimeout(timeout);
+  console.log('[shutdown] Cleanup complete.');
+  process.exit(exitCode);
 }
 
 // Utility to check if a port is available
 async function isPortAvailable(port: number, hostname: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    import('node:net').then(({ createServer }) => {
+  try {
+    const { createServer } = await import('node:net');
+    return await new Promise<boolean>((resolve) => {
       const server = createServer();
       server.once('error', () => resolve(false));
       server.once('listening', () => {
-        server.close();
-        resolve(true);
+        server.close(() => resolve(true));
       });
       server.listen(port, hostname);
     });
-  });
+  } catch (error) {
+    console.error('[startup] Failed to probe port availability', error);
+    return false;
+  }
 }
 
 // Find an available port starting from the given port
@@ -960,6 +1157,83 @@ async function findAvailablePort(startPort: number, hostname: string): Promise<n
   throw new Error(
     `Could not find an available port after ${maxAttempts} attempts starting from ${startPort}`,
   );
+}
+
+/**
+ * Redacts the password from a database connection string for safe logging.
+ * Handles common formats:
+ *   - postgresql://user:password@host:5432/db
+ *   - postgresql://user:password@host:5432/db?sslmode=require
+ *   - mysql://user:password@host:3306/db
+ *   - sqlite file paths (returned as-is, no credentials)
+ */
+function redactDatabaseUrl(url: string): string {
+  if (!url) return url;
+  // Match scheme://user:password@... and replace password with ***.
+  const match = url.match(/^([^:]+:\/\/[^:@/]+:)([^@]*)(@.+)$/);
+  if (match) {
+    return `${match[1]}***${match[3]}`;
+  }
+  // Non-credentialed URL (e.g. SQLite file path): return as-is.
+  return url;
+}
+
+/**
+ * Returns the trusted client IP from the request headers, accounting for the
+ * configured number of trusted reverse-proxy hops between the app and the
+ * client.
+ *
+ * The X-Forwarded-For header is appended to as a request travels through
+ * proxies: leftmost is the original client (untrusted), rightmost is the
+ * most recent proxy (trusted, because it's the one immediately upstream of
+ * us). For a request that traversed N trusted hops (e.g. 1 ALB), the
+ * client-controlled prefix has at most `total-N` entries; the leftmost
+ * trusted entry is at position `total-N` from the right.
+ *
+ * TRUSTED_PROXY_HOP_COUNT defaults to 0, meaning "do not trust XFF at all"
+ * (use the connection IP, which is unavailable in Hono's context API in
+ * the same way it is in Express). To preserve current behavior in tests
+ * and local dev, we fall back to the leftmost XFF entry when hop count is
+ * 0 and XFF is set; this matches how it worked before. In production
+ * behind ALB, set TRUSTED_PROXY_HOP_COUNT=1 (or higher if there are more
+ * proxies in front of ALB).
+ */
+function getClientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  const trustedHops = env.TRUSTED_PROXY_HOP_COUNT;
+  const xff = c.req.header('x-forwarded-for');
+
+  if (xff && trustedHops > 0) {
+    const parts = xff
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      // Walk from the right, skipping `trustedHops - 1` proxies, then take
+      // the next entry (the actual client IP as recorded by the trusted
+      // outermost proxy).
+      const trustedIndex = Math.max(0, parts.length - trustedHops);
+      return parts[trustedIndex] || 'unknown';
+    }
+  }
+
+  // Backward-compatible fallback: trusted hops=0 (default) keeps existing
+  // behavior so SQLite/local dev and test environments don't break. Header
+  // is still attacker-controlled in this mode; do NOT use for security
+  // decisions (rate limiting) without setting TRUSTED_PROXY_HOP_COUNT > 0.
+  if (xff) {
+    const parts = xff
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      return parts[0] || 'unknown';
+    }
+  }
+
+  const xri = c.req.header('x-real-ip');
+  if (xri) return xri;
+
+  return 'unknown';
 }
 
 async function resolveServerPort(
@@ -984,16 +1258,33 @@ async function resolveServerPort(
 // Start server if running as main module
 if (import.meta.url === `file://${process.argv[1]}`) {
   // Register shutdown handlers
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  process.on('SIGTERM', () => {
+    void gracefulShutdown('SIGTERM');
+  });
+  process.on('SIGINT', () => {
+    void gracefulShutdown('SIGINT');
+  });
+
+  // Process-wide safety nets. Without these, a single floating rejection
+  // (Redis blip, OAuth provider 5xx in a fire-and-forget path, etc.) can
+  // crash the entire server. We log loudly and keep running for
+  // unhandledRejection; for uncaughtException we log and trigger a graceful
+  // shutdown because the process state may be corrupted.
+  process.on('unhandledRejection', (reason) => {
+    console.error('[fatal] unhandledRejection', reason);
+  });
+  process.on('uncaughtException', (error) => {
+    console.error('[fatal] uncaughtException', error);
+    void gracefulShutdown('uncaughtException', 1);
+  });
 
   console.log(`🚀 FortressAuth server v${VERSION} starting...`);
-  console.log(`📊 Database: ${env.DATABASE_URL}`);
+  console.log(`📊 Database: ${redactDatabaseUrl(env.DATABASE_URL)}`);
 
   // Resolve the startup port, either by walking to the next free port or by
   // failing fast when an external orchestrator already chose one.
   resolveServerPort(env.PORT, env.HOST, env.STRICT_PORT)
-    .then((availablePort) => {
+    .then(async (availablePort) => {
       if (availablePort !== env.PORT) {
         console.log(
           `⚠ Port ${env.PORT} is in use by another process, using available port ${availablePort} instead.`,
@@ -1004,15 +1295,14 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`📖 API Docs: http://${env.HOST}:${availablePort}/docs`);
 
       // Use @hono/node-server for Node.js runtime
-      import('@hono/node-server').then(({ serve }) => {
-        serve({
-          fetch: app.fetch,
-          port: availablePort,
-          hostname: env.HOST,
-        });
+      const { serve } = await import('@hono/node-server');
+      httpServer = serve({
+        fetch: app.fetch,
+        port: availablePort,
+        hostname: env.HOST,
       });
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       console.error('Failed to start server:', error);
       process.exit(1);
     });

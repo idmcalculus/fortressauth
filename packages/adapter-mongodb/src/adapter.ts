@@ -183,38 +183,65 @@ export class MongoAdapter implements AuthRepository {
     );
   }
 
+  /**
+   * Wraps a repository operation so that driver-level errors (MongoServerError,
+   * MongoNetworkError, etc.) are logged with the originating method name
+   * before they bubble up to the orchestrator. Errors that are part of the
+   * normal control flow (e.g. duplicate-key in `createUser`) are handled by
+   * the method itself and never reach this wrapper.
+   */
+  private async run<T>(method: string, fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      console.error(`[mongo-adapter] ${method} failed`, error);
+      throw error;
+    }
+  }
+
   async ensureIndexes(): Promise<void> {
-    await Promise.all([
-      this.collections.users.createIndex({ email: 1 }, { unique: true }),
-      this.collections.accounts.createIndex({ providerId: 1, providerUserId: 1 }, { unique: true }),
-      this.collections.accounts.createIndex({ userId: 1 }),
-      this.collections.sessions.createIndex({ selector: 1 }, { unique: true }),
-      this.collections.sessions.createIndex({ userId: 1 }),
-      this.collections.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-      this.collections.emailVerifications.createIndex({ selector: 1 }, { unique: true }),
-      this.collections.emailVerifications.createIndex({ userId: 1 }),
-      this.collections.passwordResets.createIndex({ selector: 1 }, { unique: true }),
-      this.collections.passwordResets.createIndex({ userId: 1 }),
-      this.collections.loginAttempts.createIndex({ email: 1, createdAt: -1 }),
-      this.collections.oauthStates.createIndex({ state: 1 }, { unique: true }),
-      this.collections.oauthStates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    ]);
+    return this.run('ensureIndexes', async () => {
+      await Promise.all([
+        this.collections.users.createIndex({ email: 1 }, { unique: true }),
+        this.collections.accounts.createIndex(
+          { providerId: 1, providerUserId: 1 },
+          { unique: true },
+        ),
+        this.collections.accounts.createIndex({ userId: 1 }),
+        this.collections.sessions.createIndex({ selector: 1 }, { unique: true }),
+        this.collections.sessions.createIndex({ userId: 1 }),
+        this.collections.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        this.collections.emailVerifications.createIndex({ selector: 1 }, { unique: true }),
+        this.collections.emailVerifications.createIndex({ userId: 1 }),
+        this.collections.passwordResets.createIndex({ selector: 1 }, { unique: true }),
+        this.collections.passwordResets.createIndex({ userId: 1 }),
+        this.collections.loginAttempts.createIndex({ email: 1, createdAt: -1 }),
+        this.collections.oauthStates.createIndex({ state: 1 }, { unique: true }),
+        this.collections.oauthStates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+      ]);
+    });
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const doc = await this.collections.users.findOne(
-      { email: email.toLowerCase() },
-      this.sessionOptions(),
-    );
-    return doc ? toUser(doc as MongoUserDocument) : null;
+    return this.run('findUserByEmail', async () => {
+      const doc = await this.collections.users.findOne(
+        { email: email.toLowerCase() },
+        this.sessionOptions(),
+      );
+      return doc ? toUser(doc as MongoUserDocument) : null;
+    });
   }
 
   async findUserById(id: string): Promise<User | null> {
-    const doc = await this.collections.users.findOne({ _id: id }, this.sessionOptions());
-    return doc ? toUser(doc as MongoUserDocument) : null;
+    return this.run('findUserById', async () => {
+      const doc = await this.collections.users.findOne({ _id: id }, this.sessionOptions());
+      return doc ? toUser(doc as MongoUserDocument) : null;
+    });
   }
 
   async createUser(user: User): Promise<Result<void, 'EMAIL_EXISTS'>> {
+    // Note: not wrapped in run() because we intentionally translate
+    // duplicate-key errors into a Result.
     try {
       await this.collections.users.insertOne(
         {
@@ -232,209 +259,255 @@ export class MongoAdapter implements AuthRepository {
       if (isDuplicateKeyError(error)) {
         return err('EMAIL_EXISTS');
       }
+      console.error('[mongo-adapter] createUser failed', error);
       throw error;
     }
   }
 
   async updateUser(user: User): Promise<void> {
-    await this.collections.users.updateOne(
-      { _id: user.id },
-      {
-        $set: {
-          email: user.email,
-          emailVerified: user.emailVerified,
-          updatedAt: user.updatedAt,
-          lockedUntil: user.lockedUntil,
+    return this.run('updateUser', async () => {
+      await this.collections.users.updateOne(
+        { _id: user.id },
+        {
+          $set: {
+            email: user.email,
+            emailVerified: user.emailVerified,
+            updatedAt: user.updatedAt,
+            lockedUntil: user.lockedUntil,
+          },
         },
-      },
-      this.sessionOptions(),
-    );
+        this.sessionOptions(),
+      );
+    });
   }
 
   async findAccountByProvider(providerId: string, providerUserId: string): Promise<Account | null> {
-    const doc = await this.collections.accounts.findOne(
-      { providerId, providerUserId },
-      this.sessionOptions(),
-    );
-    return doc ? toAccount(doc as MongoAccountDocument) : null;
+    return this.run('findAccountByProvider', async () => {
+      const doc = await this.collections.accounts.findOne(
+        { providerId, providerUserId },
+        this.sessionOptions(),
+      );
+      return doc ? toAccount(doc as MongoAccountDocument) : null;
+    });
   }
 
   async findEmailAccountByUserId(userId: string): Promise<Account | null> {
-    const doc = await this.collections.accounts.findOne(
-      { userId, providerId: 'email' },
-      this.sessionOptions(),
-    );
-    return doc ? toAccount(doc as MongoAccountDocument) : null;
+    return this.run('findEmailAccountByUserId', async () => {
+      const doc = await this.collections.accounts.findOne(
+        { userId, providerId: 'email' },
+        this.sessionOptions(),
+      );
+      return doc ? toAccount(doc as MongoAccountDocument) : null;
+    });
   }
 
   async createAccount(account: Account): Promise<void> {
-    await this.collections.accounts.insertOne(
-      {
-        _id: account.id,
-        userId: account.userId,
-        providerId: account.providerId,
-        providerUserId: account.providerUserId,
-        passwordHash: account.passwordHash,
-        createdAt: account.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('createAccount', async () => {
+      await this.collections.accounts.insertOne(
+        {
+          _id: account.id,
+          userId: account.userId,
+          providerId: account.providerId,
+          providerUserId: account.providerUserId,
+          passwordHash: account.passwordHash,
+          createdAt: account.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async updateEmailAccountPassword(userId: string, passwordHash: string): Promise<void> {
-    await this.collections.accounts.updateOne(
-      { userId, providerId: 'email' },
-      { $set: { passwordHash } },
-      this.sessionOptions(),
-    );
+    return this.run('updateEmailAccountPassword', async () => {
+      await this.collections.accounts.updateOne(
+        { userId, providerId: 'email' },
+        { $set: { passwordHash } },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async findSessionBySelector(selector: string): Promise<Session | null> {
-    const doc = await this.collections.sessions.findOne({ selector }, this.sessionOptions());
-    return doc ? toSession(doc as MongoSessionDocument) : null;
+    return this.run('findSessionBySelector', async () => {
+      const doc = await this.collections.sessions.findOne({ selector }, this.sessionOptions());
+      return doc ? toSession(doc as MongoSessionDocument) : null;
+    });
   }
 
   async createSession(session: Session): Promise<void> {
-    await this.collections.sessions.insertOne(
-      {
-        _id: session.id,
-        userId: session.userId,
-        selector: session.selector,
-        verifierHash: session.verifierHash,
-        expiresAt: session.expiresAt,
-        ipAddress: session.ipAddress,
-        userAgent: session.userAgent,
-        createdAt: session.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('createSession', async () => {
+      await this.collections.sessions.insertOne(
+        {
+          _id: session.id,
+          userId: session.userId,
+          selector: session.selector,
+          verifierHash: session.verifierHash,
+          expiresAt: session.expiresAt,
+          ipAddress: session.ipAddress,
+          userAgent: session.userAgent,
+          createdAt: session.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    await this.collections.sessions.deleteOne({ _id: sessionId }, this.sessionOptions());
+    return this.run('deleteSession', async () => {
+      await this.collections.sessions.deleteOne({ _id: sessionId }, this.sessionOptions());
+    });
   }
 
   async deleteSessionsByUserId(userId: string): Promise<void> {
-    await this.collections.sessions.deleteMany({ userId }, this.sessionOptions());
+    return this.run('deleteSessionsByUserId', async () => {
+      await this.collections.sessions.deleteMany({ userId }, this.sessionOptions());
+    });
   }
 
   async createEmailVerificationToken(token: EmailVerificationToken): Promise<void> {
-    await this.collections.emailVerifications.insertOne(
-      {
-        _id: token.id,
-        userId: token.userId,
-        selector: token.selector,
-        verifierHash: token.verifierHash,
-        expiresAt: token.expiresAt,
-        createdAt: token.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('createEmailVerificationToken', async () => {
+      await this.collections.emailVerifications.insertOne(
+        {
+          _id: token.id,
+          userId: token.userId,
+          selector: token.selector,
+          verifierHash: token.verifierHash,
+          expiresAt: token.expiresAt,
+          createdAt: token.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async findEmailVerificationBySelector(selector: string): Promise<EmailVerificationToken | null> {
-    const doc = await this.collections.emailVerifications.findOne(
-      { selector },
-      this.sessionOptions(),
-    );
-    return doc ? toEmailVerification(doc as MongoEmailVerificationDocument) : null;
+    return this.run('findEmailVerificationBySelector', async () => {
+      const doc = await this.collections.emailVerifications.findOne(
+        { selector },
+        this.sessionOptions(),
+      );
+      return doc ? toEmailVerification(doc as MongoEmailVerificationDocument) : null;
+    });
   }
 
   async deleteEmailVerification(id: string): Promise<void> {
-    await this.collections.emailVerifications.deleteOne({ _id: id }, this.sessionOptions());
+    return this.run('deleteEmailVerification', async () => {
+      await this.collections.emailVerifications.deleteOne({ _id: id }, this.sessionOptions());
+    });
   }
 
   async createPasswordResetToken(token: PasswordResetToken): Promise<void> {
-    await this.collections.passwordResets.insertOne(
-      {
-        _id: token.id,
-        userId: token.userId,
-        selector: token.selector,
-        verifierHash: token.verifierHash,
-        expiresAt: token.expiresAt,
-        createdAt: token.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('createPasswordResetToken', async () => {
+      await this.collections.passwordResets.insertOne(
+        {
+          _id: token.id,
+          userId: token.userId,
+          selector: token.selector,
+          verifierHash: token.verifierHash,
+          expiresAt: token.expiresAt,
+          createdAt: token.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async findPasswordResetBySelector(selector: string): Promise<PasswordResetToken | null> {
-    const doc = await this.collections.passwordResets.findOne({ selector }, this.sessionOptions());
-    return doc ? toPasswordReset(doc as MongoPasswordResetDocument) : null;
+    return this.run('findPasswordResetBySelector', async () => {
+      const doc = await this.collections.passwordResets.findOne(
+        { selector },
+        this.sessionOptions(),
+      );
+      return doc ? toPasswordReset(doc as MongoPasswordResetDocument) : null;
+    });
   }
 
   async findPasswordResetsByUserId(userId: string): Promise<PasswordResetToken[]> {
-    const docs = await this.collections.passwordResets
-      .find({ userId }, { ...this.sessionOptions(), sort: { createdAt: 1 } })
-      .toArray();
-    return docs.map((doc) => toPasswordReset(doc as MongoPasswordResetDocument));
+    return this.run('findPasswordResetsByUserId', async () => {
+      const docs = await this.collections.passwordResets
+        .find({ userId }, { ...this.sessionOptions(), sort: { createdAt: 1 } })
+        .toArray();
+      return docs.map((doc) => toPasswordReset(doc as MongoPasswordResetDocument));
+    });
   }
 
   async deletePasswordReset(id: string): Promise<void> {
-    await this.collections.passwordResets.deleteOne({ _id: id }, this.sessionOptions());
+    return this.run('deletePasswordReset', async () => {
+      await this.collections.passwordResets.deleteOne({ _id: id }, this.sessionOptions());
+    });
   }
 
   async createOAuthState(state: OAuthState): Promise<void> {
-    await this.collections.oauthStates.insertOne(
-      {
-        _id: state.id,
-        providerId: state.providerId,
-        state: state.state,
-        codeVerifier: state.codeVerifier,
-        redirectUri: state.redirectUri,
-        expiresAt: state.expiresAt,
-        createdAt: state.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('createOAuthState', async () => {
+      await this.collections.oauthStates.insertOne(
+        {
+          _id: state.id,
+          providerId: state.providerId,
+          state: state.state,
+          codeVerifier: state.codeVerifier,
+          redirectUri: state.redirectUri,
+          expiresAt: state.expiresAt,
+          createdAt: state.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async findOAuthStateByState(state: string): Promise<OAuthState | null> {
-    const doc = await this.collections.oauthStates.findOne({ state }, this.sessionOptions());
+    return this.run('findOAuthStateByState', async () => {
+      const doc = await this.collections.oauthStates.findOne({ state }, this.sessionOptions());
 
-    if (!doc) {
-      return null;
-    }
+      if (!doc) {
+        return null;
+      }
 
-    return OAuthState.rehydrate({
-      id: doc._id,
-      providerId: doc.providerId as OAuthProviderId,
-      state: doc.state,
-      codeVerifier: doc.codeVerifier,
-      redirectUri: doc.redirectUri,
-      expiresAt: doc.expiresAt,
-      createdAt: doc.createdAt,
+      return OAuthState.rehydrate({
+        id: doc._id,
+        providerId: doc.providerId as OAuthProviderId,
+        state: doc.state,
+        codeVerifier: doc.codeVerifier,
+        redirectUri: doc.redirectUri,
+        expiresAt: doc.expiresAt,
+        createdAt: doc.createdAt,
+      });
     });
   }
 
   async deleteOAuthState(id: string): Promise<void> {
-    await this.collections.oauthStates.deleteOne({ _id: id }, this.sessionOptions());
+    return this.run('deleteOAuthState', async () => {
+      await this.collections.oauthStates.deleteOne({ _id: id }, this.sessionOptions());
+    });
   }
 
   async recordLoginAttempt(attempt: LoginAttempt): Promise<void> {
-    await this.collections.loginAttempts.insertOne(
-      {
-        _id: attempt.id,
-        userId: attempt.userId,
-        email: attempt.email.toLowerCase(),
-        ipAddress: attempt.ipAddress,
-        success: attempt.success,
-        createdAt: attempt.createdAt,
-      },
-      this.sessionOptions(),
-    );
+    return this.run('recordLoginAttempt', async () => {
+      await this.collections.loginAttempts.insertOne(
+        {
+          _id: attempt.id,
+          userId: attempt.userId,
+          email: attempt.email.toLowerCase(),
+          ipAddress: attempt.ipAddress,
+          success: attempt.success,
+          createdAt: attempt.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async countRecentFailedAttempts(email: string, windowMs: number): Promise<number> {
-    const cutoffDate = new Date(Date.now() - windowMs);
-    return await this.collections.loginAttempts.countDocuments(
-      {
-        email: email.toLowerCase(),
-        success: false,
-        createdAt: { $gte: cutoffDate },
-      },
-      this.sessionOptions(),
-    );
+    return this.run('countRecentFailedAttempts', async () => {
+      const cutoffDate = new Date(Date.now() - windowMs);
+      return await this.collections.loginAttempts.countDocuments(
+        {
+          email: email.toLowerCase(),
+          success: false,
+          createdAt: { $gte: cutoffDate },
+        },
+        this.sessionOptions(),
+      );
+    });
   }
 
   async transaction<T>(fn: (repo: AuthRepository) => Promise<T>): Promise<T> {
@@ -449,6 +522,7 @@ export class MongoAdapter implements AuthRepository {
       if (isTransactionUnsupportedError(error)) {
         return await fn(this);
       }
+      console.error('[mongo-adapter] transaction failed', error);
       throw error;
     } finally {
       await session.endSession();

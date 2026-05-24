@@ -144,4 +144,44 @@ describe('Environment configuration', () => {
 
     expect(env.LOG_LEVEL).toBe('debug');
   });
+
+  describe('CORS_ORIGINS parsing', () => {
+    it('parses a comma-separated list and trims whitespace', async () => {
+      process.env.CORS_ORIGINS = ' https://a.example.com , https://b.example.com ';
+      const { env } = await import('../env.js');
+      expect(env.CORS_ORIGINS).toEqual(['https://a.example.com', 'https://b.example.com']);
+    });
+
+    it('drops empty entries', async () => {
+      process.env.CORS_ORIGINS = ',,https://only.example.com,,';
+      const { env } = await import('../env.js');
+      expect(env.CORS_ORIGINS).toEqual(['https://only.example.com']);
+    });
+
+    it('returns null when CORS_ORIGINS is unset', async () => {
+      delete process.env.CORS_ORIGINS;
+      const { env } = await import('../env.js');
+      expect(env.CORS_ORIGINS).toBeNull();
+    });
+  });
+
+  describe('startup error handler', () => {
+    it('exits with code 1 and logs a friendly summary when env is invalid', async () => {
+      process.env.PORT = 'not-a-number';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+
+      // env.ts evaluates at import; the IIFE inside it logs and calls
+      // process.exit(1). We capture both effects.
+      await import('../env.js');
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const calls = errorSpy.mock.calls.map((c) => String(c[0]));
+      expect(calls.some((line) => line.includes('Invalid environment configuration'))).toBe(true);
+      expect(calls.some((line) => line.includes('PORT'))).toBe(true);
+
+      errorSpy.mockRestore();
+      exitSpy.mockRestore();
+    });
+  });
 });

@@ -49,7 +49,7 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 
 ### Infrastructure
 
-- `packages/infra-hetzner` - Pulumi stack for the current Hetzner deployment workflow
+- `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + Route 53 + Secrets Manager + SES)
 - `packages/infra-netlify` - Pulumi stack for Netlify frontend site settings, domains, and env configuration
 
 ## Security Defaults
@@ -145,7 +145,7 @@ The root docs are intentionally small. Use package docs for the details that bel
 
 - `packages/core/README.md` - core library usage and concepts
 - `packages/server/README.md` - server configuration and HTTP surface
-- `packages/infra-hetzner/README.md` - Hetzner/Pulumi deployment workflow
+- `packages/infra-aws/README.md` - AWS/Pulumi deployment workflow
 - `packages/infra-netlify/README.md` - Netlify/Pulumi frontend deployment workflow
 - `CONTRIBUTING.md` - contributor workflow and quality gates
 - `PUBLISHING.md` - release and publishing process
@@ -153,11 +153,11 @@ The root docs are intentionally small. Use package docs for the details that bel
 ## CI, Deploys, and Releases
 
 - `CI` runs on pushes and pull requests to `main`
-- `Deploy Hetzner` runs after successful `CI` on `main`, or manually via `workflow_dispatch`
+- `Deploy AWS` runs after successful `CI` on `main`, or manually via `workflow_dispatch` (target environment selectable: `aws-dev` or `aws-prod`)
 - `Deploy Netlify Infra` runs `pulumi preview`/`pulumi up` for `packages/infra-netlify`
 - `Smoke Frontend` checks the deployed landing site, docs proxy, and demo URLs after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
-- `Deploy Hetzner` always builds a fresh Docker image from the deployed commit and smoke-tests `/health` and `/openapi.json`
-- `Publish` runs from a GitHub Release and requires a successful `Deploy Hetzner` run for the same commit before it publishes npm packages and Docker images
+- `Deploy AWS` builds and pushes a fresh image to Amazon ECR for each successful deploy and smoke-tests `/health` and `/openapi.json`
+- `Publish` runs from a GitHub Release and requires a successful `Deploy AWS` run for the same commit before it publishes npm packages and Docker images
 
 ## Contributing
 
