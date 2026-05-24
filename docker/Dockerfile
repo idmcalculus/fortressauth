@@ -9,8 +9,15 @@ RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 
 WORKDIR /app
 
-# Stage 2: Builder (Build the TypeScript source)
-FROM base AS builder
+# Stage 2: Builder + Deployer combined
+#
+# We must build the workspace first so every package has a populated dist/.
+# Only then is `pnpm deploy --legacy` safe: it copies each transitive
+# workspace dep (including nested copies under .pnpm/) along with its built
+# output. If we deploy before building, pnpm copies empty dist folders and
+# transitive deps like @fortressauth/oauth-core fail at runtime with
+# ERR_MODULE_NOT_FOUND when imported from inside .pnpm/<provider>/...
+FROM base AS deployer
 
 # Install build tools for native modules
 RUN apk add --no-cache python3 make g++
@@ -19,19 +26,12 @@ COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @fortressauth/server... build
 
-# Stage 3: Deployer (Prepare the production bundle)
-# This stage isolates the specific app and its production deps
-FROM base AS deployer
-
-WORKDIR /app
-COPY . .
-
 # --prod ensures only production deps are included
 # --legacy required for pnpm v10+ without injected workspace packages
 # /app/pruned is the destination folder
 RUN pnpm --filter=@fortressauth/server --prod deploy --legacy /app/pruned
 
-# Stage 4: Native Builder (Rebuild native modules in the pruned folder)
+# Stage 3: Native Builder (Rebuild native modules in the pruned folder)
 FROM base AS native-builder
 
 WORKDIR /app/pruned
@@ -45,7 +45,7 @@ RUN apk add --no-cache python3 make g++
 # Force a rebuild of better-sqlite3 inside this final isolated structure
 RUN pnpm rebuild better-sqlite3
 
-# Stage 5: Runner (Final Image)
+# Stage 4: Runner (Final Image)
 FROM node:24-alpine AS runner
 
 WORKDIR /app
@@ -62,24 +62,10 @@ RUN apk add --no-cache libstdc++
 # Copy the fully built, isolated application from the native-builder stage
 COPY --from=native-builder --chown=fortress:fortress /app/pruned .
 
-# pnpm deploy copies package.json/source but misses dist folders if they weren't built in that stage.
-# We manually copy them from the builder stage into the node_modules.
-COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./node_modules/@fortressauth/core/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/oauth-core/dist ./node_modules/@fortressauth/oauth-core/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./node_modules/@fortressauth/adapter-sql/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/email-ses/dist ./node_modules/@fortressauth/email-ses/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/email-sendgrid/dist ./node_modules/@fortressauth/email-sendgrid/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/email-smtp/dist ./node_modules/@fortressauth/email-smtp/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-google/dist ./node_modules/@fortressauth/provider-google/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-github/dist ./node_modules/@fortressauth/provider-github/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-apple/dist ./node_modules/@fortressauth/provider-apple/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-discord/dist ./node_modules/@fortressauth/provider-discord/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-linkedin/dist ./node_modules/@fortressauth/provider-linkedin/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-twitter/dist ./node_modules/@fortressauth/provider-twitter/dist
-COPY --from=builder --chown=fortress:fortress /app/packages/provider-microsoft/dist ./node_modules/@fortressauth/provider-microsoft/dist
-
-# Copy the main server build
-COPY --from=builder --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist
+# Copy the main server build (the deployer stage builds packages/server/dist
+# but pnpm deploy strips it because the server's own package.json doesn't
+# declare its dist as an entry of its own dependencies; copy it explicitly).
+COPY --from=deployer --chown=fortress:fortress /app/packages/server/dist ./packages/server/dist
 
 # Create data directory for SQLite
 RUN mkdir -p /data && chown fortress:fortress /data
