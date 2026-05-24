@@ -169,7 +169,9 @@ cookies.txt
 # Generated example runtime config
 examples/web-angular/src/assets/runtime-config.js
 
-# Local Pulumi stack settings
-packages/infra-aws/Pulumi.*.yaml
-!packages/infra-aws/Pulumi.dev.example.yaml
-!packages/infra-aws/Pulumi.prod.example.yaml
+# Local Pulumi stack settings (committed where appropriate)
+# Pulumi.<stack>.yaml files are tracked by default. Pulumi encrypts any
+# --secret values with the stack's secret provider, so committing the file
+# is safe. Add specific stacks to the ignore list below if a particular
+# stack should remain local-only (e.g. throwaway sandbox stacks).
+# packages/infra-aws/Pulumi.sandbox.yaml

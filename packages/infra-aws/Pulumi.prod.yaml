@@ -1,0 +1,57 @@
+config:
+  aws:region: eu-west-1
+  # Refuse to plan or apply against the wrong AWS account. The account ID
+  # below must match the one resolved by the active AWS_PROFILE. Replace
+  # with the prod member account ID for your organization.
+  fortressauth-aws:expectedAccountId: '437040615654'
+  # Application
+  fortressauth-aws:appDomain: api.fortressauth.com
+  fortressauth-aws:hostedZoneName: api.fortressauth.com
+  fortressauth-aws:frontendBaseUrl: https://fortressauth.com
+  fortressauth-aws:cookieSameSite: lax
+  fortressauth-aws:csrfCookieSameSite: lax
+  # Container
+  fortressauth-aws:appImage: 437040615654.dkr.ecr.eu-west-1.amazonaws.com/fortressauth-prod/server:latest
+  fortressauth-aws:taskCpu: "256"
+  fortressauth-aws:taskMemoryMib: "512"
+  # See packages/infra-aws/Pulumi.dev.example.yaml for the full bootstrap
+  # workflow comment. Production starts at desiredCount: 0 too; the deploy
+  # workflow flips this once the real ECR image is available.
+  fortressauth-aws:desiredCount: "1"
+  fortressauth-aws:containerPort: "3000"
+  fortressauth-aws:logRetentionDays: "30"
+  # Database
+  fortressauth-aws:dbName: fortressauth
+  fortressauth-aws:dbUser: fortressauth
+  fortressauth-aws:dbInstanceClass: db.t4g.micro
+  fortressauth-aws:dbAllocatedStorageGb: "20"
+  fortressauth-aws:dbBackupRetentionDays: "7"
+  fortressauth-aws:dbMultiAz: "false"
+  fortressauth-aws:dbDeletionProtection: "true"
+  fortressauth-aws:dbSkipFinalSnapshot: "false"
+  fortressauth-aws:dbPostgresVersion: '17.10'
+  # Email (SES). Domain identity provisioned outside Pulumi.
+  fortressauth-aws:sesIdentityDomain: fortressauth.com
+  fortressauth-aws:sesFromAddress: noreply@fortressauth.com
+  fortressauth-aws:sesFromName: FortressAuth
+  fortressauth-aws:sesReplyToAddress: noreply@fortressauth.com
+  fortressauth-aws:bounceNotificationEmail: damilola.ige+ses-bounces@jaydeetechltd.com
+  fortressauth-aws:sesManageIdentity: "false"
+  # Network
+  fortressauth-aws:vpcCidr: 10.40.0.0/16
+  fortressauth-aws:availabilityZones: "2"
+  fortressauth-aws:bootstrap: "false"
+  # App env
+  fortressauth-aws:appEnv:
+    EMAIL_PROVIDER: ses
+    BREACHED_PASSWORD_CHECK: 'true'
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,https://vue-demo.fortressauth.com,https://svelte-demo.fortressauth.com,https://angular-demo.fortressauth.com
+  fortressauth-aws:secretEnvKeys:
+    - RESEND_API_KEY
+    - GOOGLE_CLIENT_SECRET
+    - GITHUB_CLIENT_SECRET
+    - APPLE_CLIENT_SECRET
+    - DISCORD_CLIENT_SECRET
+    - LINKEDIN_CLIENT_SECRET
+    - TWITTER_CLIENT_SECRET
+    - MICROSOFT_CLIENT_SECRET

@@ -2,7 +2,10 @@ node_modules/
 dist/
 .turbo/
 
-# Pulumi local stack settings (keep examples committed, real config local)
-Pulumi.dev.yaml
-Pulumi.prod.yaml
-Pulumi.staging.yaml
+# Pulumi.<stack>.yaml files are committed: they hold non-secret stack config
+# (region, domains, account IDs, sizes). Pulumi encrypts any --secret values
+# with the stack's secret provider, so committing is safe by design. Real
+# secrets (DB password, OAuth client secrets) live in AWS Secrets Manager,
+# managed outside Pulumi config. Add specific stacks below to keep them
+# local-only (e.g. throwaway sandbox stacks):
+# Pulumi.sandbox.yaml
