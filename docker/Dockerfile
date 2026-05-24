@@ -65,6 +65,7 @@ COPY --from=native-builder --chown=fortress:fortress /app/pruned .
 # pnpm deploy copies package.json/source but misses dist folders if they weren't built in that stage.
 # We manually copy them from the builder stage into the node_modules.
 COPY --from=builder --chown=fortress:fortress /app/packages/core/dist ./node_modules/@fortressauth/core/dist
+COPY --from=builder --chown=fortress:fortress /app/packages/oauth-core/dist ./node_modules/@fortressauth/oauth-core/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/adapter-sql/dist ./node_modules/@fortressauth/adapter-sql/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/email-ses/dist ./node_modules/@fortressauth/email-ses/dist
 COPY --from=builder --chown=fortress:fortress /app/packages/email-sendgrid/dist ./node_modules/@fortressauth/email-sendgrid/dist
