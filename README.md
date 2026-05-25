@@ -49,7 +49,7 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 
 ### Infrastructure
 
-- `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + Route 53 + Secrets Manager + SES)
+- `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + ACM + external DNS + Secrets Manager + SES)
 - `packages/infra-netlify` - Pulumi stack for Netlify frontend site settings, domains, and env configuration
 
 ## Security Defaults
@@ -155,6 +155,22 @@ The root docs are intentionally small. Use package docs for the details that bel
 - `Smoke Frontend` checks the deployed landing site, docs proxy, `/demo`, and `https://react-demo.fortressauth.com` after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
 - `Deploy AWS` builds and pushes a fresh image to Amazon ECR for each successful deploy and smoke-tests `/health` and `/openapi.json`
 - `Publish` runs from a GitHub Release and requires a successful `Deploy AWS` run for the same commit before it publishes npm packages and Docker images
+
+## AWS Operations
+
+Use `scripts/aws-env-power.sh` for temporary dev/prod runtime start, stop, and
+status operations:
+
+```bash
+./scripts/aws-env-power.sh dev status
+./scripts/aws-env-power.sh dev stop
+./scripts/aws-env-power.sh dev start --desired-count 1
+```
+
+For production, pass `prod` and confirm the prompt, or add `--yes` in a
+non-interactive run. The script controls ECS desired count and RDS stop/start.
+AWS does not support stopping Application Load Balancers, so the script reports
+ALB state but leaves the Pulumi-managed ALB provisioned.
 
 ## Contributing
 

@@ -44,6 +44,7 @@ config:
   fortressauth-aws:appEnv:
     EMAIL_PROVIDER: ses
     BREACHED_PASSWORD_CHECK: 'true'
+    TRUSTED_PROXY_HOP_COUNT: '1'
     CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com
   fortressauth-aws:secretEnvKeys:
     - RESEND_API_KEY

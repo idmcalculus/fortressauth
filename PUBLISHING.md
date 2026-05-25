@@ -23,9 +23,27 @@ The important constraint is step 3: `Publish` checks that the exact release comm
 - `PULUMI_ACCESS_TOKEN`
 
 Repository secrets (for `Publish`):
-- `NPM_TOKEN`
 - `DOCKER_USERNAME`
 - `DOCKER_PASSWORD`
+
+npm packages use npm Trusted Publishing through GitHub Actions OIDC instead of
+an `NPM_TOKEN`. Each publishable npm package must have a trusted publisher entry
+for repository `idmcalculus/fortressauth`, workflow `publish.yml`, and the
+`npm publish` allowed action.
+
+Configure those entries with npm CLI after logging in as an npm account with
+write access to every package:
+
+```bash
+npm install -g 'npm@^11.10.0'
+npm login
+./scripts/npm-configure-trusted-publishing.sh --dry-run
+./scripts/npm-configure-trusted-publishing.sh
+```
+
+The first real run may require browser/2FA approval. If npm offers to skip
+additional 2FA prompts for a short window, accept that prompt so the batch can
+configure all packages.
 
 ### GitHub Actions variables (per environment)
 
@@ -81,6 +99,21 @@ The release commit must be the one you intend to tag and publish.
 
 Push to `main` deploys to `aws-dev` automatically. Production deploys (`aws-prod`) run via `workflow_dispatch` or after a `aws-dev` deploy succeeds, and require reviewer approval through GitHub Environments.
 
+With GitHub CLI:
+
+```bash
+TARGET_SHA="$(git rev-parse HEAD)"
+gh workflow run deploy-aws.yml --ref main -f environment=aws-prod
+gh run list --workflow deploy-aws.yml --commit "${TARGET_SHA}" --limit 5
+```
+
+Approve the `aws-prod` environment gate in GitHub when prompted, then watch the
+run:
+
+```bash
+gh run watch <run-id> --compact --exit-status
+```
+
 ### 5. Verify the live deployment
 
 Check the live API before cutting the release:
@@ -100,14 +133,64 @@ pulumi config refresh --force
 
 ### 6. Create the GitHub Release
 
-Tag the deployed commit and create the release from GitHub:
+The preferred automation path is the GitHub CLI. The Codex GitHub connector is
+useful for repository, PR, issue, and branch work, but the exposed connector
+tools do not currently include a first-class GitHub Release creation tool.
+`gh` is authenticated locally for this repo and can create releases, create
+tags, and inspect workflow runs.
+
+Tag the deployed commit and create the release with `gh`:
 
 ```bash
-git tag vX.Y.Z
-git push origin vX.Y.Z
+git checkout main
+git pull --ff-only origin main
+
+TAG=vX.Y.Z
+TARGET_SHA="$(git rev-parse HEAD)"
+
+# Confirm CI and Deploy AWS passed for the exact commit.
+gh run list --workflow ci.yml --commit "${TARGET_SHA}" --status success --limit 1
+gh run list --workflow deploy-aws.yml --commit "${TARGET_SHA}" --status success --limit 5
+
+# Create a release. If the tag does not exist yet, gh creates it at TARGET_SHA.
+gh release create "${TAG}" \
+  --target "${TARGET_SHA}" \
+  --title "${TAG}" \
+  --generate-notes \
+  --fail-on-no-commits
 ```
 
-Then create a GitHub Release for that tag.
+If you want to create and push an annotated tag first, use:
+
+```bash
+TAG=vX.Y.Z
+git tag -a "${TAG}" -m "${TAG}"
+git push origin "${TAG}"
+gh release create "${TAG}" --verify-tag --title "${TAG}" --generate-notes
+```
+
+For lower-level automation, `gh api` can also call GitHub's Releases REST API:
+
+```bash
+gh api repos/{owner}/{repo}/releases \
+  --method POST \
+  -f tag_name="${TAG}" \
+  -f target_commitish="${TARGET_SHA}" \
+  -f name="${TAG}" \
+  -F generate_release_notes=true
+```
+
+After the release is created, `release.created` triggers the `Publish` workflow.
+Watch it with:
+
+```bash
+gh run list --workflow publish.yml --limit 5
+gh run watch <run-id> --compact --exit-status
+```
+
+Do not create the release until the exact target commit has passed `Deploy AWS`.
+The `Publish` workflow enforces this, but checking first avoids a failed release
+publication run.
 
 ## What the Publish Workflow Does
 
@@ -121,7 +204,12 @@ The `Publish` workflow is triggered by `release.created` and does the following:
 
 ### Publish npm packages
 
-The workflow builds and tests the repo, then publishes publishable workspace packages if that exact version is not already on npm.
+The workflow builds and tests the repo, then publishes publishable workspace packages if that exact version is not already on npm. It publishes with npm provenance using GitHub Actions OIDC; no long-lived npm token is used.
+
+The workflow runs on Node 24 and installs npm CLI `^11.5.1` before publishing,
+which is the npm trusted-publishing prerequisite. It still uses `pnpm publish`
+inside each package so `workspace:*` dependencies are rewritten to concrete
+package versions before the publish request is sent.
 
 Current publish set:
 
