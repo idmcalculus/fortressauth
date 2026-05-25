@@ -59,6 +59,9 @@ describe('HomePage', () => {
 
   it('falls back to proxied docs in production when docs URL is unavailable', () => {
     vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('AUTH_API_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_AUTH_API_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_DOCS_URL', '');
 
     render(
       <ThemeProvider>
