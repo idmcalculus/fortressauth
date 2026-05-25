@@ -258,8 +258,6 @@ jobs:
     if: >-
       ${{
         always() &&
-        github.event_name == 'push' &&
-        github.ref == 'refs/heads/main' &&
         needs.changes.outputs.docker == 'true' &&
         (needs.infra.result == 'success' || needs.infra.result == 'skipped') &&
         (needs.test.result == 'success' || needs.test.result == 'skipped') &&
@@ -283,11 +281,24 @@ jobs:
           cache-to: type=gha,mode=max,scope=ci-docker
 
       - name: Test Docker image
+        shell: bash
         run: |
+          set -euo pipefail
+
+          cleanup() {
+            status=$?
+            if [ "${status}" -ne 0 ]; then
+              docker logs test-server 2>&1 | head -50 || true
+            fi
+            docker stop test-server >/dev/null 2>&1 || true
+            docker rm test-server >/dev/null 2>&1 || true
+            exit "${status}"
+          }
+          trap cleanup EXIT
+
           docker run -d -p 3000:3000 --name test-server fortressauth:latest
           sleep 5
-          curl -f http://localhost:3000/health || (docker logs test-server && exit 1)
-          docker stop test-server
+          curl -fsS http://localhost:3000/health
 
   ci-status:
     runs-on: ubuntu-latest

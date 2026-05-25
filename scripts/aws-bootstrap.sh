@@ -407,15 +407,6 @@ EOF
       "Resource": "*"
     },
     {
-      "Sid": "Route53",
-      "Effect": "Allow",
-      "Action": [
-        "route53:*",
-        "route53domains:*"
-      ],
-      "Resource": "*"
-    },
-    {
       "Sid": "Secrets",
       "Effect": "Allow",
       "Action": [

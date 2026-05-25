@@ -102,6 +102,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
+      - name: Use npm CLI with trusted publishing support
+        run: |
+          npm install -g 'npm@^11.5.1'
+          npm --version
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
         env:
@@ -132,7 +137,9 @@ jobs:
               echo "Publishing ${package_name}@${package_version}"
               (
                 cd "${dir}"
-                pnpm publish --access public --no-git-checks
+                # Keep pnpm here so workspace:* dependencies are rewritten in
+                # package manifests before npm receives the publish request.
+                pnpm publish --access public --provenance --no-git-checks
               )
             fi
           }
@@ -159,8 +166,6 @@ jobs:
           publish_if_needed packages/react-native-sdk
           publish_if_needed packages/expo-sdk
           publish_if_needed packages/electron-sdk
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   # Build Docker images per architecture on native runners.  A matrix strategy assigns
   # each build to a runner that matches the target architecture: amd64 runs on `ubuntu-latest`,

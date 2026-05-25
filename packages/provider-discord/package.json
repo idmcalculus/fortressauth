@@ -2,6 +2,11 @@
   "name": "@fortressauth/provider-discord",
   "version": "0.1.13",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/idmcalculus/fortressauth.git",
+    "directory": "packages/provider-discord"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
