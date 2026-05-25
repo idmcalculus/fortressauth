@@ -1,9 +1,7 @@
 import * as netlify from '@pulumi/netlify';
 import * as pulumi from '@pulumi/pulumi';
 
-type EnvScope = 'builds' | 'functions' | 'runtime' | 'post_processing';
 type EnvValueSpec = {
-  scopes: EnvScope[];
   value: pulumi.Input<string>;
 };
 
@@ -18,9 +16,6 @@ interface FrontendSiteSpec {
   publishDirectory: string;
   siteId: pulumi.Input<string>;
 }
-
-const BUILD_SCOPES: EnvScope[] = ['builds'];
-const NEXT_RUNTIME_SCOPES: EnvScope[] = ['builds', 'functions', 'runtime'];
 
 function requireNonEmpty(value: string | undefined, name: string): string {
   const trimmed = value?.trim();
@@ -92,7 +87,6 @@ function createEnvironmentVariables(
       ([key, spec]) =>
         new netlify.EnvironmentVariable(`${siteKey}-${key}`, {
           key,
-          scopes: spec.scopes,
           siteId,
           teamId,
           values: [
@@ -168,11 +162,9 @@ const sites: FrontendSiteSpec[] = [
     domainAliases: wwwLandingDomain === landingDomain ? [] : [wwwLandingDomain],
     env: {
       AUTH_API_URL: {
-        scopes: NEXT_RUNTIME_SCOPES,
         value: authApiUrl,
       },
       NEXT_PUBLIC_LIVE_DEMO_URL: {
-        scopes: NEXT_RUNTIME_SCOPES,
         value: `https://${reactDemoDomain}`,
       },
     },
@@ -187,11 +179,9 @@ const sites: FrontendSiteSpec[] = [
     domain: reactDemoDomain,
     env: {
       DEMO_BASE_PATH: {
-        scopes: BUILD_SCOPES,
         value: '/',
       },
       VITE_API_URL: {
-        scopes: BUILD_SCOPES,
         value: authApiUrl,
       },
     },

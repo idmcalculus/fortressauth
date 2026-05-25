@@ -100,6 +100,12 @@ React demo:
 
 `AUTH_API_URL` must be configured as a Netlify site environment variable, not only in `netlify.toml`, because the landing app uses it from the Next.js route handler at runtime.
 
+The Pulumi stack intentionally does not set Netlify's per-variable `scopes`
+field. Netlify rejects custom environment-variable scopes on free plans with a
+403 "Upgrade your Netlify account to set specific scopes" response. Omitting the
+field lets Netlify apply the account-supported default scopes while still
+keeping these values managed by Pulumi.
+
 ## Operational Notes
 
 - Landing deploy previews stay enabled, but they are UI/docs previews only.
