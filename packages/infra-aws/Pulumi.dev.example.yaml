@@ -8,7 +8,6 @@ config:
 
   # Application
   fortressauth-aws:appDomain: dev-api.fortressauth.com
-  fortressauth-aws:hostedZoneName: dev-api.fortressauth.com
   fortressauth-aws:frontendBaseUrl: https://fortressauth.com
   fortressauth-aws:cookieSameSite: lax
   fortressauth-aws:csrfCookieSameSite: lax
@@ -54,10 +53,9 @@ config:
   fortressauth-aws:vpcCidr: 10.30.0.0/16
   fortressauth-aws:availabilityZones: 2
 
-  # Bootstrap mode skips ACM certificate provisioning + HTTPS listener on
-  # the first apply so the hosted zone NS records can be delegated before
-  # ACM tries to validate. Flip to false on the second apply once
-  # delegation is in place.
+  # Bootstrap mode creates the ACM certificate and outputs DNS validation
+  # CNAMEs, but skips the HTTPS listener. Add those CNAMEs in external DNS
+  # and flip this to false once ACM validation can complete.
   fortressauth-aws:bootstrap: true
 
   # App env

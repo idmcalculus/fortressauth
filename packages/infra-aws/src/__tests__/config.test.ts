@@ -83,7 +83,6 @@ describe('loadConfig', () => {
       expect(cfg.stack).toBe('dev');
       expect(cfg.namePrefix).toBe('fortressauth-dev');
       expect(cfg.appDomain).toBe('api.example.com');
-      expect(cfg.hostedZoneName).toBe('api.example.com');
       expect(cfg.frontendBaseUrl).toBe('https://api.example.com');
       expect(cfg.cookieSameSite).toBe('lax');
       expect(cfg.csrfCookieSameSite).toBe('lax');
@@ -125,9 +124,9 @@ describe('loadConfig', () => {
       expect(loadConfig().frontendBaseUrl).toBe('https://auth.test.dev');
     });
 
-    it('sesIdentityDomain defaults to the apex of the hosted zone', async () => {
+    it('sesIdentityDomain defaults to the apex of the app domain', async () => {
       const { loadConfig } = await loadWithConfig({
-        values: withRequired({ hostedZoneName: 'auth.example.com' }),
+        values: withRequired({ appDomain: 'auth.example.com' }),
       });
       const cfg = loadConfig();
       expect(cfg.sesIdentityDomain).toBe('example.com');
@@ -523,7 +522,6 @@ describe('loadConfig', () => {
         'stack',
         'namePrefix',
         'appDomain',
-        'hostedZoneName',
         'frontendBaseUrl',
         'cookieSameSite',
         'csrfCookieSameSite',

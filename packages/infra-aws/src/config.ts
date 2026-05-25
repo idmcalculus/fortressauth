@@ -95,7 +95,6 @@ export interface ResolvedConfig {
 
   // Application
   readonly appDomain: string;
-  readonly hostedZoneName: string;
   readonly frontendBaseUrl: string;
   readonly cookieSameSite: 'strict' | 'lax' | 'none';
   readonly csrfCookieSameSite: 'strict' | 'lax' | 'none';
@@ -149,10 +148,6 @@ export function loadConfig(): ResolvedConfig {
   const namePrefix = config.get('namePrefix') ?? `fortressauth-${stack}`;
 
   const appDomain = assertHostname(config.require('appDomain'), 'appDomain');
-  const hostedZoneName = assertHostname(
-    config.get('hostedZoneName') ?? appDomain,
-    'hostedZoneName',
-  );
   const frontendBaseUrl = assertBaseUrl(
     config.get('frontendBaseUrl') ?? `https://${appDomain}`,
     'frontendBaseUrl',
@@ -191,7 +186,7 @@ export function loadConfig(): ResolvedConfig {
   const dbPostgresVersion = config.get('dbPostgresVersion') ?? '17.10';
 
   const sesIdentityDomain = assertHostname(
-    config.get('sesIdentityDomain') ?? hostedZoneName.split('.').slice(-2).join('.'),
+    config.get('sesIdentityDomain') ?? appDomain.split('.').slice(-2).join('.'),
     'sesIdentityDomain',
   );
   const sesFromAddress = assertEmail(
@@ -216,11 +211,10 @@ export function loadConfig(): ResolvedConfig {
     throw new Error('availabilityZones must be 2 or 3.');
   }
 
-  // Bootstrap mode controls whether ACM certificate provisioning + HTTPS
-  // listener are created on this apply. The first `pulumi up` runs with
-  // bootstrap=true so the hosted zone NS records are knowable before
-  // ACM tries to validate the (not yet delegated) zone. Operators flip
-  // this to false on the second apply once delegation is in place.
+  // Bootstrap mode controls whether Pulumi waits for ACM validation and
+  // creates the HTTPS listener. The first `pulumi up` runs with
+  // bootstrap=true so the certificate validation CNAMEs can be copied into
+  // external DNS. Operators flip this to false once those CNAMEs resolve.
   const bootstrap = config.getBoolean('bootstrap') ?? true;
 
   const expectedAccountId = config.get('expectedAccountId')?.trim();
@@ -238,7 +232,6 @@ export function loadConfig(): ResolvedConfig {
     stack,
     namePrefix,
     appDomain,
-    hostedZoneName,
     frontendBaseUrl,
     cookieSameSite,
     csrfCookieSameSite,

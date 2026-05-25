@@ -206,7 +206,6 @@ export function makeConfig(overrides: Partial<ResolvedConfig> = {}): ResolvedCon
     stack: 'dev',
     namePrefix: 'fortressauth-dev',
     appDomain: 'api.example.com',
-    hostedZoneName: 'api.example.com',
     frontendBaseUrl: 'https://api.example.com',
     cookieSameSite: 'lax',
     csrfCookieSameSite: 'lax',

@@ -1,12 +1,13 @@
 import * as pulumi from '@pulumi/pulumi';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { bindAlbAlias, buildDns } from '../dns';
+import { buildAppDnsRecord, buildDns } from '../dns';
 import {
   flushResources,
   type InstallMocksResult,
   installMocks,
   makeConfig,
+  resolveOutput,
   TEST_TAGS,
 } from './helpers';
 
@@ -21,98 +22,71 @@ describe('buildDns', () => {
     mocks.resources.length = 0;
   });
 
-  it('always creates the hosted zone', async () => {
-    buildDns(makeConfig({ hostedZoneName: 'auth.example.com' }), true, TEST_TAGS);
+  it('creates an ACM certificate scoped to the appDomain with DNS validation', async () => {
+    buildDns(makeConfig({ appDomain: 'api.example.com' }), true, TEST_TAGS);
     await flushResources();
 
-    const zone = mocks.oneOfType('aws:route53/zone:Zone');
-    expect(zone.inputs.name).toBe('auth.example.com');
-    expect(zone.inputs.tags).toMatchObject({ Component: 'dns' });
+    const cert = mocks.oneOfType('aws:acm/certificate:Certificate');
+    expect(cert.inputs.domainName).toBe('api.example.com');
+    expect(cert.inputs.validationMethod).toBe('DNS');
+    expect(cert.inputs.tags).toMatchObject({ Component: 'tls' });
+    expect(mocks.byType('aws:route53/zone:Zone')).toEqual([]);
+    expect(mocks.byType('aws:route53/record:Record')).toEqual([]);
   });
 
   describe('bootstrap=true', () => {
-    it('does NOT create a certificate or validation records', async () => {
+    it('does NOT create a CertificateValidation waiter', async () => {
       const result = buildDns(makeConfig(), true, TEST_TAGS);
       await flushResources();
 
-      expect(mocks.byType('aws:acm/certificate:Certificate')).toEqual([]);
       expect(mocks.byType('aws:acm/certificateValidation:CertificateValidation')).toEqual([]);
-      expect(result.certificate).toBeUndefined();
+      expect(result.certificate).toBeDefined();
       expect(result.certificateValidation).toBeUndefined();
+    });
+
+    it('outputs the external DNS validation records', async () => {
+      const result = buildDns(makeConfig({ appDomain: 'api.example.com' }), true, TEST_TAGS);
+      await flushResources();
+
+      const records = await resolveOutput(result.certificateDnsValidationRecords);
+      expect(records).toEqual([
+        {
+          type: 'CNAME',
+          host: '_validation.api.example.com',
+          value: '_validation-target.fortressauth-dev-cert.acm-validations.aws.',
+        },
+      ]);
     });
   });
 
   describe('bootstrap=false', () => {
-    it('creates an ACM certificate scoped to the appDomain with DNS validation', async () => {
-      buildDns(
-        makeConfig({ appDomain: 'api.example.com', hostedZoneName: 'api.example.com' }),
-        false,
-        TEST_TAGS,
-      );
-      await flushResources();
-
-      const cert = mocks.oneOfType('aws:acm/certificate:Certificate');
-      expect(cert.inputs.domainName).toBe('api.example.com');
-      expect(cert.inputs.validationMethod).toBe('DNS');
-    });
-
-    it('creates a route53 record per validation option', async () => {
-      buildDns(makeConfig(), false, TEST_TAGS);
-      await flushResources();
-
-      const records = mocks.byType('aws:route53/record:Record');
-      // Single-domain certificate → exactly one validation record.
-      expect(records).toHaveLength(1);
-      expect(records[0]?.inputs.type).toBe('CNAME');
-      expect(records[0]?.inputs.ttl).toBe(60);
-      expect(records[0]?.inputs.allowOverwrite).toBe(true);
-    });
-
-    it('creates an ACM CertificateValidation that depends on the records', async () => {
+    it('creates an ACM CertificateValidation waiter for externally managed DNS', async () => {
       const result = buildDns(makeConfig(), false, TEST_TAGS);
       await flushResources();
 
       expect(result.certificateValidation).toBeDefined();
       const validation = mocks.oneOfType('aws:acm/certificateValidation:CertificateValidation');
       expect(validation.inputs.certificateArn).toBeDefined();
+      expect(validation.inputs.validationRecordFqdns).toBeUndefined();
+      expect(mocks.byType('aws:route53/zone:Zone')).toEqual([]);
+      expect(mocks.byType('aws:route53/record:Record')).toEqual([]);
     });
   });
 });
 
-describe('bindAlbAlias', () => {
-  let mocks: InstallMocksResult;
-
-  beforeEach(async () => {
-    mocks = await installMocks('dev');
-  });
-
-  afterEach(() => {
-    mocks.resources.length = 0;
-  });
-
-  it('creates an A-record alias pointing the appDomain at the ALB', async () => {
-    const dns = buildDns(makeConfig(), false, TEST_TAGS);
-    await flushResources();
-
-    const initialRecordCount = mocks.byType('aws:route53/record:Record').length;
-    bindAlbAlias(
-      makeConfig({ appDomain: 'api.example.com' }),
-      dns.hostedZone,
-      pulumi.output('alb-mock.elb.eu-west-1.amazonaws.com'),
-      pulumi.output('Z3MOCKZONEID'),
+describe('buildAppDnsRecord', () => {
+  it('returns the external CNAME record that points the appDomain at the ALB', async () => {
+    const record = await resolveOutput(
+      buildAppDnsRecord(
+        makeConfig({ appDomain: 'api.example.com' }),
+        pulumi.output('alb-mock.elb.eu-west-1.amazonaws.com'),
+      ),
     );
-    await flushResources();
 
-    const records = mocks.byType('aws:route53/record:Record');
-    // bindAlbAlias creates exactly one record.
-    expect(records.length).toBe(initialRecordCount + 1);
-
-    const aliasRecord = records[records.length - 1];
-    expect(aliasRecord?.inputs.name).toBe('api.example.com');
-    expect(aliasRecord?.inputs.type).toBe('A');
-    expect(aliasRecord?.inputs.aliases).toHaveLength(1);
-    expect(aliasRecord?.inputs.aliases[0]).toMatchObject({
-      evaluateTargetHealth: true,
+    expect(record).toEqual({
+      type: 'CNAME',
+      host: 'api.example.com',
+      value: 'alb-mock.elb.eu-west-1.amazonaws.com',
     });
   });
 });

@@ -8,7 +8,6 @@ config:
 
   # Application
   fortressauth-aws:appDomain: api.fortressauth.com
-  fortressauth-aws:hostedZoneName: api.fortressauth.com
   fortressauth-aws:frontendBaseUrl: https://fortressauth.com
   fortressauth-aws:cookieSameSite: lax
   fortressauth-aws:csrfCookieSameSite: lax

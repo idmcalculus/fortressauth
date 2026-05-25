@@ -4,7 +4,7 @@ import * as pulumi from '@pulumi/pulumi';
 import { COMMON_TAGS, loadConfig } from './config';
 import { buildContainer } from './container';
 import { buildDatabase } from './database';
-import { bindAlbAlias, buildDns } from './dns';
+import { buildAppDnsRecord, buildDns } from './dns';
 import { buildEcr } from './ecr';
 import { buildEmail } from './email';
 import { buildNetwork } from './network';
@@ -51,14 +51,12 @@ const container = buildContainer(
   secrets,
   database,
   email,
-  dns.certificate,
-  dns.certificateValidation,
+  config.bootstrap ? undefined : dns.certificate,
+  config.bootstrap ? undefined : dns.certificateValidation,
   tags,
 );
 
-if (!config.bootstrap) {
-  bindAlbAlias(config, dns.hostedZone, container.alb.dnsName, container.alb.zoneId);
-}
+const appDnsRecord = buildAppDnsRecord(config, container.alb.dnsName);
 
 export const appUrl = pulumi.interpolate`https://${config.appDomain}`;
 export const albDnsName = container.alb.dnsName;
@@ -72,16 +70,15 @@ export const dbInstanceId = database.instance.id;
 export const databaseUrlSecretArn = secrets.databaseUrlSecret.arn;
 export const sesConfigurationSetName = email.configurationSet.configurationSetName;
 export const sesBounceTopicArn = email.bounceTopic.arn;
-export const hostedZoneNameServers = dns.hostedZone.nameServers;
-export const hostedZoneName = dns.hostedZone.name;
 export const logGroupName = container.logGroup.name;
 export const taskRoleArn = container.taskRole.arn;
 export const executionRoleArn = container.executionRole.arn;
-export const dnsDelegationRecords = pulumi
-  .all([dns.hostedZone.name, dns.hostedZone.nameServers] as const)
-  .apply(([name, ns]) => ({
-    type: 'NS',
-    host: name,
-    values: ns,
-    instructions: `At the registrar for the parent domain, add an NS record set for "${name}" pointing at the values listed above. Reduce parent zone NS TTL before delegation if you want a faster cutover.`,
+export const appDnsCnameRecord = appDnsRecord;
+export const certificateDnsValidationRecords = dns.certificateDnsValidationRecords;
+export const externalDnsRecords = pulumi
+  .all([appDnsRecord, dns.certificateDnsValidationRecords] as const)
+  .apply(([appRecord, validationRecords]) => ({
+    instructions:
+      'Manage these records in the authoritative external DNS provider for fortressauth.com. Do not recreate Route 53 hosted zones for api/dev-api.',
+    records: [appRecord, ...validationRecords],
   }));
