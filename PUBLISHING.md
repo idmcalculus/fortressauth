@@ -37,13 +37,18 @@ write access to every package:
 ```bash
 npm install -g 'npm@^11.10.0'
 npm login
-./scripts/npm-configure-trusted-publishing.sh --dry-run
-./scripts/npm-configure-trusted-publishing.sh
+npm trust github @fortressauth/core \
+  --file publish.yml \
+  --repo idmcalculus/fortressauth \
+  --allow-publish \
+  --dry-run
 ```
 
-The first real run may require browser/2FA approval. If npm offers to skip
-additional 2FA prompts for a short window, accept that prompt so the batch can
-configure all packages.
+Run the same `npm trust github <package>` command for each package in the
+publish set below, removing `--dry-run` once the command looks correct. The
+first real run may require browser/2FA approval. If npm offers to skip
+additional 2FA prompts for a short window, accept that prompt so the remaining
+packages can be configured without repeated prompts.
 
 ### GitHub Actions variables (per environment)
 
@@ -121,6 +126,7 @@ Check the live API before cutting the release:
 ```bash
 curl -fsS https://api.fortressauth.com/health
 curl -fsS https://api.fortressauth.com/openapi.json
+curl -fsS https://api.fortressauth.com/docs
 ```
 
 If you need to sync your local Pulumi stack file with the most recent deployment before manual infra work:

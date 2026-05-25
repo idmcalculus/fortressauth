@@ -109,7 +109,7 @@ keeping these values managed by Pulumi.
 ## Operational Notes
 
 - Landing deploy previews stay enabled, but they are UI/docs previews only.
-- React demo deploy previews and branch deploys are disabled in Pulumi. Its `netlify.toml` also skips those contexts defensively.
+- React demo deploy previews and branch deploys are disabled in Pulumi so unstable preview origins are not treated as valid auth origins.
 - Vue, Svelte, and Angular Netlify sites can remain on default domains for ad hoc checks, but do not add them to production auth origins unless they become supported public demos.
 - `.netlify/` linkage files are intentionally not committed.
 - DNS records are managed outside this package. After domains are assigned, point apex, `www`, and `react-demo` records at Netlify using the values Netlify provides.

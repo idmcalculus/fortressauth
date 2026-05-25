@@ -63,10 +63,6 @@ jobs:
               docker/*)
                 docker=true
                 ;;
-              scripts/*)
-                test=true
-                frontend=true
-                ;;
               package.json|pnpm-lock.yaml|pnpm-workspace.yaml|turbo.json|tsconfig.json|biome.json)
                 test=true
                 frontend=true

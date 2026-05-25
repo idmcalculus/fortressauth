@@ -2,6 +2,16 @@
 
 FortressAuth is a security-first authentication platform built as a TypeScript monorepo. The core auth engine stays infrastructure-agnostic, while the repository ships the HTTP server, SDKs, OAuth providers, examples, landing site, and deployment automation around it.
 
+## Live Services
+
+- Landing site: `https://fortressauth.com`
+- Public API: `https://api.fortressauth.com`
+- API health: `https://api.fortressauth.com/health`
+- OpenAPI JSON: `https://api.fortressauth.com/openapi.json`
+- API docs: `https://api.fortressauth.com/docs`
+- Live demo: `https://fortressauth.com/demo`
+- React demo host: `https://react-demo.fortressauth.com`
+
 ## What Is In This Repo
 
 ### Core platform
@@ -94,6 +104,8 @@ That serves:
 - OpenAPI JSON: `http://localhost:3000/openapi.json`
 - Scalar docs: `http://localhost:3000/docs`
 
+The production server is live at `https://api.fortressauth.com`.
+
 ### Run the full local product workspace
 
 This starts the landing app, API server, and frontend examples together:
@@ -122,7 +134,7 @@ The supported production topology is:
 
 - `landing/` on Netlify at `https://fortressauth.com`
 - `https://www.fortressauth.com` redirects to the apex domain
-- API on its own domain such as `https://api.fortressauth.com`
+- API on its own domain at `https://api.fortressauth.com`
 - One production live demo at `https://fortressauth.com/demo`, embedding the React demo at `https://react-demo.fortressauth.com`
 - Vue, Svelte, and Angular examples remain integration-code examples and may exist on default Netlify domains for ad hoc checks
 
@@ -155,22 +167,6 @@ The root docs are intentionally small. Use package docs for the details that bel
 - `Smoke Frontend` checks the deployed landing site, docs proxy, `/demo`, and `https://react-demo.fortressauth.com` after production frontend changes once repository variable `FRONTEND_SMOKE_ENABLED=true` is set; manual dispatch runs the smoke check on demand
 - `Deploy AWS` builds and pushes a fresh image to Amazon ECR for each successful deploy and smoke-tests `/health` and `/openapi.json`
 - `Publish` runs from a GitHub Release and requires a successful `Deploy AWS` run for the same commit before it publishes npm packages and Docker images
-
-## AWS Operations
-
-Use `scripts/aws-env-power.sh` for temporary dev/prod runtime start, stop, and
-status operations:
-
-```bash
-./scripts/aws-env-power.sh dev status
-./scripts/aws-env-power.sh dev stop
-./scripts/aws-env-power.sh dev start --desired-count 1
-```
-
-For production, pass `prod` and confirm the prompt, or add `--yes` in a
-non-interactive run. The script controls ECS desired count and RDS stop/start.
-AWS does not support stopping Application Load Balancers, so the script reports
-ALB state but leaves the Pulumi-managed ALB provisioned.
 
 ## Contributing
 

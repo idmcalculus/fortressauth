@@ -47,7 +47,7 @@ FortressAuth's clean production setup is:
 
 - `landing/` on Netlify at `https://fortressauth.com`
 - `https://www.fortressauth.com` redirects to the apex domain
-- API on its own domain, for example `https://api.fortressauth.com`
+- API on its own domain at `https://api.fortressauth.com`
 - One production live demo at `https://fortressauth.com/demo`
 - The `/demo` page embeds the React demo from `https://react-demo.fortressauth.com`
 - Vue, Svelte, and Angular examples remain code/integration examples rather than production live demos

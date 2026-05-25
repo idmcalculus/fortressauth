@@ -169,6 +169,13 @@ cookies.txt
 # Generated example runtime config
 examples/web-angular/src/assets/runtime-config.js
 
+# Local AWS operator scripts
+scripts/aws-bootstrap.sh
+scripts/aws-db-tunnel.sh
+scripts/aws-ecs-shell.sh
+scripts/aws-env-power.sh
+scripts/npm-configure-trusted-publishing.sh
+
 # Local Pulumi stack settings (committed where appropriate)
 # Pulumi.<stack>.yaml files are tracked by default. Pulumi encrypts any
 # --secret values with the stack's secret provider, so committing the file

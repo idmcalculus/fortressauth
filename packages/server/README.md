@@ -2,6 +2,10 @@
 
 Standalone HTTP server for FortressAuth with REST API and OpenAPI documentation.
 
+The production API is live at `https://api.fortressauth.com`, with OpenAPI JSON
+at `https://api.fortressauth.com/openapi.json` and interactive docs at
+`https://api.fortressauth.com/docs`.
+
 ## Features
 
 - Ready to Deploy: Docker support included
@@ -306,7 +310,7 @@ OpenAPI 3.1 specification
 ```json
 {
   "status": "ok",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```

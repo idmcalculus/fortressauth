@@ -8,7 +8,6 @@ on:
       - examples/web-react/**
       - packages/infra-netlify/**
       - packages/react-sdk/**
-      - scripts/netlify-build-policy.mjs
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml

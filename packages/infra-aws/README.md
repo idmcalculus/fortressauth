@@ -158,42 +158,12 @@ Required GitHub environment secret:
 aws logs tail /ecs/fortressauth-prod --follow --region eu-west-1 --profile fortressauth-prod
 ```
 
-### Start, stop, and inspect runtime resources
+### Inspect runtime resources
 
-From the repository root, use the helper script for temporary environment power
-operations:
-
-```bash
-# Show ECS, RDS, and ALB state
-./scripts/aws-env-power.sh dev status
-./scripts/aws-env-power.sh prod status
-
-# Stop application runtime for an environment
-./scripts/aws-env-power.sh dev stop
-./scripts/aws-env-power.sh prod stop --yes
-
-# Start it again
-./scripts/aws-env-power.sh dev start --desired-count 1
-./scripts/aws-env-power.sh prod start --desired-count 1 --yes
-```
-
-The script sets ECS service `desiredCount` to `0` on stop and back to the
-requested count on start. It also stops/starts the RDS DB instance. RDS can stay
-stopped for up to seven days before AWS automatically starts it again.
-
-Application Load Balancers cannot be stopped in AWS. The script reports the ALB
-state and DNS name but leaves the Pulumi-managed ALB provisioned. Avoid manually
-deleting or editing the ALB/listeners from the console; that creates Pulumi drift
-and does not give a clean reversible stop/start workflow.
-
-These commands mutate live AWS resources outside Pulumi. The next Pulumi deploy
-will reconcile ECS desired count back to the stack config in `Pulumi.<stack>.yaml`.
+Prefer GitHub Actions and Pulumi for deployment changes. For one-off production
+inspection, use AWS CLI commands directly against the selected account/profile:
 
 ```bash
-# Open an ECS Exec shell in the running task
-./scripts/aws-ecs-shell.sh dev
-./scripts/aws-ecs-shell.sh prod --command 'env | sort | grep -E "^(BASE_URL|EMAIL_PROVIDER|SES_|TRUSTED_PROXY)"'
-
 # Open a shell inside the running task (ECS Exec via SSM)
 TASK_ARN="$(aws ecs list-tasks --cluster fortressauth-prod-cluster --service-name fortressauth-prod-service --query 'taskArns[0]' --output text --region eu-west-1 --profile fortressauth-prod)"
 aws ecs execute-command \
@@ -204,11 +174,12 @@ aws ecs execute-command \
   --command "/bin/sh" \
   --region eu-west-1 \
   --profile fortressauth-prod
-
-# Open an SSM tunnel to private RDS
-./scripts/aws-db-tunnel.sh dev
-./scripts/aws-db-tunnel.sh prod --print
 ```
+
+Temporary start/stop of ECS or RDS is intentionally not documented as a
+repository script workflow. Those changes mutate live resources outside Pulumi;
+coordinate them explicitly and expect the next `pulumi up` to reconcile resource
+state back to stack config.
 
 `pulumi up` and `pulumi destroy` are destructive or billable. Always run
 `pulumi preview --diff` first and only proceed with explicit user approval.
