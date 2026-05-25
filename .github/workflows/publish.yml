@@ -114,10 +114,13 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          AUTH_API_URL: https://api.fortressauth.com/
 
       - name: Test
         run: pnpm test
         env:
+          AUTH_API_URL: https://api.fortressauth.com/
           MONGODB_TEST_URL: mongodb://localhost:27017/fortressauth_test
 
       - name: Publish NPM Packages (skip versions already published)
