@@ -120,6 +120,8 @@ The workflow `.github/workflows/deploy-netlify-infra.yml` handles:
 
 - `pulumi preview` on pull requests that touch `packages/infra-netlify`
 - `pulumi up` on merges to `main`
+- importing existing Netlify environment variables into Pulumi state before
+  apply, so manually-created bootstrap values are adopted instead of recreated
 - bootstrap-safe skips when the repository does not have Netlify/Pulumi deployment configuration yet
 
 Required repository secrets:

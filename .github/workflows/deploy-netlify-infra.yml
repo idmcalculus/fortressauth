@@ -192,6 +192,66 @@ jobs:
         if: steps.deployment-config.outputs.configured == 'true'
         uses: pulumi/actions@v6
 
+      - name: Adopt existing Netlify environment variables
+        if: steps.deployment-config.outputs.configured == 'true'
+        working-directory: packages/infra-netlify
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+          NETLIFY_API_TOKEN: ${{ secrets.NETLIFY_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pulumi stack select "${PULUMI_STACK}"
+
+          TEAM_ID="${NETLIFY_TEAM_ID:-$(pulumi config get fortressauth-netlify:teamId --stack "${PULUMI_STACK}" 2>/dev/null || true)}"
+          LANDING_SITE_ID="$(pulumi config get fortressauth-netlify:landingSiteId --stack "${PULUMI_STACK}" 2>/dev/null || pulumi stack output landingSiteId --stack "${PULUMI_STACK}" 2>/dev/null || true)"
+          REACT_SITE_ID="$(pulumi config get fortressauth-netlify:reactSiteId --stack "${PULUMI_STACK}" 2>/dev/null || pulumi stack output reactDemoSiteId --stack "${PULUMI_STACK}" 2>/dev/null || true)"
+
+          if [ -z "${TEAM_ID}" ] || [ -z "${LANDING_SITE_ID}" ] || [ -z "${REACT_SITE_ID}" ]; then
+            echo "Skipping Netlify env var adoption because team/site IDs are not all available yet."
+            exit 0
+          fi
+
+          STACK_EXPORT="$(mktemp)"
+          pulumi stack export --stack "${PULUMI_STACK}" >"${STACK_EXPORT}"
+
+          import_env_var() {
+            local name="$1"
+            local site_id="$2"
+            local key="$3"
+            local import_id="${TEAM_ID}:${site_id}:${key}"
+
+            if jq -e --arg name "${name}" '
+              .deployment.resources[]?
+              | select(.type == "netlify:index/environmentVariable:EnvironmentVariable")
+              | select(.urn | endswith("::" + $name))
+            ' "${STACK_EXPORT}" >/dev/null; then
+              echo "Pulumi already manages ${name}; skipping import."
+              return 0
+            fi
+
+            echo "Attempting to import existing Netlify env var ${key} for ${name}."
+            if pulumi import \
+              --stack "${PULUMI_STACK}" \
+              --yes \
+              --skip-preview \
+              --protect=false \
+              --generate-code=false \
+              --suppress-outputs \
+              'netlify:index/environmentVariable:EnvironmentVariable' \
+              "${name}" \
+              "${import_id}"; then
+              echo "Imported ${name}."
+            else
+              echo "No existing Netlify env var imported for ${name}; Pulumi will create it if needed."
+            fi
+          }
+
+          import_env_var "landing-AUTH_API_URL" "${LANDING_SITE_ID}" "AUTH_API_URL"
+          import_env_var "landing-NEXT_PUBLIC_LIVE_DEMO_URL" "${LANDING_SITE_ID}" "NEXT_PUBLIC_LIVE_DEMO_URL"
+          import_env_var "react-DEMO_BASE_PATH" "${REACT_SITE_ID}" "DEMO_BASE_PATH"
+          import_env_var "react-VITE_API_URL" "${REACT_SITE_ID}" "VITE_API_URL"
+
       - name: Apply Pulumi changes
         if: steps.deployment-config.outputs.configured == 'true'
         working-directory: packages/infra-netlify
