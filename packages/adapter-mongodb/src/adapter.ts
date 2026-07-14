@@ -4,11 +4,13 @@ import {
   EmailVerificationToken,
   err,
   type LoginAttempt,
+  NativeAuthorizationGrant,
   type OAuthProviderId,
   OAuthState,
   ok,
   PasswordResetToken,
   type ProviderId,
+  type ResourceIntrospectionAuditEvent,
   type Result,
   Session,
   User,
@@ -34,6 +36,8 @@ type MongoCollections = {
   passwordResets: Collection<MongoCollectionDocuments['passwordResets']>;
   loginAttempts: Collection<MongoCollectionDocuments['loginAttempts']>;
   oauthStates: Collection<MongoCollectionDocuments['oauthStates']>;
+  nativeAuthorizationGrants: Collection<MongoCollectionDocuments['nativeAuthorizationGrants']>;
+  resourceIntrospectionAudit: Collection<MongoCollectionDocuments['resourceIntrospectionAudit']>;
 };
 
 export interface MongoAdapterOptions {
@@ -41,7 +45,11 @@ export interface MongoAdapterOptions {
   databaseName: string;
   collections?: Partial<MongoCollectionNames>;
   enableTransactions?: boolean;
+  /** TTL for redacted introspection audit evidence. Defaults to 90 days. */
+  resourceIntrospectionAuditRetentionSeconds?: number;
 }
+
+const DEFAULT_AUDIT_RETENTION_SECONDS = 90 * 24 * 60 * 60;
 
 const TRANSACTION_UNSUPPORTED_PATTERNS = [
   /Transaction numbers are only allowed on a replica set member or mongos/i,
@@ -76,6 +84,7 @@ function toUser(doc: MongoUserDocument): User {
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
     lockedUntil: doc.lockedUntil,
+    disabledAt: doc.disabledAt ?? null,
   });
 }
 
@@ -100,6 +109,11 @@ function toSession(doc: MongoSessionDocument): Session {
     ipAddress: doc.ipAddress,
     userAgent: doc.userAgent,
     createdAt: doc.createdAt,
+    nativeClientId: doc.nativeClientId ?? null,
+    nativeAudiences: doc.nativeAudiences ?? null,
+    nativeEmail: doc.nativeEmail ?? null,
+    nativeEmailVerified: doc.nativeEmailVerified ?? null,
+    authenticationTime: doc.authenticationTime ?? null,
   });
 }
 
@@ -133,6 +147,7 @@ export class MongoAdapter implements AuthRepository {
   private readonly collections: MongoCollections;
   private readonly session: ClientSession | undefined;
   private readonly enableTransactions: boolean;
+  private readonly resourceIntrospectionAuditRetentionSeconds: number;
 
   constructor(options: MongoAdapterOptions, session?: ClientSession) {
     this.client = options.client;
@@ -162,9 +177,23 @@ export class MongoAdapter implements AuthRepository {
       oauthStates: this.db.collection<MongoCollectionDocuments['oauthStates']>(
         this.collectionNames.oauthStates,
       ),
+      nativeAuthorizationGrants: this.db.collection<
+        MongoCollectionDocuments['nativeAuthorizationGrants']
+      >(this.collectionNames.nativeAuthorizationGrants),
+      resourceIntrospectionAudit: this.db.collection<
+        MongoCollectionDocuments['resourceIntrospectionAudit']
+      >(this.collectionNames.resourceIntrospectionAudit),
     };
     this.session = session;
     this.enableTransactions = options.enableTransactions ?? true;
+    this.resourceIntrospectionAuditRetentionSeconds =
+      options.resourceIntrospectionAuditRetentionSeconds ?? DEFAULT_AUDIT_RETENTION_SECONDS;
+    if (
+      !Number.isInteger(this.resourceIntrospectionAuditRetentionSeconds) ||
+      this.resourceIntrospectionAuditRetentionSeconds < 1
+    ) {
+      throw new Error('resourceIntrospectionAuditRetentionSeconds must be a positive integer');
+    }
   }
 
   private sessionOptions(): { session?: ClientSession } {
@@ -178,6 +207,7 @@ export class MongoAdapter implements AuthRepository {
         databaseName: this.databaseName,
         collections: this.collectionNames,
         enableTransactions: this.enableTransactions,
+        resourceIntrospectionAuditRetentionSeconds: this.resourceIntrospectionAuditRetentionSeconds,
       },
       session,
     );
@@ -218,6 +248,23 @@ export class MongoAdapter implements AuthRepository {
         this.collections.loginAttempts.createIndex({ email: 1, createdAt: -1 }),
         this.collections.oauthStates.createIndex({ state: 1 }, { unique: true }),
         this.collections.oauthStates.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        this.collections.nativeAuthorizationGrants.createIndex({ selector: 1 }, { unique: true }),
+        this.collections.nativeAuthorizationGrants.createIndex(
+          { expiresAt: 1 },
+          { expireAfterSeconds: 0 },
+        ),
+        this.collections.resourceIntrospectionAudit.createIndex({ createdAt: -1 }),
+        this.collections.resourceIntrospectionAudit.createIndex({
+          resourceServerHash: 1,
+          createdAt: -1,
+        }),
+        this.collections.resourceIntrospectionAudit.createIndex(
+          { createdAt: 1 },
+          {
+            name: 'resource_introspection_audit_ttl',
+            expireAfterSeconds: this.resourceIntrospectionAuditRetentionSeconds,
+          },
+        ),
       ]);
     });
   }
@@ -251,6 +298,7 @@ export class MongoAdapter implements AuthRepository {
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
           lockedUntil: user.lockedUntil,
+          disabledAt: user.disabledAt,
         },
         this.sessionOptions(),
       );
@@ -274,6 +322,7 @@ export class MongoAdapter implements AuthRepository {
             emailVerified: user.emailVerified,
             updatedAt: user.updatedAt,
             lockedUntil: user.lockedUntil,
+            disabledAt: user.disabledAt,
           },
         },
         this.sessionOptions(),
@@ -346,6 +395,11 @@ export class MongoAdapter implements AuthRepository {
           ipAddress: session.ipAddress,
           userAgent: session.userAgent,
           createdAt: session.createdAt,
+          nativeClientId: session.nativeClientId,
+          nativeAudiences: session.nativeAudiences === null ? null : [...session.nativeAudiences],
+          nativeEmail: session.nativeEmail,
+          nativeEmailVerified: session.nativeEmailVerified,
+          authenticationTime: session.authenticationTime,
         },
         this.sessionOptions(),
       );
@@ -361,6 +415,83 @@ export class MongoAdapter implements AuthRepository {
   async deleteSessionsByUserId(userId: string): Promise<void> {
     return this.run('deleteSessionsByUserId', async () => {
       await this.collections.sessions.deleteMany({ userId }, this.sessionOptions());
+    });
+  }
+
+  async recordResourceIntrospectionAudit(event: ResourceIntrospectionAuditEvent): Promise<void> {
+    return this.run('recordResourceIntrospectionAudit', async () => {
+      await this.collections.resourceIntrospectionAudit.insertOne(
+        {
+          _id: event.id,
+          resourceServerHash: event.resourceServerHash,
+          audienceHash: event.audienceHash,
+          tokenSelectorHash: event.tokenSelectorHash,
+          sessionId: event.sessionId,
+          clientIdHash: event.clientIdHash,
+          sourceIdentityHash: event.sourceIdentityHash,
+          outcome: event.outcome,
+          createdAt: event.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
+  }
+
+  async pruneResourceIntrospectionAudit(before: Date): Promise<number> {
+    return this.run('pruneResourceIntrospectionAudit', async () => {
+      const result = await this.collections.resourceIntrospectionAudit.deleteMany(
+        { createdAt: { $lt: before } },
+        this.sessionOptions(),
+      );
+      return result.deletedCount;
+    });
+  }
+
+  async createNativeAuthorizationGrant(grant: NativeAuthorizationGrant): Promise<void> {
+    return this.run('createNativeAuthorizationGrant', async () => {
+      await this.collections.nativeAuthorizationGrants.insertOne(
+        {
+          _id: grant.id,
+          userId: grant.userId,
+          clientId: grant.clientId,
+          selector: grant.selector,
+          verifierHash: grant.verifierHash,
+          redirectUri: grant.redirectUri,
+          codeChallenge: grant.codeChallenge,
+          requestedAudience: grant.requestedAudience,
+          requestedFreshnessSeconds: grant.requestedFreshnessSeconds,
+          authenticationTime: grant.authenticationTime,
+          expiresAt: grant.expiresAt,
+          createdAt: grant.createdAt,
+        },
+        this.sessionOptions(),
+      );
+    });
+  }
+
+  async consumeNativeAuthorizationGrant(
+    selector: string,
+  ): Promise<NativeAuthorizationGrant | null> {
+    return this.run('consumeNativeAuthorizationGrant', async () => {
+      const doc = await this.collections.nativeAuthorizationGrants.findOneAndDelete(
+        { selector },
+        this.sessionOptions(),
+      );
+      if (!doc) return null;
+      return NativeAuthorizationGrant.rehydrate({
+        id: doc._id,
+        userId: doc.userId,
+        clientId: doc.clientId,
+        selector: doc.selector,
+        verifierHash: doc.verifierHash,
+        redirectUri: doc.redirectUri,
+        codeChallenge: doc.codeChallenge,
+        requestedAudience: doc.requestedAudience ?? null,
+        requestedFreshnessSeconds: doc.requestedFreshnessSeconds ?? null,
+        authenticationTime: doc.authenticationTime ?? null,
+        expiresAt: doc.expiresAt,
+        createdAt: doc.createdAt,
+      });
     });
   }
 
@@ -446,6 +577,12 @@ export class MongoAdapter implements AuthRepository {
           state: state.state,
           codeVerifier: state.codeVerifier,
           redirectUri: state.redirectUri,
+          nativeClientId: state.nativeClientId,
+          nativeRedirectUri: state.nativeRedirectUri,
+          nativeCodeChallenge: state.nativeCodeChallenge,
+          nativeState: state.nativeState,
+          nativeAudience: state.nativeAudience,
+          nativeMaxAgeSeconds: state.nativeMaxAgeSeconds,
           expiresAt: state.expiresAt,
           createdAt: state.createdAt,
         },
@@ -468,6 +605,37 @@ export class MongoAdapter implements AuthRepository {
         state: doc.state,
         codeVerifier: doc.codeVerifier,
         redirectUri: doc.redirectUri,
+        nativeClientId: doc.nativeClientId ?? null,
+        nativeRedirectUri: doc.nativeRedirectUri ?? null,
+        nativeCodeChallenge: doc.nativeCodeChallenge ?? null,
+        nativeState: doc.nativeState ?? null,
+        nativeAudience: doc.nativeAudience ?? null,
+        nativeMaxAgeSeconds: doc.nativeMaxAgeSeconds ?? null,
+        expiresAt: doc.expiresAt,
+        createdAt: doc.createdAt,
+      });
+    });
+  }
+
+  async consumeOAuthStateByState(state: string): Promise<OAuthState | null> {
+    return this.run('consumeOAuthStateByState', async () => {
+      const doc = await this.collections.oauthStates.findOneAndDelete(
+        { state },
+        this.sessionOptions(),
+      );
+      if (!doc) return null;
+      return OAuthState.rehydrate({
+        id: doc._id,
+        providerId: doc.providerId as OAuthProviderId,
+        state: doc.state,
+        codeVerifier: doc.codeVerifier,
+        redirectUri: doc.redirectUri,
+        nativeClientId: doc.nativeClientId ?? null,
+        nativeRedirectUri: doc.nativeRedirectUri ?? null,
+        nativeCodeChallenge: doc.nativeCodeChallenge ?? null,
+        nativeState: doc.nativeState ?? null,
+        nativeAudience: doc.nativeAudience ?? null,
+        nativeMaxAgeSeconds: doc.nativeMaxAgeSeconds ?? null,
         expiresAt: doc.expiresAt,
         createdAt: doc.createdAt,
       });

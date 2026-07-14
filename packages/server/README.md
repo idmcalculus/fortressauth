@@ -47,6 +47,14 @@ COOKIE_SECURE=false                # Use secure cookies (true in production)
 COOKIE_SAMESITE=strict             # Cookie SameSite attribute
 LOG_LEVEL=info                     # Logging level
 CORS_ORIGINS=                      # Comma-separated allowed origins (see CORS section below)
+NATIVE_CLIENTS_JSON=[]             # Desktop client IDs and exact redirect URI allowlists
+NATIVE_AUTHORIZATION_CODE_TTL_MS=60000
+RESOURCE_SERVERS_JSON=[]           # Public audience/client policy
+# RESOURCE_SERVER_CREDENTIALS_JSON # Secret-manager injection only; never app/public config
+RESOURCE_INTROSPECTION_GLOBAL_MAX_TOKENS=2000
+RESOURCE_INTROSPECTION_GLOBAL_WINDOW_MS=60000
+RESOURCE_INTROSPECTION_MAX_BODY_BYTES=1024
+RESOURCE_INTROSPECTION_AUDIT_RETENTION_DAYS=90
 
 # Email Provider Configuration
 EMAIL_PROVIDER=console             # 'console', 'resend', 'ses', 'sendgrid', 'smtp'
@@ -159,12 +167,68 @@ fetch('http://localhost:3000/auth/me', {
 });
 ```
 
-### Mobile/Desktop Applications
+### Native desktop applications
 
-Electron and React Native/Expo SDKs use Bearer token authentication instead of cookies, so CORS cookie handling doesn't apply. These SDKs store tokens securely using:
-- **Electron**: electron-store (encrypted local storage)
-- **Expo**: expo-secure-store (encrypted secure storage)
-- **React Native**: AsyncStorage (with optional secure storage)
+`@fortressauth/desktop-sdk` provides a framework-neutral flow for Tauri, Electron, and other desktop runtimes. It uses the external system browser, OAuth provider login, PKCE S256, client state validation, a short-lived single-use authorization code, and a bearer session token. Browser cookie sessions and double-submit CSRF remain separate and unchanged.
+
+Register any number of desktop applications with independent exact redirect URI and resource
+audience allowlists. An omitted `resourceAudiences` property grants no resource access:
+
+```bash
+NATIVE_CLIENTS_JSON='[
+  {"clientId":"tauri-app","redirectUris":["tauri-app://auth/callback"],"resourceAudiences":["account-api"]},
+  {"clientId":"electron-app","redirectUris":["electron-app://auth/callback"]}
+]'
+RESOURCE_SERVERS_JSON='[
+  {"audience":"account-api","enabled":true,"allowedClientIds":["tauri-app"]}
+]'
+NATIVE_AUTHORIZATION_CODE_TTL_MS=60000
+NATIVE_SESSION_TTL_MS=86400000
+```
+
+The current Wraith launch contract is OAuth-only. Configure at least one supported provider such as Google or Apple and expose only those configured provider choices in Wraith. FortressAuth email/password signup and signin are not desktop SDK flows yet; supporting them requires a hosted FortressAuth browser UI that returns through the same one-time native authorization-code handoff. Wraith must not collect those credentials directly or imply that the current SDK supports them.
+
+The native sequence is:
+
+1. The client generates a high-entropy state and PKCE verifier/challenge.
+2. It opens `GET /auth/native/authorize/:provider` in the system browser with `client_id`, the exact `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`, and optional registered `audience` and `max_age`.
+3. After provider authentication, FortressAuth redirects to the registered URI with only `code` and `state`. Cancellation and post-state provider failures return a server-controlled `error`, generic `error_description`, and the original desktop `state`. All return targets come exclusively from the consumed server-side OAuth state. No session token or provider detail is put in the URL.
+4. The client validates state and calls `POST /auth/native/token` with the code, original redirect URI, client ID, and verifier.
+5. The returned split session token is used with `Authorization: Bearer` on `GET /auth/native/session` and `POST /auth/native/logout`.
+
+The SDK requires injected storage. Production desktop apps must use an OS keychain or equivalent protected credential store; do not use plain files, local storage, a fixed application encryption key, or the test-only in-memory adapter. Never log callback URLs, authorization codes, PKCE verifiers, or session tokens.
+
+The TypeScript SDK keeps the token in the JavaScript process that owns the client. Electron should
+create it in the main/utility process. A Tauri application that requires Rust-owned credentials
+must implement the same protocol in a Rust controller and expose only narrow commands/redacted
+state to the WebView; a renderer-callable HTTP plugin does not satisfy that boundary.
+
+Native bearer sessions have their own configurable TTL (`NATIVE_SESSION_TTL_MS`, 24 hours by default) and the token exchange returns `expiresAt`. This release deliberately has no background refresh token: local expiry, server-side revocation, or logout forces a new system-browser OAuth authorization. Browser cookie sessions retain their separate configured TTL and behavior.
+
+#### Resource-server introspection and step-up
+
+`POST /auth/resource/introspect` is an internal HTTPS contract for backend resource servers. It
+requires one audience-specific credential in `Authorization: Bearer`, exact
+`application/x-www-form-urlencoded`, and exactly `token` plus `audience` form fields. It never
+accepts caller-supplied identity claims. Inactive sessions always return `{"active":false}`; active
+responses derive `sub`, nullable email snapshot, `email_verified`, `aud`, `client_id`, `exp`, `sid`,
+and nullable `auth_time` exclusively from persisted server state. Responses are not cacheable.
+
+Keep `RESOURCE_SERVERS_JSON` public and inject `RESOURCE_SERVER_CREDENTIALS_JSON` only through the
+deployment secret manager. Every audience needs its own independently generated secret. Multiple
+enabled credential entries permit overlap rotation; verify the new value before disabling the old
+one. Startup rejects shared credentials, duplicate ids, unknown audiences, and enabled resources
+without credentials.
+
+Clients request an audience or fresh ceremony through `DesktopAuthClient.signIn(provider, {
+audience, maxAgeSeconds })`. A provider must explicitly support fresh authentication and return
+validated provider evidence; otherwise the request fails closed. The bundled providers do not yet
+claim fresh-authentication support. A resource server must reject null, future, or stale `auth_time`
+for a sensitive operation.
+
+See the root [`NATIVE_RESOURCE_AUTH.md`](../../NATIVE_RESOURCE_AUTH.md) for the exact HTTP shape,
+credential generation/rotation procedure, migration sequence, rate-limit/audit contract, and the
+Wraith operator fixture.
 
 ### Production Configuration
 
@@ -184,7 +248,7 @@ CSRF_COOKIE_SAMESITE=lax
 1. Set `COOKIE_SECURE=true` (requires HTTPS)
 2. Use `COOKIE_SAMESITE=lax` and `CSRF_COOKIE_SAMESITE=lax` when the frontend and API share the same top-level domain
 3. Use `COOKIE_SAMESITE=none` and `CSRF_COOKIE_SAMESITE=none` when the frontend and API are on different top-level domains
-4. Include every browser frontend origin in `CORS_ORIGINS` when demos or apps call the API directly. The production `/demo` page embeds `https://react-demo.fortressauth.com`, so both landing and React demo origins are required.
+4. Include every browser frontend origin in `CORS_ORIGINS` when demos or apps call the API directly. The production `/demo` page embeds `https://react-demo.fortressauth.com`, so both landing and React demo origins are required. Packaged desktop clients should use a runtime-native Fetch-compatible transport; do not add generic Tauri origins or desktop-app values to this browser CORS list. CORS is not the native-client authorization boundary.
 5. Only allow specific origins (avoid wildcards)
 
 ## Email Providers
@@ -310,7 +374,7 @@ OpenAPI 3.1 specification
 ```json
 {
   "status": "ok",
-  "version": "0.1.14",
+  "version": "0.2.0",
   "timestamp": "2024-01-01T00:00:00.000Z"
 }
 ```

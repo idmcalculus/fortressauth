@@ -17,6 +17,12 @@ export type AuthErrorCode =
   | 'OAUTH_STATE_MISMATCH'
   | 'OAUTH_USER_INFO_FAILED'
   | 'OAUTH_NOT_SUPPORTED'
+  | 'NATIVE_AUTHORIZATION_INVALID'
+  | 'NATIVE_REDIRECT_URI_INVALID'
+  | 'NATIVE_AUDIENCE_INVALID'
+  | 'STEP_UP_UNSUPPORTED'
+  | 'STEP_UP_FAILED'
+  | 'ACCOUNT_DISABLED'
   | 'RATE_LIMIT_EXCEEDED'
   | 'INTERNAL_ERROR';
 
@@ -137,6 +143,36 @@ export const ERROR_CODE_MAP: Record<AuthErrorCode, ErrorCodeMapping> = {
     code: 'AUTH_020',
     message: 'The requested authentication provider is not supported or configured.',
     httpStatus: 400,
+  },
+  NATIVE_AUTHORIZATION_INVALID: {
+    code: 'AUTH_021',
+    message: 'The native authorization request is invalid or has expired.',
+    httpStatus: 400,
+  },
+  NATIVE_REDIRECT_URI_INVALID: {
+    code: 'AUTH_022',
+    message: 'The native redirect URI is not registered for this client.',
+    httpStatus: 400,
+  },
+  NATIVE_AUDIENCE_INVALID: {
+    code: 'AUTH_023',
+    message: 'The requested resource audience is not allowed for this native client.',
+    httpStatus: 400,
+  },
+  STEP_UP_UNSUPPORTED: {
+    code: 'AUTH_024',
+    message: 'The selected authentication provider cannot prove fresh authentication.',
+    httpStatus: 400,
+  },
+  STEP_UP_FAILED: {
+    code: 'AUTH_025',
+    message: 'Fresh authentication could not be verified.',
+    httpStatus: 401,
+  },
+  ACCOUNT_DISABLED: {
+    code: 'AUTH_026',
+    message: 'Account unavailable.',
+    httpStatus: 401,
   },
 };
 

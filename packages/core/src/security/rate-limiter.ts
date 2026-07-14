@@ -11,6 +11,11 @@ interface ActionConfig {
   windowMs: number;
 }
 
+export interface RateLimitReservationEntry {
+  identifier: string;
+  action: string;
+}
+
 const DEFAULT_LOGIN_CONFIG: ActionConfig = {
   maxTokens: 5,
   refillRateMs: 3 * 60 * 1000, // 3 minutes per token
@@ -131,6 +136,35 @@ export class MemoryRateLimiter implements RateLimiterPort {
     if (bucket.tokens > 0) {
       bucket.tokens--;
     }
+  }
+
+  /**
+   * Atomically reserves one token from every supplied bucket.
+   *
+   * This method deliberately performs no awaits before the reservation is
+   * committed, so concurrent callers in the same JavaScript process cannot
+   * all observe the same available token. Exact duplicate dimensions are
+   * de-duplicated rather than charged twice.
+   */
+  async reserve(entries: readonly RateLimitReservationEntry[]): Promise<boolean> {
+    const unique = new Map<string, { bucket: TokenBucket; config: ActionConfig }>();
+
+    for (const entry of entries) {
+      const key = this.getKey(entry.identifier, entry.action);
+      if (unique.has(key)) continue;
+      const config = this.getConfig(entry.action);
+      let bucket = this.buckets.get(key);
+      if (!bucket) {
+        bucket = { tokens: config.maxTokens, lastRefill: new Date() };
+        this.buckets.set(key, bucket);
+      }
+      this.refillBucket(bucket, config);
+      unique.set(key, { bucket, config });
+    }
+
+    if ([...unique.values()].some(({ bucket }) => bucket.tokens <= 0)) return false;
+    for (const { bucket } of unique.values()) bucket.tokens -= 1;
+    return true;
   }
 
   async reset(identifier: string, action: string): Promise<void> {

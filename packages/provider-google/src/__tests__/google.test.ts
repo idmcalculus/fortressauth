@@ -87,5 +87,13 @@ describe('GoogleOAuthProvider', () => {
       expect(result.data.id).toBe(mockUserInfo.sub);
       expect(result.data.email).toBe(mockUserInfo.email);
     }
+    expect(fetch).toHaveBeenCalledWith(
+      'https://www.googleapis.com/oauth2/v3/userinfo',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+        }),
+      }),
+    );
   });
 });

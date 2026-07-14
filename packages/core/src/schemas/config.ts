@@ -90,6 +90,57 @@ const OAUTH_DEFAULTS = {
   },
 };
 
+const NATIVE_AUTH_DEFAULTS = {
+  authorizationCodeTtlMs: 60 * 1000,
+  sessionTtlMs: 24 * 60 * 60 * 1000,
+  clients: [] as Array<{ clientId: string; redirectUris: string[]; resourceAudiences: string[] }>,
+  resourceServers: [] as Array<{
+    audience: string;
+    enabled: boolean;
+    allowedClientIds: string[];
+    rateLimit: { maxTokens: number; windowMs: number };
+  }>,
+};
+
+const RESOURCE_SERVER_RATE_LIMIT_DEFAULTS = {
+  maxTokens: 120,
+  windowMs: 60_000,
+};
+
+const PublicIdentifierSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/);
+
+const NativeClientConfigSchema = z
+  .object({
+    clientId: PublicIdentifierSchema.max(128),
+    redirectUris: z.array(z.string().url().max(2_048)).min(1).max(16),
+    resourceAudiences: z.array(PublicIdentifierSchema).max(32).optional(),
+  })
+  .strict();
+
+const ResourceServerConfigSchema = z
+  .object({
+    audience: PublicIdentifierSchema,
+    enabled: z.boolean().optional(),
+    allowedClientIds: z.array(PublicIdentifierSchema.max(128)).min(1).max(64),
+    rateLimit: z
+      .object({
+        maxTokens: z.number().int().min(1).max(100_000).optional(),
+        windowMs: z
+          .number()
+          .int()
+          .min(1_000)
+          .max(24 * 60 * 60 * 1000)
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
 const SessionConfigSchema = z
   .object({
     ttlMs: z.number().positive().optional(),
@@ -278,6 +329,108 @@ const OAuthConfigSchema = z
   }))
   .openapi('OAuthConfig');
 
+const NativeAuthConfigSchema = z
+  .object({
+    authorizationCodeTtlMs: z
+      .number()
+      .int()
+      .min(10_000)
+      .max(5 * 60 * 1000)
+      .optional(),
+    sessionTtlMs: z
+      .number()
+      .int()
+      .min(5 * 60 * 1000)
+      .max(30 * 24 * 60 * 60 * 1000)
+      .optional(),
+    clients: z.array(NativeClientConfigSchema).max(128).optional(),
+    resourceServers: z.array(ResourceServerConfigSchema).max(128).optional(),
+  })
+  .strict()
+  .superRefine((val, ctx) => {
+    const clients = val.clients ?? [];
+    const resourceServers = val.resourceServers ?? [];
+    const clientIds = new Set<string>();
+    for (const [index, client] of clients.entries()) {
+      if (clientIds.has(client.clientId)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['clients', index, 'clientId'],
+          message: 'native client ids must be unique',
+        });
+      }
+      clientIds.add(client.clientId);
+      if (new Set(client.redirectUris).size !== client.redirectUris.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['clients', index, 'redirectUris'],
+          message: 'redirect URIs must be unique',
+        });
+      }
+      const audiences = client.resourceAudiences ?? [];
+      if (new Set(audiences).size !== audiences.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['clients', index, 'resourceAudiences'],
+          message: 'resource audiences must be unique',
+        });
+      }
+    }
+    const audienceSet = new Set<string>();
+    for (const [index, resource] of resourceServers.entries()) {
+      if (audienceSet.has(resource.audience)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['resourceServers', index, 'audience'],
+          message: 'resource-server audiences must be unique',
+        });
+      }
+      audienceSet.add(resource.audience);
+      for (const clientId of resource.allowedClientIds) {
+        const client = clients.find((candidate) => candidate.clientId === clientId);
+        if (!client || !(client.resourceAudiences ?? []).includes(resource.audience)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['resourceServers', index, 'allowedClientIds'],
+            message: `client ${clientId} must grant audience ${resource.audience}`,
+          });
+        }
+      }
+    }
+    for (const [index, client] of clients.entries()) {
+      for (const audience of client.resourceAudiences ?? []) {
+        if (!audienceSet.has(audience)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['clients', index, 'resourceAudiences'],
+            message: `resource audience ${audience} is not registered`,
+          });
+        }
+      }
+    }
+  })
+  .transform((val) => ({
+    authorizationCodeTtlMs:
+      val.authorizationCodeTtlMs ?? NATIVE_AUTH_DEFAULTS.authorizationCodeTtlMs,
+    sessionTtlMs: val.sessionTtlMs ?? NATIVE_AUTH_DEFAULTS.sessionTtlMs,
+    clients: (val.clients ?? NATIVE_AUTH_DEFAULTS.clients).map((client) => ({
+      ...client,
+      resourceAudiences: client.resourceAudiences ?? [],
+    })),
+    resourceServers: (val.resourceServers ?? NATIVE_AUTH_DEFAULTS.resourceServers).map(
+      (resource) => ({
+        audience: resource.audience,
+        enabled: resource.enabled ?? true,
+        allowedClientIds: resource.allowedClientIds,
+        rateLimit: {
+          maxTokens: resource.rateLimit?.maxTokens ?? RESOURCE_SERVER_RATE_LIMIT_DEFAULTS.maxTokens,
+          windowMs: resource.rateLimit?.windowMs ?? RESOURCE_SERVER_RATE_LIMIT_DEFAULTS.windowMs,
+        },
+      }),
+    ),
+  }))
+  .openapi('NativeAuthConfig');
+
 export const FortressConfigSchema = z
   .object({
     session: SessionConfigSchema.optional(),
@@ -288,6 +441,7 @@ export const FortressConfigSchema = z
     passwordReset: PasswordResetConfigSchema.optional(),
     urls: UrlConfigSchema.optional(),
     oauth: OAuthConfigSchema.optional(),
+    nativeAuth: NativeAuthConfigSchema.optional(),
   })
   .transform((val) => ({
     session: val.session ?? SESSION_DEFAULTS,
@@ -298,6 +452,7 @@ export const FortressConfigSchema = z
     passwordReset: val.passwordReset ?? PASSWORD_RESET_DEFAULTS,
     urls: val.urls ?? URL_DEFAULTS,
     oauth: val.oauth ?? OAUTH_DEFAULTS,
+    nativeAuth: val.nativeAuth ?? NATIVE_AUTH_DEFAULTS,
   }))
   .openapi('FortressConfig');
 

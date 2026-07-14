@@ -1,16 +1,21 @@
 import { Account, type OAuthProviderId } from './domain/entities/account.js';
 import { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 import { LoginAttempt } from './domain/entities/login-attempt.js';
+import { NativeAuthorizationGrant } from './domain/entities/native-authorization-grant.js';
 import { OAuthState } from './domain/entities/oauth-state.js';
 import { PasswordResetToken } from './domain/entities/password-reset-token.js';
 import { Session } from './domain/entities/session.js';
 import { User } from './domain/entities/user.js';
-import type { AuthRepository } from './ports/auth-repository.js';
+import {
+  type AuthRepository,
+  supportsNativeAuthorizationRepository,
+} from './ports/auth-repository.js';
 import type { EmailProviderPort } from './ports/email-provider.js';
 import type { OAuthProviderPort } from './ports/oauth-provider.js';
 import type { RateLimiterPort } from './ports/rate-limiter.js';
 import type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 import { FortressConfigSchema } from './schemas/config.js';
+import { isAuthenticationFresh } from './security/authentication-age.js';
 import { isBreachedPassword } from './security/breached-password.js';
 import { validateEmailInput, validatePasswordInput } from './security/input-validation.js';
 import { generatePKCE, generateState } from './security/oauth-crypto.js';
@@ -71,6 +76,33 @@ export interface AuthResult {
   token: string;
 }
 
+export interface NativeOAuthResult {
+  user: User;
+  authorizationCode: string;
+  redirectUri: string;
+  state: string;
+}
+
+export interface NativeTokenResult extends AuthResult {
+  expiresAt: Date;
+}
+
+export interface NativeOAuthReturnTarget {
+  redirectUri: string;
+  state: string;
+}
+
+export interface NativeSessionIntrospection {
+  userId: string;
+  email: string | null;
+  emailVerified: true;
+  audience: string;
+  clientId: string;
+  expiresAt: Date;
+  sessionId: string;
+  authenticationTime: Date | null;
+}
+
 export class FortressAuth {
   private readonly config: FortressConfig;
 
@@ -81,6 +113,13 @@ export class FortressAuth {
     config?: FortressConfigInput,
   ) {
     this.config = FortressConfigSchema.parse(config ?? {});
+    if (
+      (this.config.nativeAuth.clients.length > 0 ||
+        this.config.nativeAuth.resourceServers.length > 0) &&
+      !supportsNativeAuthorizationRepository(repository)
+    ) {
+      throw new Error('Native authentication requires NativeAuthRepositoryPort capabilities');
+    }
   }
 
   // Expose a read-only copy of the effective config for hosts (e.g. HTTP server)
@@ -221,6 +260,13 @@ export class FortressAuth {
     }
 
     // Check lockout BEFORE password verification to prevent password oracle attacks
+    if (user.isDisabled()) {
+      await this.repository.recordLoginAttempt(
+        LoginAttempt.create(email, ipAddress, false, user.id),
+      );
+      return err('ACCOUNT_DISABLED');
+    }
+
     if (user.isLocked()) {
       await this.repository.recordLoginAttempt(
         LoginAttempt.create(email, ipAddress, false, user.id),
@@ -303,6 +349,11 @@ export class FortressAuth {
     if (!user) {
       await this.repository.deleteSession(session.id);
       return err('SESSION_INVALID');
+    }
+
+    if (user.isDisabled()) {
+      await this.repository.deleteSession(session.id);
+      return err('ACCOUNT_DISABLED');
     }
 
     return ok({ user, session });
@@ -548,25 +599,81 @@ export class FortressAuth {
   async getOAuthAuthorizationUrl(
     provider: OAuthProviderPort,
     providerId: OAuthProviderId,
-    options?: { redirectUri?: string; scopes?: string[] },
+    options?: {
+      redirectUri?: string;
+      scopes?: string[];
+      native?: {
+        clientId: string;
+        redirectUri: string;
+        codeChallenge: string;
+        state: string;
+        audience?: string;
+        maxAgeSeconds?: number;
+      };
+    },
   ): Promise<string> {
+    if (options?.native) {
+      if (!supportsNativeAuthorizationRepository(this.repository)) {
+        throw new Error('NATIVE_AUTHORIZATION_INVALID');
+      }
+      if (!this.isAllowedNativeRedirect(options.native.clientId, options.native.redirectUri)) {
+        throw new Error('NATIVE_REDIRECT_URI_INVALID');
+      }
+      if (
+        options.native.audience &&
+        !this.isAllowedNativeAudience(options.native.clientId, options.native.audience)
+      ) {
+        throw new Error('NATIVE_AUDIENCE_INVALID');
+      }
+      if (
+        options.native.maxAgeSeconds !== undefined &&
+        (!Number.isInteger(options.native.maxAgeSeconds) ||
+          options.native.maxAgeSeconds < 1 ||
+          options.native.maxAgeSeconds > 24 * 60 * 60)
+      ) {
+        throw new Error('STEP_UP_FAILED');
+      }
+      if (
+        options.native.maxAgeSeconds !== undefined &&
+        provider.supportsFreshAuthentication !== true
+      ) {
+        throw new Error('STEP_UP_UNSUPPORTED');
+      }
+    }
     const stateStr = generateState();
     const pkce = generatePKCE();
+
+    const authorizationUrl = provider.getAuthorizationUrl({
+      state: stateStr,
+      codeChallenge: pkce.codeChallenge,
+      ...(options?.scopes ? { scopes: options.scopes } : {}),
+      ...(options?.native?.maxAgeSeconds !== undefined
+        ? { freshAuthentication: { maxAgeSeconds: options.native.maxAgeSeconds } }
+        : {}),
+    });
 
     const oauthState = OAuthState.create({
       providerId,
       state: stateStr,
       codeVerifier: pkce.codeVerifier,
       ...(options?.redirectUri ? { redirectUri: options.redirectUri } : {}),
+      ...(options?.native
+        ? {
+            nativeClientId: options.native.clientId,
+            nativeRedirectUri: options.native.redirectUri,
+            nativeCodeChallenge: options.native.codeChallenge,
+            nativeState: options.native.state,
+            ...(options.native.audience ? { nativeAudience: options.native.audience } : {}),
+            ...(options.native.maxAgeSeconds !== undefined
+              ? { nativeMaxAgeSeconds: options.native.maxAgeSeconds }
+              : {}),
+          }
+        : {}),
     });
 
     await this.repository.createOAuthState(oauthState);
 
-    return provider.getAuthorizationUrl({
-      state: stateStr,
-      codeChallenge: pkce.codeChallenge,
-      ...(options?.scopes ? { scopes: options.scopes } : {}),
-    });
+    return authorizationUrl;
   }
 
   /**
@@ -577,15 +684,22 @@ export class FortressAuth {
     providerId: OAuthProviderId,
     code: string,
     stateStr: string,
-    context?: { ipAddress?: string; userAgent?: string },
-  ): Promise<Result<AuthResult, AuthErrorCode>> {
+    context?: {
+      ipAddress?: string;
+      userAgent?: string;
+      onNativeReturn?: (target: NativeOAuthReturnTarget) => void;
+    },
+  ): Promise<Result<AuthResult | NativeOAuthResult, AuthErrorCode>> {
     // 1. Validate state
-    const oauthState = await this.repository.findOAuthStateByState(stateStr);
+    const oauthState = await this.consumeOAuthState(this.repository, stateStr);
     if (!oauthState || oauthState.isExpired() || oauthState.providerId !== providerId) {
-      if (oauthState) {
-        await this.repository.deleteOAuthState(oauthState.id);
-      }
       return err('OAUTH_STATE_MISMATCH');
+    }
+    if (oauthState.nativeRedirectUri && oauthState.nativeState) {
+      context?.onNativeReturn?.({
+        redirectUri: oauthState.nativeRedirectUri,
+        state: oauthState.nativeState,
+      });
     }
 
     // 2. Exchange code for tokens
@@ -594,30 +708,51 @@ export class FortressAuth {
       oauthState.codeVerifier ? { codeVerifier: oauthState.codeVerifier } : {},
     );
     if (!tokenResult.success) {
-      await this.repository.deleteOAuthState(oauthState.id);
       return err(tokenResult.error);
     }
 
-    // 3. Get user info
-    const userInfoResult = await provider.getUserInfo(
-      tokenResult.data.idToken ?? tokenResult.data.accessToken,
-    );
+    let authenticationTime: Date | null = null;
+    const evidence = tokenResult.data.authenticationEvidence;
+    if (oauthState.nativeMaxAgeSeconds !== null) {
+      if (
+        provider.supportsFreshAuthentication !== true ||
+        !evidence ||
+        evidence.providerVerified !== true ||
+        evidence.ceremony !== 'fresh' ||
+        !isAuthenticationFresh(evidence.authenticatedAt, oauthState.nativeMaxAgeSeconds, new Date())
+      ) {
+        return err('STEP_UP_FAILED');
+      }
+      authenticationTime = evidence.authenticatedAt;
+    } else if (
+      provider.supportsFreshAuthentication === true &&
+      evidence?.providerVerified === true &&
+      evidence.ceremony === 'fresh' &&
+      Number.isFinite(evidence.authenticatedAt.getTime()) &&
+      evidence.authenticatedAt <= new Date()
+    ) {
+      authenticationTime = evidence.authenticatedAt;
+    }
+
+    // 3. Get user info. Standard providers expect the OAuth access token here;
+    // providers such as Apple can opt into whole-token handling explicitly.
+    const userInfoResult = provider.getUserInfoFromTokens
+      ? await provider.getUserInfoFromTokens(tokenResult.data)
+      : await provider.getUserInfo(tokenResult.data.accessToken);
     if (!userInfoResult.success) {
-      await this.repository.deleteOAuthState(oauthState.id);
       return err(userInfoResult.error);
     }
 
     const userInfo = userInfoResult.data;
     const emailValidation = validateEmailInput(userInfo.email);
     if (!emailValidation.success) {
-      await this.repository.deleteOAuthState(oauthState.id);
       return err(emailValidation.error);
     }
     const email = emailValidation.data;
 
     // 4. Account linking / User creation logic
     const transactionResult = await this.repository.transaction<{
-      result: Result<AuthResult, AuthErrorCode>;
+      result: Result<AuthResult | NativeOAuthResult, AuthErrorCode>;
       verificationEmail: { email: string; rawToken: string } | null;
     }>(async (repo) => {
       let verificationEmail: { email: string; rawToken: string } | null = null;
@@ -635,6 +770,9 @@ export class FortressAuth {
         user = await repo.findUserByEmail(email);
 
         if (user) {
+          if (user.isDisabled()) {
+            return { result: err('ACCOUNT_DISABLED'), verificationEmail };
+          }
           if (user.isLocked()) {
             return { result: err('ACCOUNT_LOCKED'), verificationEmail };
           }
@@ -665,6 +803,10 @@ export class FortressAuth {
         return { result: err('INTERNAL_ERROR'), verificationEmail };
       }
 
+      if (user.isDisabled()) {
+        return { result: err('ACCOUNT_DISABLED'), verificationEmail };
+      }
+
       if (user.isLocked()) {
         return { result: err('ACCOUNT_LOCKED'), verificationEmail };
       }
@@ -685,7 +827,40 @@ export class FortressAuth {
         return { result: err('EMAIL_NOT_VERIFIED'), verificationEmail };
       }
 
-      // 5. Create session
+      if (
+        oauthState.nativeClientId &&
+        oauthState.nativeRedirectUri &&
+        oauthState.nativeCodeChallenge &&
+        oauthState.nativeState
+      ) {
+        const { grant, rawCode } = NativeAuthorizationGrant.create({
+          userId: effectiveUser.id,
+          clientId: oauthState.nativeClientId,
+          redirectUri: oauthState.nativeRedirectUri,
+          codeChallenge: oauthState.nativeCodeChallenge,
+          ...(oauthState.nativeAudience ? { requestedAudience: oauthState.nativeAudience } : {}),
+          ...(oauthState.nativeMaxAgeSeconds !== null
+            ? { requestedFreshnessSeconds: oauthState.nativeMaxAgeSeconds }
+            : {}),
+          ...(authenticationTime ? { authenticationTime } : {}),
+          ttlMs: this.config.nativeAuth.authorizationCodeTtlMs,
+        });
+        if (!supportsNativeAuthorizationRepository(repo)) {
+          return { result: err('NATIVE_AUTHORIZATION_INVALID'), verificationEmail };
+        }
+        await repo.createNativeAuthorizationGrant(grant);
+        return {
+          result: ok({
+            user: effectiveUser,
+            authorizationCode: rawCode,
+            redirectUri: oauthState.nativeRedirectUri,
+            state: oauthState.nativeState,
+          }),
+          verificationEmail,
+        };
+      }
+
+      // 5. Create browser session
       const { session, rawToken } = Session.create(
         effectiveUser.id,
         this.config.session.ttlMs,
@@ -699,8 +874,6 @@ export class FortressAuth {
 
     const { result, verificationEmail } = transactionResult;
 
-    await this.repository.deleteOAuthState(oauthState.id);
-
     if (verificationEmail) {
       const verificationLink = `${this.config.urls.baseUrl}/verify-email?token=${verificationEmail.rawToken}`;
       await this.sendEmailSafely('sendVerificationEmail', () =>
@@ -709,6 +882,161 @@ export class FortressAuth {
     }
 
     return result;
+  }
+
+  /**
+   * Consumes a provider-error callback state and recovers only the native return target
+   * stored by FortressAuth when authorization began. Provider callback redirect values
+   * are deliberately not accepted here.
+   */
+  async consumeNativeOAuthFailure(
+    providerId: OAuthProviderId,
+    stateStr: string,
+  ): Promise<Result<NativeOAuthReturnTarget, AuthErrorCode>> {
+    const oauthState = await this.consumeOAuthState(this.repository, stateStr);
+    if (
+      !oauthState ||
+      oauthState.isExpired() ||
+      oauthState.providerId !== providerId ||
+      !oauthState.nativeRedirectUri ||
+      !oauthState.nativeState
+    ) {
+      return err('OAUTH_STATE_MISMATCH');
+    }
+    return ok({ redirectUri: oauthState.nativeRedirectUri, state: oauthState.nativeState });
+  }
+
+  async exchangeNativeAuthorizationCode(input: {
+    clientId: string;
+    code: string;
+    redirectUri: string;
+    codeVerifier: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): Promise<Result<NativeTokenResult, AuthErrorCode>> {
+    if (!supportsNativeAuthorizationRepository(this.repository)) {
+      return err('NATIVE_AUTHORIZATION_INVALID');
+    }
+    const parsed = NativeAuthorizationGrant.parse(input.code);
+    if (!parsed) return err('NATIVE_AUTHORIZATION_INVALID');
+
+    // Consumption is deliberately first: any attempted replay or tampering burns the one-time code.
+    const grant = await this.repository.consumeNativeAuthorizationGrant(parsed.selector);
+    if (
+      !grant ||
+      grant.isExpired() ||
+      !grant.matchesCodeVerifierHash(parsed.verifier) ||
+      grant.clientId !== input.clientId ||
+      grant.redirectUri !== input.redirectUri ||
+      !grant.matchesPkceVerifier(input.codeVerifier)
+    ) {
+      return err('NATIVE_AUTHORIZATION_INVALID');
+    }
+
+    const user = await this.repository.findUserById(grant.userId);
+    if (!user || user.isLocked() || user.isDisabled() || !user.emailVerified) {
+      return err('NATIVE_AUTHORIZATION_INVALID');
+    }
+
+    const { session, rawToken } = Session.createNative({
+      userId: user.id,
+      ttlMs: this.config.nativeAuth.sessionTtlMs,
+      clientId: grant.clientId,
+      grantedAudiences: grant.requestedAudience ? [grant.requestedAudience] : [],
+      email: user.email || null,
+      emailVerified: user.emailVerified,
+      authenticationTime: grant.authenticationTime,
+      ...(input.ipAddress ? { ipAddress: input.ipAddress } : {}),
+      ...(input.userAgent ? { userAgent: input.userAgent } : {}),
+    });
+    await this.repository.createSession(session);
+    return ok({ user, token: rawToken, expiresAt: session.expiresAt });
+  }
+
+  private isAllowedNativeRedirect(clientId: string, redirectUri: string): boolean {
+    const client = this.config.nativeAuth.clients.find(
+      (candidate) => candidate.clientId === clientId,
+    );
+    return client?.redirectUris.includes(redirectUri) ?? false;
+  }
+
+  /** Safe host-side check used before returning native initiation errors to a registered URI. */
+  isRegisteredNativeRedirect(clientId: string, redirectUri: string): boolean {
+    return this.isAllowedNativeRedirect(clientId, redirectUri);
+  }
+
+  private async consumeOAuthState(
+    repository: AuthRepository,
+    state: string,
+  ): Promise<OAuthState | null> {
+    if (supportsNativeAuthorizationRepository(repository)) {
+      return repository.consumeOAuthStateByState(state);
+    }
+
+    // Backward-compatible browser OAuth path for custom repositories that do
+    // not opt into native capabilities. The repository transaction preserves
+    // the strongest atomicity the existing adapter can provide.
+    return repository.transaction(async (repo) => {
+      const oauthState = await repo.findOAuthStateByState(state);
+      if (oauthState) await repo.deleteOAuthState(oauthState.id);
+      return oauthState;
+    });
+  }
+
+  private isAllowedNativeAudience(clientId: string, audience: string): boolean {
+    const client = this.config.nativeAuth.clients.find(
+      (candidate) => candidate.clientId === clientId,
+    );
+    const resource = this.config.nativeAuth.resourceServers.find(
+      (candidate) => candidate.audience === audience,
+    );
+    return Boolean(
+      resource?.enabled &&
+        client?.resourceAudiences.includes(audience) &&
+        resource.allowedClientIds.includes(clientId),
+    );
+  }
+
+  async introspectNativeSession(input: {
+    token: string;
+    audience: string;
+    authenticatedResourceAudience: string;
+  }): Promise<NativeSessionIntrospection | null> {
+    const resource = this.config.nativeAuth.resourceServers.find(
+      (candidate) => candidate.audience === input.authenticatedResourceAudience,
+    );
+    if (!resource?.enabled || resource.audience !== input.audience) return null;
+
+    const parsed = Session.parse(input.token);
+    if (!parsed) return null;
+    const session = await this.repository.findSessionBySelector(parsed.selector);
+    if (!session || !session.matchesVerifier(parsed.verifier)) return null;
+    if (session.isExpired()) {
+      await this.repository.deleteSession(session.id);
+      return null;
+    }
+    if (
+      !session.nativeClientId ||
+      session.nativeAudiences === null ||
+      !session.hasNativeAudience(resource.audience) ||
+      !resource.allowedClientIds.includes(session.nativeClientId) ||
+      session.nativeEmailVerified !== true
+    ) {
+      return null;
+    }
+    const user = await this.repository.findUserById(session.userId);
+    if (!user || user.isDisabled() || user.isLocked() || !user.emailVerified) return null;
+
+    return {
+      userId: user.id,
+      email: session.nativeEmail,
+      emailVerified: true,
+      audience: resource.audience,
+      clientId: session.nativeClientId,
+      expiresAt: session.expiresAt,
+      sessionId: session.id,
+      authenticationTime: session.authenticationTime,
+    };
   }
 
   private async checkRateLimit(

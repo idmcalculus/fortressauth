@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { safeExecute } from './index.js';
+import { createMigrationIndex, safeExecute } from './index.js';
 import { type MigrationColumnTypes, SQLITE_COLUMN_TYPES } from './types.js';
 
 export async function up<T>(
@@ -10,33 +10,31 @@ export async function up<T>(
     db.schema
       .createTable('email_verifications')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.references('users.id').onDelete('cascade'))
-      .addColumn('selector', 'text', (col) => col.notNull())
-      .addColumn('verifier_hash', 'text', (col) => col.notNull())
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('user_id', columnTypes.identifier, (col) =>
+        col.references('users.id').onDelete('cascade'),
+      )
+      .addColumn('selector', columnTypes.selector, (col) => col.notNull())
+      .addColumn('verifier_hash', columnTypes.hash, (col) => col.notNull())
       .addColumn('expires_at', columnTypes.timestamp, (col) => col.notNull())
       .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
-  await safeExecute(
-    db.schema
-      .createIndex('email_verifications_selector_idx')
-      .ifNotExists()
-      .on('email_verifications')
-      .column('selector')
-      .unique()
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'email_verifications_selector_idx',
+    table: 'email_verifications',
+    columns: ['selector'],
+    unique: true,
+    dialect: columnTypes.dialect,
+  });
 
-  await safeExecute(
-    db.schema
-      .createIndex('email_verifications_user_id_idx')
-      .ifNotExists()
-      .on('email_verifications')
-      .column('user_id')
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'email_verifications_user_id_idx',
+    table: 'email_verifications',
+    columns: ['user_id'],
+    dialect: columnTypes.dialect,
+  });
 }
 
 export async function down<T>(

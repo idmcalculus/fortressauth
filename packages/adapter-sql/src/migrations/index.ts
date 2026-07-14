@@ -1,9 +1,11 @@
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { down as down001, up as up001 } from './001_initial.js';
 import { down as down002, up as up002 } from './002_email_verification.js';
 import { down as down003, up as up003 } from './003_password_resets.js';
 import { down as down004, up as up004 } from './004_session_split_token.js';
 import { down as down005, up as up005 } from './005_oauth_support.js';
+import { down as down006, up as up006 } from './006_native_authorization_grants.js';
+import { down as down007, up as up007 } from './007_native_resource_auth.js';
 import {
   type MigrationColumnTypes,
   MYSQL_COLUMN_TYPES,
@@ -17,8 +19,31 @@ export interface MigrationOptions {
   dialect?: MigrationDialect;
 }
 
+// better-sqlite3 waits synchronously on a busy database. Serialize migrations
+// in this process so a second connection cannot block the event loop while the
+// first migration is awaiting its next statement. BEGIN IMMEDIATE remains the
+// cross-process database lock.
+let sqliteMigrationTail: Promise<void> = Promise.resolve();
+
+async function withProcessSqliteLock(run: () => Promise<void>): Promise<void> {
+  const previous = sqliteMigrationTail;
+  let release = () => {};
+  sqliteMigrationTail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    await run();
+  } finally {
+    release();
+  }
+}
+
 function isAlreadyExistsError(error: unknown): boolean {
-  return error instanceof Error && /already exists|duplicate key name/i.test(error.message);
+  return (
+    error instanceof Error &&
+    /already exists|duplicate key name|duplicate column name|duplicate column/i.test(error.message)
+  );
 }
 
 function resolveColumnTypes(options?: MigrationOptions): MigrationColumnTypes {
@@ -33,6 +58,55 @@ function resolveColumnTypes(options?: MigrationOptions): MigrationColumnTypes {
   }
 }
 
+async function withMigrationLock<T>(
+  db: Kysely<T>,
+  dialect: MigrationDialect,
+  run: (database: Kysely<T>) => Promise<void>,
+): Promise<void> {
+  if (dialect === 'postgres') {
+    await db.transaction().execute(async (trx) => {
+      await sql`SELECT pg_advisory_xact_lock(164736291)`.execute(trx);
+      await run(trx as unknown as Kysely<T>);
+    });
+    return;
+  }
+
+  const runWithPinnedConnection = () =>
+    db.connection().execute(async (connection) => {
+      const pinned = connection as unknown as Kysely<T>;
+      if (dialect === 'mysql') {
+        const acquired = await sql<{ acquired: number }>`
+        SELECT GET_LOCK('fortressauth:migrations', 30) AS acquired
+      `.execute(pinned);
+        if (Number(acquired.rows[0]?.acquired) !== 1) {
+          throw new Error('Timed out acquiring the FortressAuth migration lock');
+        }
+        try {
+          await run(pinned);
+        } finally {
+          await sql`SELECT RELEASE_LOCK('fortressauth:migrations')`.execute(pinned);
+        }
+        return;
+      }
+
+      await sql`PRAGMA busy_timeout = 30000`.execute(pinned);
+      await sql`BEGIN IMMEDIATE`.execute(pinned);
+      try {
+        await run(pinned);
+        await sql`COMMIT`.execute(pinned);
+      } catch (error) {
+        await sql`ROLLBACK`.execute(pinned).catch(() => undefined);
+        throw error;
+      }
+    });
+
+  if (dialect === 'sqlite') {
+    await withProcessSqliteLock(runWithPinnedConnection);
+    return;
+  }
+  await runWithPinnedConnection();
+}
+
 export async function safeExecute(promise: Promise<unknown>): Promise<void> {
   try {
     await promise;
@@ -41,6 +115,24 @@ export async function safeExecute(promise: Promise<unknown>): Promise<void> {
       throw error;
     }
   }
+}
+
+/** MySQL does not support CREATE INDEX IF NOT EXISTS; duplicate-name errors are handled safely. */
+export async function createMigrationIndex<T>(
+  db: Kysely<T>,
+  options: {
+    name: string;
+    table: string;
+    columns: string[];
+    unique?: boolean;
+    dialect: MigrationDialect;
+  },
+): Promise<void> {
+  let builder = db.schema.createIndex(options.name);
+  if (options.dialect !== 'mysql') builder = builder.ifNotExists();
+  let columnsBuilder = builder.on(options.table).columns(options.columns);
+  if (options.unique) columnsBuilder = columnsBuilder.unique();
+  await safeExecute(columnsBuilder.execute());
 }
 
 export async function up<T>(db: Kysely<T>, options: MigrationOptions = {}): Promise<void> {
@@ -53,37 +145,14 @@ export async function up<T>(db: Kysely<T>, options: MigrationOptions = {}): Prom
     await up003(database, columnTypes);
     await up004(database, columnTypes);
     await up005(database, columnTypes);
+    await up006(database, columnTypes);
+    await up007(database, columnTypes);
   };
 
-  // Postgres and SQLite both support transactional DDL: a failure mid-way
-  // through the migration sequence rolls back any preceding statements,
-  // leaving the database in its original state. MySQL auto-commits DDL,
-  // so wrapping it in a transaction provides no atomicity guarantee — we
-  // run the migrations directly in that case.
-  if (dialect === 'postgres' || dialect === 'sqlite') {
-    try {
-      await db.transaction().execute(async (trx) => {
-        await runMigrations(trx as unknown as Kysely<T>);
-      });
-    } catch (error) {
-      console.error(
-        `[adapter-sql] migration transaction failed (dialect=${dialect}); rolled back`,
-        error,
-      );
-      throw error;
-    }
-    return;
-  }
-
-  // MySQL: best-effort sequence without atomicity. A mid-run failure
-  // leaves a partial schema; operators must inspect and fix manually.
   try {
-    await runMigrations(db);
+    await withMigrationLock(db, dialect, runMigrations);
   } catch (error) {
-    console.error(
-      '[adapter-sql] migration failed (dialect=mysql); DDL is not transactional, schema may be partial',
-      error,
-    );
+    console.error(`[adapter-sql] migration failed (dialect=${dialect})`, error);
     throw error;
   }
 }
@@ -93,6 +162,8 @@ export async function down<T>(db: Kysely<T>, options: MigrationOptions = {}): Pr
   const columnTypes = resolveColumnTypes(options);
 
   const runDown = async (database: Kysely<T>): Promise<void> => {
+    await down007(database);
+    await down006(database);
     await down005(database, columnTypes);
     await down004(database, columnTypes);
     await down003(database, columnTypes);
@@ -100,28 +171,10 @@ export async function down<T>(db: Kysely<T>, options: MigrationOptions = {}): Pr
     await down001(database, columnTypes);
   };
 
-  if (dialect === 'postgres' || dialect === 'sqlite') {
-    try {
-      await db.transaction().execute(async (trx) => {
-        await runDown(trx as unknown as Kysely<T>);
-      });
-    } catch (error) {
-      console.error(
-        `[adapter-sql] down-migration transaction failed (dialect=${dialect}); rolled back`,
-        error,
-      );
-      throw error;
-    }
-    return;
-  }
-
   try {
-    await runDown(db);
+    await withMigrationLock(db, dialect, runDown);
   } catch (error) {
-    console.error(
-      '[adapter-sql] down-migration failed (dialect=mysql); DDL is not transactional',
-      error,
-    );
+    console.error(`[adapter-sql] down-migration failed (dialect=${dialect})`, error);
     throw error;
   }
 }

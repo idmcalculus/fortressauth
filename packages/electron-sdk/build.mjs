@@ -8,7 +8,7 @@ await esbuild.build({
   target: 'node18',
   format: 'cjs',
   outfile: './dist/index.cjs',
-  external: ['electron', 'electron-store'],
+  external: ['electron'],
   sourcemap: true,
 });
 

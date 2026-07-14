@@ -2,7 +2,10 @@ import {
   Account,
   EmailVerificationToken,
   LoginAttempt,
+  NativeAuthorizationGrant,
+  OAuthState,
   PasswordResetToken,
+  ResourceIntrospectionAuditEvent,
   Session,
   User,
 } from '@fortressauth/core';
@@ -260,6 +263,14 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
           const found = await adapter.findUserById(user.id);
           expect(found?.lockedUntil).toEqual(lockDate);
         });
+
+        it('should persist account disablement', async () => {
+          const user = User.create('disabled@example.com');
+          await adapter.createUser(user);
+          await adapter.updateUser(user.withDisabled());
+
+          expect((await adapter.findUserById(user.id))?.isDisabled()).toBe(true);
+        });
       });
     });
 
@@ -352,6 +363,28 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
           expect(found).not.toBeNull();
           expect(found?.userId).toBe(user.id);
         });
+
+        it('should preserve native client, audience, email, and auth-time binding', async () => {
+          const authenticationTime = new Date('2026-07-13T12:00:00.000Z');
+          const { session } = Session.createNative({
+            userId: user.id,
+            ttlMs: 3_600_000,
+            clientId: 'desktop-app',
+            grantedAudiences: ['desktop-api'],
+            email: null,
+            emailVerified: true,
+            authenticationTime,
+          });
+          await adapter.createSession(session);
+
+          expect(await adapter.findSessionBySelector(session.selector)).toMatchObject({
+            nativeClientId: 'desktop-app',
+            nativeAudiences: ['desktop-api'],
+            nativeEmail: null,
+            nativeEmailVerified: true,
+            authenticationTime,
+          });
+        });
       });
 
       describe('findSessionBySelector()', () => {
@@ -380,6 +413,26 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
 
           const found = await adapter.findSessionBySelector(session.selector);
           expect(found).toBeNull();
+        });
+
+        it('keeps every lookup after concurrent revocation inactive', async () => {
+          const { session } = Session.createNative({
+            userId: user.id,
+            ttlMs: 3_600_000,
+            clientId: 'desktop-app',
+            grantedAudiences: ['desktop-api'],
+            email: user.email,
+            emailVerified: true,
+            authenticationTime: null,
+          });
+          await adapter.createSession(session);
+
+          await Promise.all([
+            adapter.findSessionBySelector(session.selector),
+            adapter.deleteSession(session.id),
+          ]);
+
+          await expect(adapter.findSessionBySelector(session.selector)).resolves.toBeNull();
         });
       });
 
@@ -571,6 +624,101 @@ export function defineAdapterTestSuite(options: AdapterTestOptions): void {
 
         const found = await adapter.findUserByEmail('test@example.com');
         expect(found).toBeNull();
+      });
+    });
+
+    describe('native authorization grants', () => {
+      it('allows exactly one concurrent consumer', async () => {
+        const user = User.create('native@example.com');
+        await adapter.createUser(user);
+        const { grant } = NativeAuthorizationGrant.create({
+          userId: user.id,
+          clientId: 'wraith',
+          redirectUri: 'wraith://auth/callback',
+          codeChallenge: 'A'.repeat(43),
+          requestedAudience: 'wraith-api',
+          requestedFreshnessSeconds: 300,
+          authenticationTime: new Date('2026-07-13T12:00:00.000Z'),
+          ttlMs: 60_000,
+        });
+        await adapter.createNativeAuthorizationGrant(grant);
+
+        const results = await Promise.all([
+          adapter.consumeNativeAuthorizationGrant(grant.selector),
+          adapter.consumeNativeAuthorizationGrant(grant.selector),
+        ]);
+        expect(results.filter(Boolean)).toHaveLength(1);
+        expect(results.filter((result) => result === null)).toHaveLength(1);
+        expect(results.find(Boolean)).toMatchObject({
+          requestedAudience: 'wraith-api',
+          requestedFreshnessSeconds: 300,
+          authenticationTime: new Date('2026-07-13T12:00:00.000Z'),
+        });
+      });
+    });
+
+    describe('resource introspection audit', () => {
+      it('appends redacted evidence without plaintext identity values', async () => {
+        const event = ResourceIntrospectionAuditEvent.create({
+          resourceServerAudience: 'desktop-api',
+          requestedAudience: 'desktop-api',
+          tokenSelector: 'selector',
+          sessionId: 'session-id',
+          clientId: 'desktop-app',
+          sourceIdentity: '203.0.113.10',
+          outcome: 'active',
+        });
+        await adapter.recordResourceIntrospectionAudit(event);
+        const row = await db
+          .selectFrom('resource_introspection_audit')
+          .selectAll()
+          .where('id', '=', event.id)
+          .executeTakeFirst();
+
+        expect(row).toMatchObject({ outcome: 'active', session_id: 'session-id' });
+        expect(JSON.stringify(row)).not.toContain('desktop-api');
+        expect(JSON.stringify(row)).not.toContain('203.0.113.10');
+      });
+
+      it('prunes audit evidence older than the retention cutoff', async () => {
+        const oldEvent = ResourceIntrospectionAuditEvent.create({ outcome: 'inactive' });
+        const currentEvent = ResourceIntrospectionAuditEvent.create({ outcome: 'active' });
+        await adapter.recordResourceIntrospectionAudit(oldEvent);
+        await adapter.recordResourceIntrospectionAudit(currentEvent);
+        await db
+          .updateTable('resource_introspection_audit')
+          .set({
+            created_at:
+              options.dialect === 'sqlite'
+                ? '2020-01-01T00:00:00.000Z'
+                : new Date('2020-01-01T00:00:00.000Z'),
+          })
+          .where('id', '=', oldEvent.id)
+          .execute();
+
+        await expect(
+          adapter.pruneResourceIntrospectionAudit(new Date('2021-01-01T00:00:00.000Z')),
+        ).resolves.toBe(1);
+        expect(
+          await db
+            .selectFrom('resource_introspection_audit')
+            .select('id')
+            .where('id', '=', currentEvent.id)
+            .executeTakeFirst(),
+        ).toBeDefined();
+      });
+    });
+
+    describe('OAuth states', () => {
+      it('allows exactly one concurrent callback consumer', async () => {
+        const state = OAuthState.create({ providerId: 'google', state: 'one-time-state' });
+        await adapter.createOAuthState(state);
+        const results = await Promise.all([
+          adapter.consumeOAuthStateByState(state.state),
+          adapter.consumeOAuthStateByState(state.state),
+        ]);
+        expect(results.filter(Boolean)).toHaveLength(1);
+        expect(results.filter((result) => result === null)).toHaveLength(1);
       });
     });
   });

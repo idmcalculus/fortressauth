@@ -21,11 +21,8 @@ export function hashVerifier(verifier: string): string {
 }
 
 export function parseSplitToken(rawToken: string): { selector: string; verifier: string } | null {
-  const [selector, verifier] = rawToken.split(':');
-  if (!selector || !verifier) {
-    return null;
-  }
-  return { selector, verifier };
+  const match = /^([0-9a-f]{32}):([0-9a-f]{64})$/.exec(rawToken);
+  return match?.[1] && match[2] ? { selector: match[1], verifier: match[2] } : null;
 }
 
 export function constantTimeEqual(a: string, b: string): boolean {

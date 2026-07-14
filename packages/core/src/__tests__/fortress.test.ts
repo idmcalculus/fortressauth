@@ -27,6 +27,8 @@ function createMockRepository(): AuthRepository {
     createSession: vi.fn().mockResolvedValue(undefined),
     deleteSession: vi.fn().mockResolvedValue(undefined),
     deleteSessionsByUserId: vi.fn().mockResolvedValue(undefined),
+    createNativeAuthorizationGrant: vi.fn().mockResolvedValue(undefined),
+    consumeNativeAuthorizationGrant: vi.fn(),
     createEmailVerificationToken: vi.fn().mockResolvedValue(undefined),
     findEmailVerificationBySelector: vi.fn(),
     deleteEmailVerification: vi.fn().mockResolvedValue(undefined),
@@ -38,6 +40,7 @@ function createMockRepository(): AuthRepository {
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
     createOAuthState: vi.fn(),
     findOAuthStateByState: vi.fn(),
+    consumeOAuthStateByState: vi.fn(),
     deleteOAuthState: vi.fn(),
     transaction: vi.fn().mockImplementation(async (fn) =>
       fn({
@@ -53,6 +56,8 @@ function createMockRepository(): AuthRepository {
         createSession: vi.fn(),
         deleteSession: vi.fn(),
         deleteSessionsByUserId: vi.fn(),
+        createNativeAuthorizationGrant: vi.fn(),
+        consumeNativeAuthorizationGrant: vi.fn(),
         createEmailVerificationToken: vi.fn(),
         findEmailVerificationBySelector: vi.fn(),
         deleteEmailVerification: vi.fn(),
@@ -64,6 +69,7 @@ function createMockRepository(): AuthRepository {
         countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
         createOAuthState: vi.fn(),
         findOAuthStateByState: vi.fn(),
+        consumeOAuthStateByState: vi.fn(),
         deleteOAuthState: vi.fn(),
         transaction: vi.fn(),
       }),
@@ -401,8 +407,8 @@ describe('FortressAuth', () => {
       const { session } = Session.create('user-123', 3600000);
       vi.mocked(repository.findSessionBySelector).mockResolvedValue(session);
 
-      // Construct a token with the SAME selector but DIFFERENT verifier
-      const wrongVerifier = 'wrong-verifier';
+      // Construct a well-formed token with the SAME selector but DIFFERENT verifier.
+      const wrongVerifier = 'f'.repeat(64);
       const wrongToken = `${session.selector}:${wrongVerifier}`;
 
       const result = await fortress.signOut(wrongToken);
@@ -863,8 +869,8 @@ describe('FortressAuth', () => {
 
       vi.mocked(repository.findPasswordResetBySelector).mockResolvedValue(token);
 
-      // Construct a token with the SAME selector but DIFFERENT verifier
-      const wrongVerifier = 'wrong-verifier';
+      // Construct a well-formed token with the SAME selector but DIFFERENT verifier.
+      const wrongVerifier = 'f'.repeat(64);
       const wrongToken = `${token.selector}:${wrongVerifier}`;
 
       const result = await fortress.resetPassword({

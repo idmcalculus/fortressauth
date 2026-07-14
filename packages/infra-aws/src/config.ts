@@ -74,6 +74,170 @@ function assertEnvRecord(value: unknown, name: string): EnvRecord {
   return parsed;
 }
 
+const EXPLICIT_SECRET_ENV_KEYS = new Set([
+  'DATABASE_URL',
+  'DB_PASSWORD',
+  'RESOURCE_SERVER_CREDENTIALS_JSON',
+  'SMTP_PASS',
+]);
+
+export function isSecretOnlyEnvKey(key: string): boolean {
+  return (
+    EXPLICIT_SECRET_ENV_KEYS.has(key) ||
+    /(?:_SECRET|_PRIVATE_KEY|_API_KEY|_PASSWORD|_ACCESS_KEY_ID|_SECRET_ACCESS_KEY|_SESSION_TOKEN)$/.test(
+      key,
+    )
+  );
+}
+
+function assertSecretBoundary(appEnv: EnvRecord, secretEnvKeys: readonly string[]): void {
+  const uniqueSecretKeys = new Set(secretEnvKeys);
+  if (uniqueSecretKeys.size !== secretEnvKeys.length) {
+    throw new Error('Invalid secretEnvKeys. Secret environment keys must be unique.');
+  }
+
+  for (const key of Object.keys(appEnv)) {
+    if (uniqueSecretKeys.has(key)) {
+      throw new Error(`Invalid appEnv.${key}. A key cannot be both public and secret.`);
+    }
+    if (isSecretOnlyEnvKey(key)) {
+      throw new Error(`Invalid appEnv.${key}. Secret values must be declared in secretEnvKeys.`);
+    }
+  }
+}
+
+function assertGenericResourceSecretConfiguration(
+  appEnv: EnvRecord,
+  secretEnvKeys: readonly string[],
+): void {
+  if (!appEnv.RESOURCE_SERVERS_JSON) return;
+  let resources: unknown;
+  try {
+    resources = JSON.parse(appEnv.RESOURCE_SERVERS_JSON);
+  } catch {
+    throw new Error('Invalid appEnv.RESOURCE_SERVERS_JSON. Expected valid JSON.');
+  }
+  if (!Array.isArray(resources)) {
+    throw new Error('Invalid appEnv.RESOURCE_SERVERS_JSON. Expected an array.');
+  }
+  const hasEnabledResource = resources.some(
+    (entry) =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      (!('enabled' in entry) || entry.enabled !== false),
+  );
+  if (hasEnabledResource && !new Set(secretEnvKeys).has('RESOURCE_SERVER_CREDENTIALS_JSON')) {
+    throw new Error(
+      'Enabled resource servers require RESOURCE_SERVER_CREDENTIALS_JSON in secretEnvKeys.',
+    );
+  }
+}
+
+function assertWraithCompatibilityConfiguration(
+  appEnv: EnvRecord,
+  secretEnvKeys: readonly string[],
+  appDomain: string,
+): void {
+  const rawRegistry = appEnv.NATIVE_CLIENTS_JSON;
+  if (!rawRegistry) return;
+
+  let registry: unknown;
+  try {
+    registry = JSON.parse(rawRegistry);
+  } catch {
+    throw new Error('Invalid appEnv.NATIVE_CLIENTS_JSON. Expected valid JSON.');
+  }
+  if (!Array.isArray(registry)) {
+    throw new Error('Invalid appEnv.NATIVE_CLIENTS_JSON. Expected an array.');
+  }
+
+  const wraith = registry.find(
+    (
+      entry,
+    ): entry is {
+      clientId: string;
+      redirectUris: unknown;
+      resourceAudiences?: unknown;
+    } =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      'clientId' in entry &&
+      entry.clientId === 'wraith',
+  );
+  if (!wraith) return;
+
+  if (
+    !Array.isArray(wraith.redirectUris) ||
+    wraith.redirectUris.length !== 1 ||
+    wraith.redirectUris[0] !== 'wraith://auth/callback'
+  ) {
+    throw new Error(
+      'Invalid Wraith native redirect registry. Expected only wraith://auth/callback.',
+    );
+  }
+
+  const secretKeys = new Set(secretEnvKeys);
+
+  if (wraith.resourceAudiences !== undefined) {
+    if (
+      !Array.isArray(wraith.resourceAudiences) ||
+      wraith.resourceAudiences.length !== 1 ||
+      wraith.resourceAudiences[0] !== 'wraith-api'
+    ) {
+      throw new Error('Invalid Wraith resource audience fixture. Expected only wraith-api.');
+    }
+
+    let resources: unknown;
+    try {
+      resources = JSON.parse(appEnv.RESOURCE_SERVERS_JSON ?? '[]');
+    } catch {
+      throw new Error('Invalid appEnv.RESOURCE_SERVERS_JSON. Expected valid JSON.');
+    }
+    if (!Array.isArray(resources)) {
+      throw new Error('Invalid appEnv.RESOURCE_SERVERS_JSON. Expected an array.');
+    }
+    const resource = resources.find(
+      (entry): entry is { audience: string; enabled?: unknown; allowedClientIds?: unknown } =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        'audience' in entry &&
+        entry.audience === 'wraith-api',
+    );
+    if (
+      !resource ||
+      resource.enabled === false ||
+      !Array.isArray(resource.allowedClientIds) ||
+      !resource.allowedClientIds.includes('wraith')
+    ) {
+      throw new Error(
+        'Invalid Wraith resource-server fixture. Register enabled audience wraith-api for client wraith.',
+      );
+    }
+    if (!secretKeys.has('RESOURCE_SERVER_CREDENTIALS_JSON')) {
+      throw new Error(
+        'Wraith resource introspection requires RESOURCE_SERVER_CREDENTIALS_JSON in secretEnvKeys.',
+      );
+    }
+  }
+
+  const googleReady =
+    Boolean(appEnv.GOOGLE_CLIENT_ID) &&
+    appEnv.GOOGLE_REDIRECT_URI === `https://${appDomain}/auth/oauth/google/callback` &&
+    secretKeys.has('GOOGLE_CLIENT_SECRET');
+  const appleReady =
+    Boolean(appEnv.APPLE_CLIENT_ID) &&
+    Boolean(appEnv.APPLE_TEAM_ID) &&
+    Boolean(appEnv.APPLE_KEY_ID) &&
+    appEnv.APPLE_REDIRECT_URI === `https://${appDomain}/auth/oauth/apple/callback` &&
+    (secretKeys.has('APPLE_CLIENT_SECRET') || secretKeys.has('APPLE_PRIVATE_KEY'));
+
+  if (!googleReady && !appleReady) {
+    throw new Error(
+      'Wraith native OAuth requires a complete Google or Apple provider configuration. Set the provider public client and callback values in appEnv and declare its secret in secretEnvKeys; see packages/infra-aws/README.md.',
+    );
+  }
+}
+
 function assertCidr(value: string, name: string): string {
   if (!/^([0-9]{1,3}\.){3}[0-9]{1,3}\/[0-9]{1,2}$/.test(value)) {
     throw new Error(`Invalid ${name} CIDR.`);
@@ -227,6 +391,9 @@ export function loadConfig(): ResolvedConfig {
   const secretEnvKeys = (config.getObject<string[]>('secretEnvKeys') ?? []).map((key) =>
     assertEnvKey(key, 'secretEnvKeys'),
   );
+  assertSecretBoundary(appEnv, secretEnvKeys);
+  assertGenericResourceSecretConfiguration(appEnv, secretEnvKeys);
+  assertWraithCompatibilityConfiguration(appEnv, secretEnvKeys, appDomain);
 
   return {
     stack,

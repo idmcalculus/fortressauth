@@ -1,8 +1,8 @@
 import * as aws from '@pulumi/aws';
 import * as awsx from '@pulumi/awsx';
 import * as pulumi from '@pulumi/pulumi';
-
 import type { ResolvedConfig } from './config';
+import { isSecretOnlyEnvKey } from './config.js';
 import type { DatabaseResources } from './database';
 import type { EmailResources } from './email';
 import type { NetworkResources } from './network';
@@ -247,7 +247,9 @@ export function buildContainer(
       { name: 'EMAIL_REPLY_TO', value: config.sesReplyToAddress },
     ];
 
+    const secretKeys = new Set(config.secretEnvKeys);
     const appEnvEntries = Object.entries(config.appEnv)
+      .filter(([name]) => !secretKeys.has(name) && !isSecretOnlyEnvKey(name))
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([name, value]) => ({ name, value }));
 

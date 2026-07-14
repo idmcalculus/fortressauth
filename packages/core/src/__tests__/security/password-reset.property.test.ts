@@ -33,6 +33,8 @@ function createMockRepository(): AuthRepository {
     createSession: vi.fn().mockResolvedValue(undefined),
     deleteSession: vi.fn().mockResolvedValue(undefined),
     deleteSessionsByUserId: vi.fn().mockResolvedValue(undefined),
+    createNativeAuthorizationGrant: vi.fn().mockResolvedValue(undefined),
+    consumeNativeAuthorizationGrant: vi.fn(),
     createEmailVerificationToken: vi.fn().mockResolvedValue(undefined),
     findEmailVerificationBySelector: vi.fn(),
     deleteEmailVerification: vi.fn().mockResolvedValue(undefined),
@@ -44,6 +46,7 @@ function createMockRepository(): AuthRepository {
     countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
     createOAuthState: vi.fn(),
     findOAuthStateByState: vi.fn(),
+    consumeOAuthStateByState: vi.fn(),
     deleteOAuthState: vi.fn(),
     transaction: vi.fn().mockImplementation(async (fn) =>
       fn({
@@ -59,6 +62,8 @@ function createMockRepository(): AuthRepository {
         createSession: vi.fn(),
         deleteSession: vi.fn(),
         deleteSessionsByUserId: vi.fn(),
+        createNativeAuthorizationGrant: vi.fn(),
+        consumeNativeAuthorizationGrant: vi.fn(),
         createEmailVerificationToken: vi.fn(),
         findEmailVerificationBySelector: vi.fn(),
         deleteEmailVerification: vi.fn(),
@@ -70,6 +75,7 @@ function createMockRepository(): AuthRepository {
         countRecentFailedAttempts: vi.fn().mockResolvedValue(0),
         createOAuthState: vi.fn(),
         findOAuthStateByState: vi.fn(),
+        consumeOAuthStateByState: vi.fn(),
         deleteOAuthState: vi.fn(),
         transaction: vi.fn(),
       }),

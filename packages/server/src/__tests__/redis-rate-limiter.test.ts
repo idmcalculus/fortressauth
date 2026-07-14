@@ -19,6 +19,44 @@ function createMockRedis() {
       return 'OK';
     }),
     pexpire: vi.fn().mockResolvedValue(1),
+    eval: vi
+      .fn()
+      .mockImplementation(
+        async (_script: string, keyCount: number, ...values: Array<string | number>) => {
+          const keys = values.slice(0, keyCount).map(String);
+          const args = values.slice(keyCount).map(Number);
+          const now = args[0] ?? Date.now();
+          const reservations: Array<{
+            key: string;
+            tokens: number;
+            lastRefill: number;
+          }> = [];
+
+          for (const [index, key] of keys.entries()) {
+            const offset = 1 + index * 3;
+            const maxTokens = args[offset] ?? 0;
+            const refillRateMs = args[offset + 1] ?? 1;
+            const data = store.get(key) ?? {};
+            let tokens = data.tokens ? Number(data.tokens) : maxTokens;
+            let lastRefill = data.lastRefill ? Number(data.lastRefill) : now;
+            const tokensToAdd = Math.floor((now - lastRefill) / refillRateMs);
+            if (tokensToAdd > 0) {
+              tokens = Math.min(maxTokens, tokens + tokensToAdd);
+              lastRefill += tokensToAdd * refillRateMs;
+            }
+            if (tokens <= 0) return 0;
+            reservations.push({ key, tokens: tokens - 1, lastRefill });
+          }
+
+          for (const reservation of reservations) {
+            store.set(reservation.key, {
+              tokens: String(reservation.tokens),
+              lastRefill: String(reservation.lastRefill),
+            });
+          }
+          return 1;
+        },
+      ),
     del: vi.fn().mockImplementation(async (key: string) => {
       store.delete(key);
       return 1;
@@ -83,6 +121,7 @@ describe('RedisRateLimiter', () => {
       // Exhaust all tokens
       for (let i = 0; i < 5; i++) {
         await limiter.check('user@example.com', 'login');
+        await limiter.consume('user@example.com', 'login');
       }
 
       const result = await limiter.check('user@example.com', 'login');
@@ -117,6 +156,33 @@ describe('RedisRateLimiter', () => {
     });
   });
 
+  describe('reserve()', () => {
+    it('atomically consumes composite dimensions', async () => {
+      const limiter = new RedisRateLimiter(redis as never, {
+        actions: {
+          introspection: { maxTokens: 1, refillRateMs: 60_000, windowMs: 60_000 },
+        },
+      });
+      const dimensions = [
+        { identifier: 'global', action: 'introspection' },
+        { identifier: 'resource', action: 'introspection' },
+      ];
+
+      await expect(limiter.reserve(dimensions)).resolves.toBe(true);
+      await expect(limiter.reserve(dimensions)).resolves.toBe(false);
+      expect(redis.eval).toHaveBeenCalledTimes(2);
+    });
+
+    it('fails closed when Redis cannot execute the reservation', async () => {
+      redis.eval.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(redis as never, { failureMode: 'closed' });
+
+      await expect(
+        limiter.reserve([{ identifier: 'resource', action: 'introspection' }]),
+      ).resolves.toBe(false);
+    });
+  });
+
   describe('reset()', () => {
     it('should delete the rate limit key', async () => {
       await limiter.check('user@example.com', 'login');
@@ -130,8 +196,11 @@ describe('RedisRateLimiter', () => {
     it('should refill tokens after refill interval', async () => {
       // Use up some tokens
       await limiter.check('user@example.com', 'login');
+      await limiter.consume('user@example.com', 'login');
       await limiter.check('user@example.com', 'login');
+      await limiter.consume('user@example.com', 'login');
       await limiter.check('user@example.com', 'login');
+      await limiter.consume('user@example.com', 'login');
 
       // Advance time by one refill interval (3 minutes = 180000ms)
       vi.advanceTimersByTime(3 * 60 * 1000);
@@ -191,6 +260,14 @@ describe('RedisRateLimiter', () => {
         expect.stringContaining('consume failed'),
         expect.any(Error),
       );
+    });
+
+    it('consume() propagates Redis errors when failureMode is "closed"', async () => {
+      const failingRedis = createMockRedis();
+      failingRedis.hmget.mockRejectedValueOnce(new Error('Redis is down'));
+      const limiter = new RedisRateLimiter(failingRedis as never, { failureMode: 'closed' });
+
+      await expect(limiter.consume('user@example.com', 'login')).rejects.toThrow('Redis is down');
     });
 
     it('reset() swallows Redis errors and does not throw', async () => {

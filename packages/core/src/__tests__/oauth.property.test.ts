@@ -30,6 +30,8 @@ describe('OAuth Property Tests', () => {
       createSession: vi.fn(),
       deleteSession: vi.fn(),
       deleteSessionsByUserId: vi.fn(),
+      createNativeAuthorizationGrant: vi.fn(),
+      consumeNativeAuthorizationGrant: vi.fn(),
       createEmailVerificationToken: vi.fn(),
       findEmailVerificationBySelector: vi.fn(),
       deleteEmailVerification: vi.fn(),
@@ -39,6 +41,7 @@ describe('OAuth Property Tests', () => {
       deletePasswordReset: vi.fn(),
       createOAuthState: vi.fn(),
       findOAuthStateByState: vi.fn(),
+      consumeOAuthStateByState: vi.fn(),
       deleteOAuthState: vi.fn(),
       recordLoginAttempt: vi.fn(),
       countRecentFailedAttempts: vi.fn(),
@@ -64,6 +67,57 @@ describe('OAuth Property Tests', () => {
     fortress = new FortressAuth(repository, rateLimiter, emailProvider, {
       urls: { baseUrl: 'http://localhost:3000' },
     });
+  });
+
+  it('uses the access token for standard provider userinfo when an id token is also returned', async () => {
+    const state = OAuthState.create({ providerId: 'google', state: 'state' });
+    const tokens = { accessToken: 'access-token', idToken: 'id-token' };
+    const provider = {
+      validateCallback: vi.fn().mockResolvedValue(ok(tokens)),
+      getUserInfo: vi.fn().mockResolvedValue(
+        ok({
+          id: 'google-user-123',
+          email: 'test@example.com',
+          emailVerified: true,
+        }),
+      ),
+    } as unknown as OAuthProviderPort;
+
+    vi.mocked(repository.consumeOAuthStateByState).mockResolvedValue(state);
+    vi.mocked(repository.findAccountByProvider).mockResolvedValue(null);
+    vi.mocked(repository.findUserByEmail).mockResolvedValue(null);
+
+    const result = await fortress.handleOAuthCallback(provider, 'google', 'code', 'state');
+
+    expect(result.success).toBe(true);
+    expect(provider.getUserInfo).toHaveBeenCalledWith(tokens.accessToken);
+    expect(provider.getUserInfo).not.toHaveBeenCalledWith(tokens.idToken);
+  });
+
+  it('uses provider whole-token userinfo hook when one is provided', async () => {
+    const state = OAuthState.create({ providerId: 'apple', state: 'state' });
+    const tokens = { accessToken: 'access-token', idToken: 'id-token' };
+    const provider = {
+      validateCallback: vi.fn().mockResolvedValue(ok(tokens)),
+      getUserInfo: vi.fn(),
+      getUserInfoFromTokens: vi.fn().mockResolvedValue(
+        ok({
+          id: 'apple-user-123',
+          email: 'test@example.com',
+          emailVerified: true,
+        }),
+      ),
+    } as unknown as OAuthProviderPort;
+
+    vi.mocked(repository.consumeOAuthStateByState).mockResolvedValue(state);
+    vi.mocked(repository.findAccountByProvider).mockResolvedValue(null);
+    vi.mocked(repository.findUserByEmail).mockResolvedValue(null);
+
+    const result = await fortress.handleOAuthCallback(provider, 'apple', 'code', 'state');
+
+    expect(result.success).toBe(true);
+    expect(provider.getUserInfoFromTokens).toHaveBeenCalledWith(tokens);
+    expect(provider.getUserInfo).not.toHaveBeenCalled();
   });
 
   it('Property 26: OAuth State Parameter Validation', async () => {
@@ -101,7 +155,7 @@ describe('OAuth Property Tests', () => {
           }
 
           // Test mismatch
-          vi.mocked(repository.findOAuthStateByState).mockResolvedValueOnce(null);
+          vi.mocked(repository.consumeOAuthStateByState).mockResolvedValueOnce(null);
           const mismatchResult = await fortress.handleOAuthCallback(
             provider,
             providerId,
@@ -118,7 +172,7 @@ describe('OAuth Property Tests', () => {
             ...capturedState,
             expiresAt: new Date(Date.now() - 1000),
           });
-          vi.mocked(repository.findOAuthStateByState).mockResolvedValueOnce(expiredState);
+          vi.mocked(repository.consumeOAuthStateByState).mockResolvedValueOnce(expiredState);
           const expiredResult = await fortress.handleOAuthCallback(
             provider,
             providerId,
@@ -129,7 +183,7 @@ describe('OAuth Property Tests', () => {
             throw new Error('Should have failed');
           }
           expect(expiredResult.error).toBe('OAUTH_STATE_MISMATCH');
-          expect(repository.deleteOAuthState).toHaveBeenCalledWith(expiredState.id);
+          expect(repository.consumeOAuthStateByState).toHaveBeenCalledWith(expiredState.state);
         },
       ),
       { numRuns: 20 },
@@ -147,7 +201,7 @@ describe('OAuth Property Tests', () => {
         async (providerId, email, providerUserId) => {
           vi.clearAllMocks();
           const state = OAuthState.create({ providerId, state: 'state' });
-          vi.mocked(repository.findOAuthStateByState).mockResolvedValue(state);
+          vi.mocked(repository.consumeOAuthStateByState).mockResolvedValue(state);
 
           const provider = {
             validateCallback: vi.fn().mockResolvedValue(ok({ accessToken: 'at' })),
@@ -169,7 +223,7 @@ describe('OAuth Property Tests', () => {
 
           // Case 2: Existing user (linking)
           vi.clearAllMocks();
-          vi.mocked(repository.findOAuthStateByState).mockResolvedValue(state);
+          vi.mocked(repository.consumeOAuthStateByState).mockResolvedValue(state);
           const existingUser = User.create(email);
           vi.mocked(repository.findAccountByProvider).mockResolvedValue(null);
           vi.mocked(repository.findUserByEmail).mockResolvedValue(existingUser);
@@ -194,7 +248,7 @@ describe('OAuth Property Tests', () => {
         async (providerId, providerUserId) => {
           vi.clearAllMocks();
           const state = OAuthState.create({ providerId, state: 'state' });
-          vi.mocked(repository.findOAuthStateByState).mockResolvedValue(state);
+          vi.mocked(repository.consumeOAuthStateByState).mockResolvedValue(state);
 
           const provider = {
             validateCallback: vi.fn().mockResolvedValue(ok({ accessToken: 'at' })),

@@ -7,6 +7,47 @@ interface ActionConfig {
   windowMs: number;
 }
 
+export interface RateLimitReservationEntry {
+  identifier: string;
+  action: string;
+}
+
+const RESERVE_SCRIPT = `
+local now = tonumber(ARGV[1])
+local states = {}
+
+for index, key in ipairs(KEYS) do
+  local offset = 2 + ((index - 1) * 3)
+  local maxTokens = tonumber(ARGV[offset])
+  local refillRateMs = tonumber(ARGV[offset + 1])
+  local windowMs = tonumber(ARGV[offset + 2])
+  local values = redis.call('HMGET', key, 'tokens', 'lastRefill')
+  local tokens = values[1] and tonumber(values[1]) or maxTokens
+  local lastRefill = values[2] and tonumber(values[2]) or now
+  local elapsed = now - lastRefill
+  local tokensToAdd = math.floor(elapsed / refillRateMs)
+
+  if tokensToAdd > 0 then
+    tokens = math.min(maxTokens, tokens + tokensToAdd)
+    lastRefill = lastRefill + (tokensToAdd * refillRateMs)
+  end
+
+  if tokens <= 0 then
+    return 0
+  end
+
+  states[index] = { tokens - 1, lastRefill, windowMs }
+end
+
+for index, key in ipairs(KEYS) do
+  local state = states[index]
+  redis.call('HMSET', key, 'tokens', state[1], 'lastRefill', state[2])
+  redis.call('PEXPIRE', key, state[3])
+end
+
+return 1
+`;
+
 export interface RedisRateLimiterOptions {
   prefix?: string;
   actions?: Record<string, ActionConfig>;
@@ -103,10 +144,10 @@ export class RedisRateLimiter implements RateLimiterPort {
       const resetAt = new Date(lastRefill + config.refillRateMs);
       const retryAfterMs = allowed ? 0 : Math.max(0, resetAt.getTime() - Date.now());
 
-      // Use a try/finally so a transient hmset failure does not leave the
-      // key without a TTL. We still want pexpire to run.
+      // check() is deliberately non-consuming, matching RateLimiterPort and
+      // MemoryRateLimiter. Callers consume only after every composite check passes.
       try {
-        await this.redis.hmset(key, { tokens: remaining, lastRefill });
+        await this.redis.hmset(key, { tokens, lastRefill });
       } finally {
         await this.redis.pexpire(key, config.windowMs).catch(() => {
           // Swallowed: the next successful check() will reset the TTL. We
@@ -142,7 +183,31 @@ export class RedisRateLimiter implements RateLimiterPort {
       }
     } catch (error) {
       this.logRedisError('consume', error);
-      // Fail-soft: do not throw. The next successful call will resync.
+      if (this.failureMode === 'closed') throw error;
+    }
+  }
+
+  /** Atomically checks and consumes every composite rate-limit dimension. */
+  async reserve(entries: readonly RateLimitReservationEntry[]): Promise<boolean> {
+    const unique = new Map<string, ActionConfig>();
+    for (const entry of entries) {
+      const key = this.key(entry.identifier, entry.action);
+      if (!unique.has(key)) unique.set(key, this.getConfig(entry.action));
+    }
+    if (unique.size === 0) return true;
+
+    const keys = [...unique.keys()];
+    const args: Array<string | number> = [Date.now()];
+    for (const config of unique.values()) {
+      args.push(config.maxTokens, config.refillRateMs, config.windowMs);
+    }
+
+    try {
+      const result = await this.redis.eval(RESERVE_SCRIPT, keys.length, ...keys, ...args);
+      return Number(result) === 1;
+    } catch (error) {
+      this.logRedisError('reserve', error);
+      return this.failureMode === 'open';
     }
   }
 

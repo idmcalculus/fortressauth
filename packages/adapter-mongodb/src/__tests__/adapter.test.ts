@@ -2,12 +2,15 @@ import {
   Account,
   EmailVerificationToken,
   LoginAttempt,
+  NativeAuthorizationGrant,
+  OAuthState,
   PasswordResetToken,
+  ResourceIntrospectionAuditEvent,
   Session,
   User,
 } from '@fortressauth/core';
 import { MongoClient } from 'mongodb';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MongoAdapter } from '../adapter.js';
 
 const mongoUrl = process.env.MONGODB_TEST_URL ?? process.env.MONGODB_URL;
@@ -35,6 +38,9 @@ describeIf('MongoAdapter', () => {
       db.collection('email_verifications').deleteMany({}),
       db.collection('password_resets').deleteMany({}),
       db.collection('login_attempts').deleteMany({}),
+      db.collection('oauth_states').deleteMany({}),
+      db.collection('native_authorization_grants').deleteMany({}),
+      db.collection('resource_introspection_audit').deleteMany({}),
     ]);
   });
 
@@ -48,11 +54,21 @@ describeIf('MongoAdapter', () => {
     const userIndexes = await db.collection('users').indexes();
     const accountIndexes = await db.collection('accounts').indexes();
     const sessionIndexes = await db.collection('sessions').indexes();
+    const auditIndexes = await db.collection('resource_introspection_audit').indexes();
 
     expect(userIndexes.some((index) => index.key.email === 1 && index.unique)).toBe(true);
     expect(
       accountIndexes.some(
         (index) => index.key.providerId === 1 && index.key.providerUserId === 1 && index.unique,
+      ),
+    ).toBe(true);
+    expect(auditIndexes.some((index) => index.key.createdAt === -1)).toBe(true);
+    expect(
+      auditIndexes.some(
+        (index) =>
+          index.name === 'resource_introspection_audit_ttl' &&
+          index.key.createdAt === 1 &&
+          index.expireAfterSeconds === 90 * 24 * 60 * 60,
       ),
     ).toBe(true);
     expect(sessionIndexes.some((index) => index.key.selector === 1 && index.unique)).toBe(true);
@@ -83,6 +99,31 @@ describeIf('MongoAdapter', () => {
 
       const foundById = await adapter.findUserById(user.id);
       expect(foundById?.email).toBe(user.email);
+
+      expect(await adapter.findUserByEmail('missing@example.com')).toBeNull();
+      expect(await adapter.findUserById('missing-user')).toBeNull();
+    });
+
+    it('rethrows non-duplicate database errors', async () => {
+      const collections = Reflect.get(adapter, 'collections') as {
+        users: { insertOne: (...args: unknown[]) => Promise<unknown> };
+      };
+      const failure = new Error('connection lost');
+      const insert = vi.spyOn(collections.users, 'insertOne').mockRejectedValueOnce(failure);
+
+      await expect(adapter.createUser(User.create('failure@example.com'))).rejects.toBe(failure);
+      insert.mockRestore();
+    });
+
+    it('logs and rethrows repository operation failures', async () => {
+      const collections = Reflect.get(adapter, 'collections') as {
+        users: { findOne: (...args: unknown[]) => Promise<unknown> };
+      };
+      const failure = new Error('network unavailable');
+      const findOne = vi.spyOn(collections.users, 'findOne').mockRejectedValueOnce(failure);
+
+      await expect(adapter.findUserById('user-id')).rejects.toBe(failure);
+      findOne.mockRestore();
     });
 
     it('updates user fields', async () => {
@@ -95,6 +136,8 @@ describeIf('MongoAdapter', () => {
       const found = await adapter.findUserById(user.id);
       expect(found?.emailVerified).toBe(true);
       expect(found?.lockedUntil).toEqual(lockDate);
+      await adapter.updateUser(user.withDisabled());
+      expect((await adapter.findUserById(user.id))?.isDisabled()).toBe(true);
     });
   });
 
@@ -118,6 +161,8 @@ describeIf('MongoAdapter', () => {
 
       expect(foundEmail?.passwordHash).toBe('hash123');
       expect(foundOAuth?.passwordHash).toBeNull();
+      expect(await adapter.findEmailAccountByUserId('missing-user')).toBeNull();
+      expect(await adapter.findAccountByProvider('github', 'missing-provider-user')).toBeNull();
     });
 
     it('updates email account password', async () => {
@@ -148,6 +193,27 @@ describeIf('MongoAdapter', () => {
       await adapter.deleteSession(session.id);
       const deleted = await adapter.findSessionBySelector(session.selector);
       expect(deleted).toBeNull();
+    });
+
+    it('preserves native resource binding fields', async () => {
+      const authenticationTime = new Date('2026-07-13T12:00:00.000Z');
+      const { session } = Session.createNative({
+        userId: user.id,
+        ttlMs: 3_600_000,
+        clientId: 'desktop-app',
+        grantedAudiences: ['desktop-api'],
+        email: user.email,
+        emailVerified: true,
+        authenticationTime,
+      });
+      await adapter.createSession(session);
+      expect(await adapter.findSessionBySelector(session.selector)).toMatchObject({
+        nativeClientId: 'desktop-app',
+        nativeAudiences: ['desktop-api'],
+        nativeEmail: user.email,
+        nativeEmailVerified: true,
+        authenticationTime,
+      });
     });
 
     it('deletes all sessions for a user', async () => {
@@ -270,6 +336,117 @@ describeIf('MongoAdapter', () => {
 
       const found = await adapter.findUserByEmail(user.email);
       expect(found).not.toBeNull();
+    });
+  });
+
+  describe('native authorization grants', () => {
+    it('allows exactly one concurrent consumer', async () => {
+      const user = User.create('native@example.com');
+      await adapter.createUser(user);
+      const { grant } = NativeAuthorizationGrant.create({
+        userId: user.id,
+        clientId: 'wraith',
+        redirectUri: 'wraith://auth/callback',
+        codeChallenge: 'A'.repeat(43),
+        requestedAudience: 'wraith-api',
+        requestedFreshnessSeconds: 300,
+        authenticationTime: new Date('2026-07-13T12:00:00.000Z'),
+        ttlMs: 60_000,
+      });
+      await adapter.createNativeAuthorizationGrant(grant);
+      const results = await Promise.all([
+        adapter.consumeNativeAuthorizationGrant(grant.selector),
+        adapter.consumeNativeAuthorizationGrant(grant.selector),
+      ]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+      expect(results.filter((result) => result === null)).toHaveLength(1);
+      expect(results.find(Boolean)).toMatchObject({
+        requestedAudience: 'wraith-api',
+        requestedFreshnessSeconds: 300,
+      });
+    });
+  });
+
+  it('stores only redacted append-only resource audit evidence', async () => {
+    const event = ResourceIntrospectionAuditEvent.create({
+      resourceServerAudience: 'desktop-api',
+      requestedAudience: 'desktop-api',
+      tokenSelector: 'selector',
+      sourceIdentity: '203.0.113.10',
+      outcome: 'inactive',
+    });
+    await adapter.recordResourceIntrospectionAudit(event);
+    const row = await client
+      .db(dbName)
+      .collection('resource_introspection_audit')
+      .findOne({ _id: event.id });
+    expect(row?.outcome).toBe('inactive');
+    expect(JSON.stringify(row)).not.toContain('desktop-api');
+    expect(JSON.stringify(row)).not.toContain('203.0.113.10');
+  });
+
+  it('prunes audit evidence older than a caller-supplied cutoff', async () => {
+    const oldEvent = ResourceIntrospectionAuditEvent.create({ outcome: 'inactive' });
+    const currentEvent = ResourceIntrospectionAuditEvent.create({ outcome: 'active' });
+    await adapter.recordResourceIntrospectionAudit(oldEvent);
+    await adapter.recordResourceIntrospectionAudit(currentEvent);
+    await client
+      .db(dbName)
+      .collection('resource_introspection_audit')
+      .updateOne({ _id: oldEvent.id }, { $set: { createdAt: new Date('2020-01-01') } });
+
+    await expect(adapter.pruneResourceIntrospectionAudit(new Date('2021-01-01'))).resolves.toBe(1);
+    expect(
+      await client
+        .db(dbName)
+        .collection('resource_introspection_audit')
+        .findOne({ _id: currentEvent.id }),
+    ).not.toBeNull();
+  });
+
+  describe('OAuth states', () => {
+    it('finds and deletes browser and native OAuth states', async () => {
+      const browserState = OAuthState.create({
+        providerId: 'google',
+        state: 'browser-state',
+      });
+      const nativeState = OAuthState.create({
+        providerId: 'github',
+        state: 'native-state',
+        nativeClientId: 'desktop-client',
+        nativeRedirectUri: 'desktop-app://auth/callback',
+        nativeCodeChallenge: 'A'.repeat(43),
+        nativeState: 'desktop-state',
+      });
+      await adapter.createOAuthState(browserState);
+      await adapter.createOAuthState(nativeState);
+
+      expect(await adapter.findOAuthStateByState(browserState.state)).toMatchObject({
+        nativeClientId: null,
+        nativeRedirectUri: null,
+        nativeCodeChallenge: null,
+        nativeState: null,
+      });
+      expect(await adapter.findOAuthStateByState(nativeState.state)).toMatchObject({
+        nativeClientId: 'desktop-client',
+        nativeRedirectUri: 'desktop-app://auth/callback',
+        nativeCodeChallenge: 'A'.repeat(43),
+        nativeState: 'desktop-state',
+      });
+
+      await adapter.deleteOAuthState(nativeState.id);
+      expect(await adapter.findOAuthStateByState(nativeState.state)).toBeNull();
+    });
+
+    it('allows exactly one concurrent callback consumer', async () => {
+      const state = OAuthState.create({ providerId: 'google', state: 'one-time-state' });
+      await adapter.createOAuthState(state);
+      const results = await Promise.all([
+        adapter.consumeOAuthStateByState(state.state),
+        adapter.consumeOAuthStateByState(state.state),
+      ]);
+      expect(results.filter(Boolean)).toHaveLength(1);
+      expect(results.filter((result) => result === null)).toHaveLength(1);
     });
   });
 });

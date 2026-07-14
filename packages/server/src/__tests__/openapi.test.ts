@@ -43,6 +43,11 @@ describe('OpenAPI document generation', () => {
     expect(doc.paths?.['/auth/login']).toBeDefined();
     expect(doc.paths?.['/auth/logout']).toBeDefined();
     expect(doc.paths?.['/auth/me']).toBeDefined();
+    expect(doc.paths?.['/auth/native/authorize/{provider}']).toBeDefined();
+    expect(doc.paths?.['/auth/native/token']).toBeDefined();
+    expect(doc.paths?.['/auth/native/session']).toBeDefined();
+    expect(doc.paths?.['/auth/native/logout']).toBeDefined();
+    expect(doc.paths?.['/auth/resource/introspect']).toBeDefined();
   });
 
   it('should define health endpoint as GET', () => {
@@ -94,6 +99,30 @@ describe('OpenAPI document generation', () => {
     expect(doc.components?.schemas?.UserResponse).toBeDefined();
     expect(doc.components?.schemas?.AuthResponse).toBeDefined();
     expect(doc.components?.schemas?.ErrorResponse).toBeDefined();
+    expect(doc.components?.schemas?.NativeTokenRequest).toBeDefined();
+    expect(doc.components?.securitySchemes?.bearerAuth).toBeDefined();
+    expect(doc.components?.schemas?.ResourceIntrospectionRequest).toBeDefined();
+    expect(doc.components?.schemas?.ResourceIntrospectionResponse).toBeDefined();
+    expect(doc.components?.schemas?.ResourceIntrospectionInactive).toBeDefined();
+    expect(doc.components?.securitySchemes?.resourceServerAuth).toBeDefined();
+  });
+
+  it('documents inactive-only error responses and no-store headers for introspection', () => {
+    const doc = generateOpenAPIDocument('1.0.0');
+    const responses = doc.paths?.['/auth/resource/introspect']?.post?.responses;
+
+    for (const status of ['400', '401', '413', '415', '429', '503']) {
+      const response = responses?.[status] as
+        | {
+            headers?: Record<string, unknown>;
+            content?: Record<string, { schema?: { $ref?: string } }>;
+          }
+        | undefined;
+      expect(response?.headers?.['Cache-Control']).toBeDefined();
+      expect(response?.content?.['application/json']?.schema?.$ref).toContain(
+        'ResourceIntrospectionInactive',
+      );
+    }
   });
 
   it('should use provided version', () => {

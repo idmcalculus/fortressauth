@@ -256,6 +256,87 @@ describe('FortressConfigSchema', () => {
     });
   });
 
+  describe('native auth config', () => {
+    it('uses a separate one-day native session lifetime by default', () => {
+      const config = FortressConfigSchema.parse({});
+
+      expect(config.nativeAuth.sessionTtlMs).toBe(24 * 60 * 60 * 1000);
+      expect(config.nativeAuth.sessionTtlMs).not.toBe(config.session.ttlMs);
+    });
+
+    it('allows a bounded native session lifetime', () => {
+      const config = FortressConfigSchema.parse({ nativeAuth: { sessionTtlMs: 60 * 60 * 1000 } });
+
+      expect(config.nativeAuth.sessionTtlMs).toBe(60 * 60 * 1000);
+      expect(() =>
+        FortressConfigSchema.parse({ nativeAuth: { sessionTtlMs: 60 * 1000 } }),
+      ).toThrow();
+    });
+
+    it('keeps legacy native-client entries resource-inaccessible by default', () => {
+      const config = FortressConfigSchema.parse({
+        nativeAuth: {
+          clients: [{ clientId: 'legacy-app', redirectUris: ['legacy-app://auth/callback'] }],
+        },
+      });
+
+      expect(config.nativeAuth.clients[0]?.resourceAudiences).toEqual([]);
+      expect(config.nativeAuth.resourceServers).toEqual([]);
+    });
+
+    it('validates symmetric native-client and resource-server policy', () => {
+      const config = FortressConfigSchema.parse({
+        nativeAuth: {
+          clients: [
+            {
+              clientId: 'desktop-app',
+              redirectUris: ['desktop-app://auth/callback'],
+              resourceAudiences: ['desktop-api'],
+            },
+          ],
+          resourceServers: [
+            {
+              audience: 'desktop-api',
+              allowedClientIds: ['desktop-app'],
+              rateLimit: { maxTokens: 20, windowMs: 10_000 },
+            },
+          ],
+        },
+      });
+
+      expect(config.nativeAuth.resourceServers[0]).toMatchObject({
+        audience: 'desktop-api',
+        enabled: true,
+        allowedClientIds: ['desktop-app'],
+        rateLimit: { maxTokens: 20, windowMs: 10_000 },
+      });
+      expect(() =>
+        FortressConfigSchema.parse({
+          nativeAuth: {
+            clients: [{ clientId: 'desktop-app', redirectUris: ['desktop-app://auth/callback'] }],
+            resourceServers: [{ audience: 'desktop-api', allowedClientIds: ['desktop-app'] }],
+          },
+        }),
+      ).toThrow();
+    });
+
+    it('rejects unknown keys in security-sensitive native policy', () => {
+      expect(() =>
+        FortressConfigSchema.parse({
+          nativeAuth: {
+            resourceServers: [
+              {
+                audience: 'desktop-api',
+                allowedClientIds: ['desktop-app'],
+                enable: false,
+              },
+            ],
+          },
+        }),
+      ).toThrow();
+    });
+  });
+
   describe('urls config', () => {
     it('should provide default baseUrl when urls config is not provided', () => {
       const config = FortressConfigSchema.parse({});

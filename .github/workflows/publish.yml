@@ -86,6 +86,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: fortressauth
+          POSTGRES_PASSWORD: fortressauth
+          POSTGRES_DB: fortressauth_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fortressauth -d fortressauth_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v5
@@ -112,6 +125,9 @@ jobs:
         env:
           CI: true
 
+      - name: Validate publishing metadata and order
+        run: pnpm validate:publishing
+
       - name: Build
         run: pnpm build
         env:
@@ -122,6 +138,8 @@ jobs:
         env:
           AUTH_API_URL: https://api.fortressauth.com/
           MONGODB_TEST_URL: mongodb://localhost:27017/fortressauth_test
+          POSTGRES_TEST_URL: postgresql://fortressauth:fortressauth@localhost:5432/fortressauth_test
+          REQUIRE_POSTGRES_TESTS: 'true'
 
       - name: Publish NPM Packages (skip versions already published)
         run: |
@@ -167,6 +185,7 @@ jobs:
           publish_if_needed packages/angular-sdk
           publish_if_needed packages/svelte-sdk
           publish_if_needed packages/react-native-sdk
+          publish_if_needed packages/desktop-sdk
           publish_if_needed packages/expo-sdk
           publish_if_needed packages/electron-sdk
 
