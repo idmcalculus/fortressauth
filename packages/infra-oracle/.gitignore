@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.turbo/
+
+# Pulumi.<stack>.yaml files are committed: they hold non-secret stack config
+# (region, OCIDs, sizes, public keys). The OCI API key itself stays in
+# ~/.oci/config on your machine and never goes into stack config.

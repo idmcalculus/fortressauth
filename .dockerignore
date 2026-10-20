@@ -39,6 +39,9 @@ RELEASE_CHECKLIST.md
 # Examples
 examples
 
+# Single-server deployment files (Compose stack, scripts, runbooks)
+deploy
+
 # Environment files
 .env
 .env.*

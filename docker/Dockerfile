@@ -85,8 +85,9 @@ USER fortress
 
 EXPOSE 3000
 
-# Healthcheck
+# Healthcheck. Use 127.0.0.1, not localhost: Docker maps localhost to ::1 as
+# well, busybox wget tries only that, and the server listens on IPv4.
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/health || exit 1
 
 CMD ["node", "packages/server/dist/index.js"]

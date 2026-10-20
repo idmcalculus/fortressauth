@@ -1,0 +1,96 @@
+# FortressAuth on one small server: built for an Oracle Cloud Always Free
+# Ampere A1 VM, but nothing here is Oracle-specific.
+#
+#   caddy      HTTPS on 80/443. Gets Let's Encrypt certificates for every
+#              name in APP_DOMAIN and proxies to the app.
+#   app        The server image built by .github/workflows/deploy-oracle.yml.
+#   postgres   PostgreSQL 17. Data lives in the postgres-data volume.
+#   keepalive  Optional (profile "keepalive"). Holds memory so Oracle does
+#              not reclaim the VM as idle. See README.md.
+#
+# Compose reads .env (next to this file) for the ${...} values below. The
+# server's own settings live in app.env. See .env.example and app.env.example.
+
+name: fortressauth
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    logging: *logging
+
+  app:
+    image: ${FORTRESS_IMAGE:?Set FORTRESS_IMAGE in .env}
+    restart: unless-stopped
+    env_file: app.env
+    environment:
+      # Fixed by this layout. These override the same keys in app.env.
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: '3000'
+      DATABASE_URL: postgresql://fortressauth:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/fortressauth?sslmode=disable
+      # Caddy is the only proxy in front of the app and replaces any
+      # X-Forwarded-For the client sends, so its last entry is the client.
+      # Never publish port 3000 on the host: direct callers could then
+      # forge the header and dodge per-IP rate limits.
+      TRUSTED_PROXY_HOP_COUNT: '1'
+      COOKIE_SECURE: 'true'
+      CSRF_COOKIE_SECURE: 'true'
+    expose:
+      - '3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fortressauth
+      POSTGRES_USER: fortressauth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U fortressauth -d fortressauth']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging: *logging
+
+  keepalive:
+    image: node:24-alpine
+    profiles: [keepalive]
+    restart: unless-stopped
+    user: node
+    environment:
+      KEEPALIVE_MEMORY_MB: ${KEEPALIVE_MEMORY_MB:-3072}
+    volumes:
+      - ./keepalive.mjs:/keepalive.mjs:ro
+    command: ['node', '/keepalive.mjs']
+    logging: *logging
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:

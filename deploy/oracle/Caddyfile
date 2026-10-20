@@ -1,0 +1,7 @@
+# APP_DOMAIN comes from .env and may list several names, comma-separated.
+# Caddy gets a Let's Encrypt certificate for each one, so every name's DNS
+# A record must point at this VM before Caddy can serve it.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}
