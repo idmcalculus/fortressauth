@@ -39,7 +39,12 @@ jobs:
   preview:
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
-    environment: netlify
+    # Not the `netlify` environment: that one only lets `main` deploy, and a
+    # pull request runs from refs/pull/<n>/merge, so GitHub rejected this job
+    # before it started. `netlify-preview` has no branch rule; give it its own
+    # NETLIFY_API_TOKEN, PULUMI_ACCESS_TOKEN and NETLIFY_* variables. Until
+    # then the check below skips the preview and says what is missing.
+    environment: netlify-preview
 
     steps:
       - uses: actions/checkout@v5
@@ -56,22 +61,22 @@ jobs:
           missing=()
 
           if [ -z "${PULUMI_STACK:-}" ]; then
-            missing+=("repository variable NETLIFY_PULUMI_STACK")
+            missing+=("variable NETLIFY_PULUMI_STACK in the netlify-preview environment")
           fi
 
           if [ -z "${PULUMI_ACCESS_TOKEN:-}" ]; then
-            missing+=("repository secret PULUMI_ACCESS_TOKEN")
+            missing+=("secret PULUMI_ACCESS_TOKEN (repository or netlify-preview environment)")
           fi
 
           if [ -z "${NETLIFY_API_TOKEN:-}" ]; then
-            missing+=("repository secret NETLIFY_API_TOKEN")
+            missing+=("secret NETLIFY_API_TOKEN in the netlify-preview environment")
           fi
 
           if [ "${#missing[@]}" -gt 0 ]; then
             {
               echo "### Netlify infra preview skipped"
               echo
-              echo "Pulumi preview is skipped until the repository is bootstrapped with:"
+              echo "Pulumi preview is skipped until these are set:"
               for item in "${missing[@]}"; do
                 echo "- ${item}"
               done
