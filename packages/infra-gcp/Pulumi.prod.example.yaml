@@ -1,0 +1,53 @@
+config:
+  # Google Cloud project and region. Pulumi uses your own login:
+  #   gcloud auth application-default login
+  # europe-west1 is a Tier 1 pricing region and supports domain mappings.
+  gcp:project: fortressauth-prod-replace-me
+  gcp:region: europe-west1
+
+  # Hostnames mapped to the service, each with a Google-managed certificate.
+  # Verify the domain in Search Console first (deploy/cloudrun/README.md).
+  # Start with a spare name; add api.fortressauth.com when you move DNS over.
+  # fortressauth-gcp:appDomains:
+  #   - gcp-api.fortressauth.com
+
+  # How many X-Forwarded-For entries Google adds in front of the server.
+  # Check it after the first deploy (deploy/cloudrun/README.md, step 6).
+  fortressauth-gcp:trustedProxyHopCount: 1
+
+  # Plain env vars for the server. The stack itself sets NODE_ENV, HOST,
+  # TRUSTED_PROXY_HOP_COUNT, the cookie Secure flags and METRICS_ENABLED,
+  # and Cloud Run sets PORT; config validation rejects those keys here.
+  fortressauth-gcp:appEnv:
+    BASE_URL: https://fortressauth.com
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com
+    COOKIE_SAMESITE: lax
+    CSRF_COOKIE_SAMESITE: lax
+    LOG_LEVEL: info
+    BREACHED_PASSWORD_CHECK: 'true'
+    EMAIL_PROVIDER: resend
+    EMAIL_FROM_ADDRESS: noreply@fortressauth.com
+    EMAIL_FROM_NAME: FortressAuth
+    # Add the OAuth client IDs and redirect URIs you use, for example:
+    # GOOGLE_CLIENT_ID: replace-me.apps.googleusercontent.com
+    # GOOGLE_REDIRECT_URI: https://api.fortressauth.com/auth/oauth/google/callback
+
+  # Secret env vars, kept in Secret Manager. Six at most: that is how many
+  # secret versions Secret Manager stores for free. Set each value with
+  #   pulumi config set --secret --path 'secretEnv.DATABASE_URL' '<value>'
+  # so only its ciphertext lands in this file.
+  fortressauth-gcp:secretEnvKeys:
+    - DATABASE_URL
+    - RESEND_API_KEY
+    # - GOOGLE_CLIENT_SECRET
+
+  # Optional spend alert, emailed to the billing account's admins. Find the
+  # ID with `gcloud billing accounts list`; the currency must match the
+  # billing account's.
+  # fortressauth-gcp:billingAccountId: 012345-6789AB-CDEF01
+  # fortressauth-gcp:budgetAmount: 1
+  # fortressauth-gcp:budgetCurrency: USD
+
+  # Pulumi refuses to delete the service while this is true. Set it to false
+  # only when you mean to tear the stack down.
+  fortressauth-gcp:deletionProtection: true

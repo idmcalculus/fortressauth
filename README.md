@@ -61,6 +61,7 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 
 - `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + ACM + external DNS + Secrets Manager + SES)
 - `packages/infra-netlify` - Pulumi stack for Netlify frontend site settings, domains, and env configuration
+- `packages/infra-gcp` - Pulumi stack that runs the API on Google Cloud Run within the free tier (scale to zero, Secret Manager, Artifact Registry, GitHub deploy access), with Neon Postgres; setup and cutover steps are in `deploy/cloudrun/README.md`
 
 ## Security Defaults
 
