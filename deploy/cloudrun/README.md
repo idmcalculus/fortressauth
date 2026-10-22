@@ -30,8 +30,10 @@ Google needs a card on file even for free-tier use. Set the budget alert
 ## 1. Neon database
 
 1. Sign up at [neon.com](https://neon.com) on the Free plan.
-2. Create a project in **AWS Europe Central 1 (Frankfurt)**, close to
-   `europe-west1`, with a database named `fortressauth`.
+2. Create a project on **Postgres 18** (Neon's default) in **AWS Europe
+   Central 1 (Frankfurt)**, close to `europe-west1`, with a database named
+   `fortressauth`. The server uses plain SQL through Kysely, so any supported
+   version works; 18 is simply the newest.
 3. Copy the **direct** connection string, not the `-pooler` one, and make sure
    it ends in `?sslmode=require`. It becomes the `DATABASE_URL` secret. The
    server runs its migrations against it on each cold start.
@@ -132,13 +134,15 @@ gh variable set CLOUDRUN_DEPLOY_ENABLED --body true
 
 With only test users, an empty database is fine. To keep the accounts, dump
 RDS through the AWS tunnel script (`scripts/aws-db-tunnel.sh prod`) and
-restore into Neon, ignoring the old owners:
+restore into Neon, ignoring the old owners. RDS runs Postgres 17 and Neon
+18; a dump from an older server restores into a newer one, as long as the
+tools are at least as new as Neon, so both commands use the 18 image:
 
 ```bash
-docker run --rm -v "$PWD:/out" postgres:17-alpine pg_dump \
+docker run --rm -v "$PWD:/out" postgres:18-alpine pg_dump \
   "postgresql://fortressauth:<password>@host.docker.internal:15432/fortressauth?sslmode=require" \
   --format custom --no-owner --no-privileges --file /out/fortressauth-rds.dump
-docker run --rm -v "$PWD:/in" postgres:17-alpine pg_restore \
+docker run --rm -v "$PWD:/in" postgres:18-alpine pg_restore \
   --dbname "<neon connection string>" --no-owner --no-privileges /in/fortressauth-rds.dump
 ```
 
