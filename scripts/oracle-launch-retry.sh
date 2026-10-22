@@ -17,9 +17,10 @@
 # Env overrides:
 #   PULUMI_STACK  Defaults to "idmcalculus/fortressauth-oracle/prod".
 #
-# Only "Out of host capacity", rate limiting and a busy stack are retried.
-# Any other failure stops the script, so a real problem is not repeated for
-# a day. Each try sets fortressauth-oracle:availabilityDomainIndex, so the
+# Only "Out of host capacity", rate limiting, a busy stack and network
+# failures (a dropped connection, a failed DNS lookup, a timeout or a 502/503
+# from Oracle or Pulumi Cloud) are retried. Any other failure stops the
+# script, so a real problem is not repeated for a day. Each try sets fortressauth-oracle:availabilityDomainIndex, so the
 # stack config ends on the domain that worked. Every try also shows up as an
 # update in the stack's Pulumi Cloud history.
 
@@ -63,7 +64,9 @@ PULUMI_STACK="${PULUMI_STACK:-idmcalculus/fortressauth-oracle/prod}"
 STACK_DIR="$(cd "$(dirname "$0")/../packages/infra-oracle" && pwd)"
 export PULUMI_SKIP_UPDATE_CHECK=1
 
-RETRYABLE='Out of host capacity|TooManyRequests|429-|Another update is currently in progress|\[409\] Conflict'
+CAPACITY_ERRORS='Out of host capacity|TooManyRequests|429-|Another update is currently in progress|\[409\] Conflict'
+NETWORK_ERRORS='no such host|dial tcp|i/o timeout|connection reset by peer|connection refused|network is unreachable|TLS handshake timeout|context deadline exceeded|unexpected EOF|Bad Gateway|Service Unavailable|Gateway Timeout'
+RETRYABLE="${CAPACITY_ERRORS}|${NETWORK_ERRORS}"
 
 log() {
   printf '[oracle-launch-retry %s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2
