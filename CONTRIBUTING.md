@@ -64,6 +64,7 @@ Typical places to update are:
 - package-specific READMEs for package-specific usage
 - `PUBLISHING.md` for release workflow changes
 - `packages/infra-aws/README.md` for AWS deploy changes
+- `deploy/oracle/README.md` and `packages/infra-oracle/README.md` for Oracle Cloud deploy changes
 
 ## Branches and commits
 

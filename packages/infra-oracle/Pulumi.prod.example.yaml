@@ -1,0 +1,42 @@
+config:
+  # Region for every resource. Always Free A1 VMs can only be created in the
+  # tenancy's home region. The provider reads the API key from ~/.oci/config
+  # (profile DEFAULT); see README.md.
+  oci:region: uk-london-1
+  # oci:configFileProfile: DEFAULT
+
+  # Tenancy OCID: Profile menu → Tenancy → OCID.
+  fortressauth-oracle:tenancyOcid: ocid1.tenancy.oc1..replace-me
+  # Compartment for every resource. Defaults to the tenancy (root compartment).
+  # fortressauth-oracle:compartmentOcid: ocid1.compartment.oc1..replace-me
+
+  # VM. Always Free covers 2 OCPUs and 12 GB of A1 in total.
+  fortressauth-oracle:ocpus: 2
+  fortressauth-oracle:memoryGb: 12
+  fortressauth-oracle:bootVolumeGb: 50
+  # Try 1 or 2 if Oracle reports "Out of host capacity" in the first one.
+  fortressauth-oracle:availabilityDomainIndex: 0
+  # Pin an image instead of using the newest Canonical Ubuntu 24.04 build.
+  # fortressauth-oracle:imageOcid: ocid1.image.oc1.uk-london-1.replace-me
+
+  # Your own key, for the "ubuntu" admin user (has sudo).
+  fortressauth-oracle:adminSshPublicKey: ssh-ed25519 AAAA...replace-me you@laptop
+  # The GitHub Actions key (~/.ssh/fortressauth-deploy.pub), for the "deploy"
+  # user that bootstrap-vm.sh creates on first boot.
+  fortressauth-oracle:deploySshPublicKey: ssh-ed25519 AAAA...replace-me fortressauth-deploy
+
+  # Who may reach SSH. GitHub-hosted runners have no fixed addresses, so the
+  # deploy workflow needs this open; both keys are the only way in.
+  fortressauth-oracle:sshSourceCidr: 0.0.0.0/0
+
+  # Network
+  fortressauth-oracle:vcnCidr: 10.50.0.0/16
+  fortressauth-oracle:subnetCidr: 10.50.0.0/24
+
+  # When the backup upload URL stops working. Pick a date a few years out
+  # and renew it before then (see README.md).
+  fortressauth-oracle:backupUploadExpires: '2029-01-01T00:00:00Z'
+
+  # Pulumi refuses to delete the VM while this is true. Set false only when
+  # you mean to tear it down.
+  fortressauth-oracle:protectInstance: true

@@ -1,5 +1,10 @@
 # FortressAuth AWS Pulumi
 
+> The API is moving to a single Oracle Cloud VM
+> ([`deploy/oracle/README.md`](../../deploy/oracle/README.md)) to cut hosting
+> costs. [`TEARDOWN.md`](TEARDOWN.md) covers removing these stacks once that
+> move is done.
+
 Pulumi stack to provision FortressAuth on AWS using:
 
 - ECS Fargate service with rolling deployments and ECS Exec

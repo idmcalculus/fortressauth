@@ -59,7 +59,9 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 
 ### Infrastructure
 
-- `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + ACM + external DNS + Secrets Manager + SES)
+- `deploy/oracle` - Docker Compose stack for one Oracle Cloud Always Free VM (Caddy + server + PostgreSQL), deployed by `.github/workflows/deploy-oracle.yml`
+- `packages/infra-oracle` - Pulumi stack for that VM's Oracle Cloud network, Always Free A1 instance (bootstrapped on first boot) and backup bucket
+- `packages/infra-aws` - Pulumi stack for the AWS deployment (ECS Fargate + RDS PostgreSQL + ALB + ACM + external DNS + Secrets Manager + SES), being replaced by `deploy/oracle`; see `packages/infra-aws/TEARDOWN.md`
 - `packages/infra-netlify` - Pulumi stack for Netlify frontend site settings, domains, and env configuration
 
 ## Security Defaults

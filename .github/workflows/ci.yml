@@ -48,7 +48,7 @@ jobs:
           while IFS= read -r file; do
             [ -n "${file}" ] || continue
             case "${file}" in
-              packages/infra-aws/*|packages/infra-netlify/*)
+              packages/infra-aws/*|packages/infra-netlify/*|packages/infra-oracle/*|deploy/oracle/*)
                 infra=true
                 ;;
               packages/*)
@@ -116,6 +116,15 @@ jobs:
 
       - name: Typecheck AWS infra package
         run: pnpm --filter @fortressauth/infra-aws typecheck
+
+      - name: Lint Oracle infra package
+        run: pnpm --filter @fortressauth/infra-oracle lint
+
+      - name: Typecheck Oracle infra package
+        run: pnpm --filter @fortressauth/infra-oracle typecheck
+
+      - name: Test Oracle infra package
+        run: pnpm --filter @fortressauth/infra-oracle test
 
   test:
     runs-on: ubuntu-latest

@@ -1,0 +1,7 @@
+name: fortressauth-oracle
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: FortressAuth network, Always Free A1 VM and backup bucket on Oracle Cloud
+main: src/index.ts
