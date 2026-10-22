@@ -15,13 +15,26 @@ export interface OAuthUser {
 }
 
 export interface OAuthTokens {
+  /** OAuth bearer token for provider APIs, including standard userinfo endpoints. */
   accessToken: string;
+  /** OpenID Connect identity token. Do not use as a bearer token for userinfo endpoints. */
   idToken?: string;
   refreshToken?: string;
   expiresIn?: number;
+  /**
+   * Provider-verified evidence of a real authentication ceremony. Implementations must only set
+   * this after validating the provider's signed claims and freshness contract.
+   */
+  authenticationEvidence?: {
+    authenticatedAt: Date;
+    providerVerified: true;
+    ceremony: 'fresh';
+  };
 }
 
 export interface OAuthProviderPort {
+  /** Explicit opt-in. Providers without this capability fail closed for native step-up requests. */
+  readonly supportsFreshAuthentication?: true;
   /**
    * Generate the authorization URL to redirect the user to.
    */
@@ -29,6 +42,7 @@ export interface OAuthProviderPort {
     state: string;
     codeChallenge?: string;
     scopes?: string[];
+    freshAuthentication?: { maxAgeSeconds: number };
   }): string;
 
   /**
@@ -43,6 +57,20 @@ export interface OAuthProviderPort {
 
   /**
    * Get user information using the access token.
+   *
+   * This is the default userinfo path. Providers with standard userinfo endpoints
+   * must expect the OAuth access token here, even when validateCallback also
+   * returns an idToken.
    */
   getUserInfo(accessToken: string): Promise<Result<OAuthUser, AuthErrorCode>>;
+
+  /**
+   * Optional provider-specific userinfo hook for providers that need more than
+   * the access token or whose profile data is carried by a different token.
+   *
+   * When omitted, FortressAuth calls getUserInfo(tokens.accessToken). Apple uses
+   * this hook to parse the idToken explicitly because it does not expose a
+   * standard userinfo endpoint for this flow.
+   */
+  getUserInfoFromTokens?(tokens: OAuthTokens): Promise<Result<OAuthUser, AuthErrorCode>>;
 }

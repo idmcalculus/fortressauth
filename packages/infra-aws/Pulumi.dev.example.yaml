@@ -63,10 +63,22 @@ config:
     EMAIL_PROVIDER: ses
     BREACHED_PASSWORD_CHECK: 'true'
     CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174
+    # Wraith is one compatibility fixture; add other clients/resources independently.
+    NATIVE_CLIENTS_JSON: '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"],"resourceAudiences":["wraith-api"]}]'
+    RESOURCE_SERVERS_JSON: '[{"audience":"wraith-api","enabled":true,"allowedClientIds":["wraith"]}]'
+    GOOGLE_REDIRECT_URI: https://dev-api.fortressauth.com/auth/oauth/google/callback
+    APPLE_REDIRECT_URI: https://dev-api.fortressauth.com/auth/oauth/apple/callback
+    # Configure at least one complete provider before preview/deploy.
+    # GOOGLE_CLIENT_ID: replace-with-dev-google-client-id
+    # APPLE_CLIENT_ID: replace-with-dev-apple-services-id
+    # APPLE_TEAM_ID: replace-with-apple-team-id
+    # APPLE_KEY_ID: replace-with-apple-key-id
 
   # Names of secret env vars Pulumi should provision in Secrets Manager.
   # Values are populated post-deploy via `aws secretsmanager put-secret-value`.
   fortressauth-aws:secretEnvKeys:
+    # Populate this Secrets Manager entry out of band. Never put its JSON value in appEnv/YAML.
+    - RESOURCE_SERVER_CREDENTIALS_JSON
     - RESEND_API_KEY
     - GOOGLE_CLIENT_SECRET
     - GITHUB_CLIENT_SECRET

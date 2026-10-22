@@ -428,6 +428,29 @@ describe('buildContainer', () => {
       expect(logLevelEntries[0]?.value).toBe('debug');
     });
 
+    it('passes the exact Wraith native client registry to the server container', async () => {
+      const registry = '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"]}]';
+      const { parsed } = await getContainerDefinition({
+        appEnv: { NATIVE_CLIENTS_JSON: registry },
+      });
+      const env = parsed.environment as Array<{ name: string; value: string }>;
+      expect(env.find((entry) => entry.name === 'NATIVE_CLIENTS_JSON')?.value).toBe(registry);
+    });
+
+    it('keeps public resource policy in app env and credentials in an ECS secret', async () => {
+      const resources = '[{"audience":"wraith-api","allowedClientIds":["wraith"],"enabled":true}]';
+      const { parsed } = await getContainerDefinition({
+        appEnv: { RESOURCE_SERVERS_JSON: resources },
+        secretEnvKeys: ['RESOURCE_SERVER_CREDENTIALS_JSON'],
+      });
+      const env = parsed.environment as Array<{ name: string; value: string }>;
+      const secrets = parsed.secrets as Array<{ name: string; valueFrom: string }>;
+
+      expect(env.find((entry) => entry.name === 'RESOURCE_SERVERS_JSON')?.value).toBe(resources);
+      expect(env.some((entry) => entry.name === 'RESOURCE_SERVER_CREDENTIALS_JSON')).toBe(false);
+      expect(secrets.some((entry) => entry.name === 'RESOURCE_SERVER_CREDENTIALS_JSON')).toBe(true);
+    });
+
     it('emits container secrets for DATABASE_URL, DB_PASSWORD, and each declared secret env key', async () => {
       const { parsed } = await getContainerDefinition({
         secretEnvKeys: ['RESEND_API_KEY', 'GOOGLE_CLIENT_SECRET'],

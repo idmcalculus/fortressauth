@@ -27,7 +27,7 @@ Repository secrets (for `Publish`):
 - `DOCKER_PASSWORD`
 
 npm packages use npm Trusted Publishing through GitHub Actions OIDC instead of
-an `NPM_TOKEN`. Each publishable npm package must have a trusted publisher entry
+an `NPM_TOKEN`. Each already-published npm package must have a trusted publisher entry
 for repository `idmcalculus/fortressauth`, workflow `publish.yml`, and the
 `npm publish` allowed action.
 
@@ -44,11 +44,68 @@ npm trust github @fortressauth/core \
   --dry-run
 ```
 
-Run the same `npm trust github <package>` command for each package in the
+Run the same `npm trust github <package>` command for each existing package in the
 publish set below, removing `--dry-run` once the command looks correct. The
 first real run may require browser/2FA approval. If npm offers to skip
 additional 2FA prompts for a short window, accept that prompt so the remaining
-packages can be configured without repeated prompts.
+packages can be configured without repeated prompts. Run
+the desktop SDK trust command only after the bootstrap below, because npm cannot
+configure trust for a package name that does not yet exist.
+
+### One-time `@fortressauth/desktop-sdk` publication bootstrap
+
+npm does not allow an OIDC trusted publisher to bootstrap a package name that
+has never been published. The first `@fortressauth/desktop-sdk` version is
+therefore an explicit operator action. Do this from the exact clean release
+commit after CI and the required production deployment have passed, but before
+creating the GitHub Release that triggers the normal publish workflow.
+
+```bash
+test -z "$(git status --porcelain)" || {
+  echo "Refusing to bootstrap from a dirty worktree" >&2
+  exit 1
+}
+pnpm install --frozen-lockfile
+pnpm --filter @fortressauth/desktop-sdk lint
+pnpm --filter @fortressauth/desktop-sdk typecheck
+pnpm --filter @fortressauth/desktop-sdk test
+pnpm --filter @fortressauth/desktop-sdk build
+
+PACK_DIR="$(mktemp -d)"
+pnpm --filter @fortressauth/desktop-sdk pack --pack-destination "${PACK_DIR}"
+tar -tzf "${PACK_DIR}"/fortressauth-desktop-sdk-*.tgz
+
+npm login --auth-type=web
+(cd packages/desktop-sdk && pnpm publish --access public --no-git-checks)
+```
+
+Complete the interactive authentication and 2FA prompts. Do not use
+`--provenance` for this local bootstrap: provenance is supplied by the normal
+GitHub OIDC workflow on subsequent versions.
+
+If interactive authentication is impossible, a short-lived granular npm token
+may be used only after explicit operator approval. Restrict it to the
+`@fortressauth/desktop-sdk` package and publish permission, place it in a
+temporary mode-0600 npmrc outside the repository, and delete the npmrc and
+revoke the token immediately after the one publish. Never commit the token or
+store it as a standing GitHub secret.
+
+After the first version exists, configure and verify the trusted publisher:
+
+```bash
+npm trust github @fortressauth/desktop-sdk \
+  --file publish.yml \
+  --repo idmcalculus/fortressauth \
+  --allow-publish \
+  --dry-run
+
+# Remove --dry-run only after reviewing the output.
+npm view @fortressauth/desktop-sdk version
+```
+
+The release workflow will skip the manually bootstrapped desktop SDK version,
+then publish `@fortressauth/electron-sdk` with its rewritten concrete desktop
+dependency. On later releases, OIDC publishes desktop-sdk before electron-sdk.
 
 ### GitHub Actions variables (per environment)
 
@@ -76,6 +133,18 @@ At minimum, check:
 - all publishable `packages/*/package.json`
 - `packages/server/src/index.ts` (`VERSION`, used by `/health` and `/openapi.json`)
 - `packages/server/README.md` if it shows example version output
+
+FortressAuth uses lockstep release versions. Update the root manifest, every
+workspace package (including private infra packages), examples, and landing in
+the same release preparation. Keep internal dependencies as `workspace:*` in
+source; `pnpm publish` rewrites them to the package's concrete release version.
+Run `pnpm install --lockfile-only` after the bump and verify a packed dependent
+package resolves its internal dependencies to the new version.
+
+The native desktop release starts at `0.2.0` because the Electron wrapper intentionally replaces
+the insecure 0.1 renderer/email-password surface with the required system-browser OAuth,
+OS-protected storage, exact client/redirect, and native-transport contract. Treat this as a
+consumer migration, not a patch upgrade; the package README lists removed and replacement APIs.
 
 ### 2. Run the local validation suite
 
@@ -229,6 +298,7 @@ Current publish set:
 - `@fortressauth/angular-sdk`
 - `@fortressauth/svelte-sdk`
 - `@fortressauth/react-native-sdk`
+- `@fortressauth/desktop-sdk`
 - `@fortressauth/expo-sdk`
 - `@fortressauth/electron-sdk`
 - `@fortressauth/email-ses`
@@ -241,6 +311,10 @@ Current publish set:
 - `@fortressauth/provider-linkedin`
 - `@fortressauth/provider-twitter`
 - `@fortressauth/provider-microsoft`
+
+The list is dependency ordered. In particular, `@fortressauth/desktop-sdk`
+must publish before `@fortressauth/electron-sdk`, because pnpm rewrites the
+Electron package's `workspace:*` dependency to the exact release version.
 
 ### Publish Docker images
 

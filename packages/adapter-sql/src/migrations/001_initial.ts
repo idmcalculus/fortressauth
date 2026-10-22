@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { safeExecute } from './index.js';
+import { createMigrationIndex, safeExecute } from './index.js';
 import { type MigrationColumnTypes, SQLITE_COLUMN_TYPES } from './types.js';
 
 // Generic type parameter allows any database schema since migrations only use schema builder
@@ -11,8 +11,8 @@ export async function up<T>(
     db.schema
       .createTable('users')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('email', 'text', (col) => col.notNull().unique())
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('email', columnTypes.email, (col) => col.notNull().unique())
       .addColumn('email_verified', columnTypes.boolean, (col) => col.notNull().defaultTo(false))
       .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .addColumn('updated_at', columnTypes.timestamp, (col) => col.notNull())
@@ -26,45 +26,41 @@ export async function up<T>(
     db.schema
       .createTable('accounts')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) =>
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('user_id', columnTypes.identifier, (col) =>
         col.notNull().references('users.id').onDelete('cascade'),
       )
-      .addColumn('provider_id', 'text', (col) => col.notNull())
-      .addColumn('provider_user_id', 'text', (col) => col.notNull())
+      .addColumn('provider_id', columnTypes.indexedText, (col) => col.notNull())
+      .addColumn('provider_user_id', columnTypes.indexedText, (col) => col.notNull())
       .addColumn('password_hash', 'text')
       .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
-  await safeExecute(
-    db.schema
-      .createIndex('accounts_provider_idx')
-      .ifNotExists()
-      .on('accounts')
-      .columns(['provider_id', 'provider_user_id'])
-      .unique()
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'accounts_provider_idx',
+    table: 'accounts',
+    columns: ['provider_id', 'provider_user_id'],
+    unique: true,
+    dialect: columnTypes.dialect,
+  });
 
-  await safeExecute(
-    db.schema
-      .createIndex('accounts_user_id_idx')
-      .ifNotExists()
-      .on('accounts')
-      .column('user_id')
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'accounts_user_id_idx',
+    table: 'accounts',
+    columns: ['user_id'],
+    dialect: columnTypes.dialect,
+  });
 
   await safeExecute(
     db.schema
       .createTable('sessions')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) =>
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('user_id', columnTypes.identifier, (col) =>
         col.notNull().references('users.id').onDelete('cascade'),
       )
-      .addColumn('token_hash', 'text', (col) => col.notNull().unique())
+      .addColumn('token_hash', columnTypes.hash, (col) => col.notNull().unique())
       .addColumn('expires_at', columnTypes.timestamp, (col) => col.notNull())
       .addColumn('ip_address', 'text')
       .addColumn('user_agent', 'text')
@@ -74,36 +70,34 @@ export async function up<T>(
 
   // Note: token_hash already has a unique constraint which creates an implicit index
 
-  await safeExecute(
-    db.schema
-      .createIndex('sessions_user_id_idx')
-      .ifNotExists()
-      .on('sessions')
-      .column('user_id')
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'sessions_user_id_idx',
+    table: 'sessions',
+    columns: ['user_id'],
+    dialect: columnTypes.dialect,
+  });
 
   await safeExecute(
     db.schema
       .createTable('login_attempts')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.references('users.id').onDelete('set null'))
-      .addColumn('email', 'text', (col) => col.notNull())
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('user_id', columnTypes.identifier, (col) =>
+        col.references('users.id').onDelete('set null'),
+      )
+      .addColumn('email', columnTypes.email, (col) => col.notNull())
       .addColumn('ip_address', 'text', (col) => col.notNull())
       .addColumn('success', columnTypes.boolean, (col) => col.notNull())
       .addColumn('created_at', columnTypes.timestamp, (col) => col.notNull())
       .execute(),
   );
 
-  await safeExecute(
-    db.schema
-      .createIndex('login_attempts_email_created_idx')
-      .ifNotExists()
-      .on('login_attempts')
-      .columns(['email', 'created_at'])
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'login_attempts_email_created_idx',
+    table: 'login_attempts',
+    columns: ['email', 'created_at'],
+    dialect: columnTypes.dialect,
+  });
 }
 
 export async function down<T>(

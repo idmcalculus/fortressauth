@@ -4,11 +4,13 @@ import {
   EmailVerificationToken,
   err,
   type LoginAttempt,
+  NativeAuthorizationGrant,
   type OAuthProviderId,
   OAuthState,
   ok,
   PasswordResetToken,
   type ProviderId,
+  type ResourceIntrospectionAuditEvent,
   type Result,
   Session,
   User,
@@ -88,6 +90,18 @@ export class SqlAdapter implements AuthRepository {
     return this.isSqlite() ? value.toISOString() : value;
   }
 
+  private parseAudiences(value: string | null): string[] | null {
+    if (value === null) return null;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')
+        ? parsed
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Wraps a repository operation so that driver-level errors (pg, mysql2,
    * better-sqlite3, Kysely) are logged with the originating method name
@@ -127,6 +141,7 @@ export class SqlAdapter implements AuthRepository {
         createdAt: this.parseDate(row.created_at),
         updatedAt: this.parseDate(row.updated_at),
         lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+        disabledAt: row.disabled_at ? this.parseDate(row.disabled_at) : null,
       });
     });
   }
@@ -150,6 +165,7 @@ export class SqlAdapter implements AuthRepository {
         createdAt: this.parseDate(row.created_at),
         updatedAt: this.parseDate(row.updated_at),
         lockedUntil: row.locked_until ? this.parseDate(row.locked_until) : null,
+        disabledAt: row.disabled_at ? this.parseDate(row.disabled_at) : null,
       });
     });
   }
@@ -168,6 +184,7 @@ export class SqlAdapter implements AuthRepository {
           created_at: this.serializeDate(user.createdAt),
           updated_at: this.serializeDate(user.updatedAt),
           locked_until: user.lockedUntil ? this.serializeDate(user.lockedUntil) : null,
+          disabled_at: user.disabledAt ? this.serializeDate(user.disabledAt) : null,
         })
         .execute();
 
@@ -190,6 +207,7 @@ export class SqlAdapter implements AuthRepository {
           email_verified: this.serializeBoolean(user.emailVerified),
           updated_at: this.serializeDate(user.updatedAt),
           locked_until: user.lockedUntil ? this.serializeDate(user.lockedUntil) : null,
+          disabled_at: user.disabledAt ? this.serializeDate(user.disabledAt) : null,
         })
         .where('id', '=', user.id)
         .execute();
@@ -292,6 +310,14 @@ export class SqlAdapter implements AuthRepository {
         ipAddress: row.ip_address,
         userAgent: row.user_agent,
         createdAt: this.parseDate(row.created_at),
+        nativeClientId: row.native_client_id,
+        nativeAudiences: this.parseAudiences(row.native_audiences),
+        nativeEmail: row.native_email,
+        nativeEmailVerified:
+          row.native_email_verified === null ? null : this.parseBoolean(row.native_email_verified),
+        authenticationTime: row.authentication_time
+          ? this.parseDate(row.authentication_time)
+          : null,
       });
     });
   }
@@ -309,6 +335,17 @@ export class SqlAdapter implements AuthRepository {
           ip_address: session.ipAddress,
           user_agent: session.userAgent,
           created_at: this.serializeDate(session.createdAt),
+          native_client_id: session.nativeClientId,
+          native_audiences:
+            session.nativeAudiences === null ? null : JSON.stringify(session.nativeAudiences),
+          native_email: session.nativeEmail,
+          native_email_verified:
+            session.nativeEmailVerified === null
+              ? null
+              : this.serializeBoolean(session.nativeEmailVerified),
+          authentication_time: session.authenticationTime
+            ? this.serializeDate(session.authenticationTime)
+            : null,
         })
         .execute();
     });
@@ -323,6 +360,96 @@ export class SqlAdapter implements AuthRepository {
   async deleteSessionsByUserId(userId: string): Promise<void> {
     return this.run('deleteSessionsByUserId', async () => {
       await this.db.deleteFrom('sessions').where('user_id', '=', userId).execute();
+    });
+  }
+
+  async recordResourceIntrospectionAudit(event: ResourceIntrospectionAuditEvent): Promise<void> {
+    return this.run('recordResourceIntrospectionAudit', async () => {
+      await this.db
+        .insertInto('resource_introspection_audit')
+        .values({
+          id: event.id,
+          resource_server_hash: event.resourceServerHash,
+          audience_hash: event.audienceHash,
+          token_selector_hash: event.tokenSelectorHash,
+          session_id: event.sessionId,
+          client_id_hash: event.clientIdHash,
+          source_identity_hash: event.sourceIdentityHash,
+          outcome: event.outcome,
+          created_at: this.serializeDate(event.createdAt),
+        })
+        .execute();
+    });
+  }
+
+  async pruneResourceIntrospectionAudit(before: Date): Promise<number> {
+    return this.run('pruneResourceIntrospectionAudit', async () => {
+      const result = await this.db
+        .deleteFrom('resource_introspection_audit')
+        .where('created_at', '<', this.serializeDate(before) as Date)
+        .executeTakeFirst();
+      return Number(result.numDeletedRows ?? 0);
+    });
+  }
+
+  async createNativeAuthorizationGrant(grant: NativeAuthorizationGrant): Promise<void> {
+    return this.run('createNativeAuthorizationGrant', async () => {
+      await this.db
+        .insertInto('native_authorization_grants')
+        .values({
+          id: grant.id,
+          user_id: grant.userId,
+          client_id: grant.clientId,
+          selector: grant.selector,
+          verifier_hash: grant.verifierHash,
+          redirect_uri: grant.redirectUri,
+          code_challenge: grant.codeChallenge,
+          requested_audience: grant.requestedAudience,
+          requested_freshness_seconds: grant.requestedFreshnessSeconds,
+          authentication_time: grant.authenticationTime
+            ? this.serializeDate(grant.authenticationTime)
+            : null,
+          expires_at: this.serializeDate(grant.expiresAt),
+          created_at: this.serializeDate(grant.createdAt),
+        })
+        .execute();
+    });
+  }
+
+  async consumeNativeAuthorizationGrant(
+    selector: string,
+  ): Promise<NativeAuthorizationGrant | null> {
+    return this.run('consumeNativeAuthorizationGrant', async () => {
+      const row = await this.db
+        .selectFrom('native_authorization_grants')
+        .selectAll()
+        .where('selector', '=', selector)
+        .executeTakeFirst();
+      if (!row) return null;
+
+      const result = await this.db
+        .deleteFrom('native_authorization_grants')
+        .where('id', '=', row.id)
+        .where('selector', '=', selector)
+        .executeTakeFirst();
+      if (Number(result.numDeletedRows) !== 1) return null;
+
+      return NativeAuthorizationGrant.rehydrate({
+        id: row.id,
+        userId: row.user_id,
+        clientId: row.client_id,
+        selector: row.selector,
+        verifierHash: row.verifier_hash,
+        redirectUri: row.redirect_uri,
+        codeChallenge: row.code_challenge,
+        requestedAudience: row.requested_audience,
+        requestedFreshnessSeconds: row.requested_freshness_seconds,
+        authenticationTime: row.authentication_time
+          ? this.parseDate(row.authentication_time)
+          : null,
+        expiresAt: this.parseDate(row.expires_at),
+        createdAt: this.parseDate(row.created_at),
+      });
     });
   }
 
@@ -448,6 +575,12 @@ export class SqlAdapter implements AuthRepository {
           state: state.state,
           code_verifier: state.codeVerifier,
           redirect_uri: state.redirectUri,
+          native_client_id: state.nativeClientId,
+          native_redirect_uri: state.nativeRedirectUri,
+          native_code_challenge: state.nativeCodeChallenge,
+          native_state: state.nativeState,
+          native_audience: state.nativeAudience,
+          native_max_age_seconds: state.nativeMaxAgeSeconds,
           expires_at: this.serializeDate(state.expiresAt),
           created_at: this.serializeDate(state.createdAt),
         })
@@ -473,9 +606,28 @@ export class SqlAdapter implements AuthRepository {
         state: row.state,
         codeVerifier: row.code_verifier,
         redirectUri: row.redirect_uri,
+        nativeClientId: row.native_client_id,
+        nativeRedirectUri: row.native_redirect_uri,
+        nativeCodeChallenge: row.native_code_challenge,
+        nativeState: row.native_state,
+        nativeAudience: row.native_audience,
+        nativeMaxAgeSeconds: row.native_max_age_seconds,
         expiresAt: this.parseDate(row.expires_at),
         createdAt: this.parseDate(row.created_at),
       });
+    });
+  }
+
+  async consumeOAuthStateByState(state: string): Promise<OAuthState | null> {
+    return this.run('consumeOAuthStateByState', async () => {
+      const record = await this.findOAuthStateByState(state);
+      if (!record) return null;
+      const result = await this.db
+        .deleteFrom('oauth_states')
+        .where('id', '=', record.id)
+        .where('state', '=', state)
+        .executeTakeFirst();
+      return Number(result.numDeletedRows) === 1 ? record : null;
     });
   }
 

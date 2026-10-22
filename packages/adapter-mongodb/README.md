@@ -56,6 +56,8 @@ The adapter uses the following collections (names are configurable):
 - `email_verifications`: `{ _id, userId, selector, verifierHash, expiresAt, createdAt }`
 - `password_resets`: `{ _id, userId, selector, verifierHash, expiresAt, createdAt }`
 - `login_attempts`: `{ _id, userId, email, ipAddress, success, createdAt }`
+- `oauth_states` and `native_authorization_grants`: consumed OAuth/native authorization state
+- `resource_introspection_audit`: redacted introspection evidence
 
 You can override collection names:
 
@@ -81,6 +83,11 @@ Call `ensureIndexes()` once during startup to create required indexes:
 - `email_verifications.selector` unique
 - `password_resets.selector` unique
 - Support indexes for lookups (userId, email + createdAt)
+- `resource_introspection_audit.createdAt` TTL (90 days by default)
+
+Set `resourceIntrospectionAuditRetentionSeconds` when constructing the adapter to use an approved
+retention period, then call `ensureIndexes()`. Custom hosts may also call
+`pruneResourceIntrospectionAudit(cutoff)` for deterministic cleanup.
 
 ## Transactions
 

@@ -112,6 +112,36 @@ describe('AppleOAuthProvider', () => {
     }
   });
 
+  it('gets user info from the ID token when given the full token result', async () => {
+    const payload = {
+      sub: 'apple-user-123',
+      email: 'user@apple.com',
+      email_verified: true,
+      aud: config.clientId,
+      iss: 'https://appleid.apple.com',
+      exp: Math.floor(Date.now() / 1000) + 60,
+    };
+    const jwt = `header.${base64UrlEncode(JSON.stringify(payload))}.signature`;
+
+    const result = await provider.getUserInfoFromTokens({
+      accessToken: 'apple-access-token',
+      idToken: jwt,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.id).toBe(payload.sub);
+      expect(result.data.email).toBe(payload.email);
+      expect(result.data.emailVerified).toBe(true);
+    }
+  });
+
+  it('fails user info from full token result when Apple does not return an ID token', async () => {
+    const result = await provider.getUserInfoFromTokens({ accessToken: 'apple-access-token' });
+
+    expect(result.success).toBe(false);
+  });
+
   it('handles invalid JWT gracefully', async () => {
     const result = await provider.getUserInfo('not-a-jwt');
     expect(result.success).toBe(false);

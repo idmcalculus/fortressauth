@@ -104,12 +104,15 @@ const adapter = new SqlAdapter(db, { dialect: 'mysql' });
 
 ## Database Schema
 
-The adapter creates four tables:
+The adapter creates the core authentication tables plus:
 
 - **users**: User accounts with email verification and lockout support
 - **accounts**: Provider-specific accounts (email, OAuth)
 - **sessions**: Active user sessions with expiration
 - **login_attempts**: Login attempt history for rate limiting
+- **oauth_states** and **native_authorization_grants**: consumed OAuth/native authorization state
+- **email_verifications** and **password_resets**: split, expiring one-time tokens
+- **resource_introspection_audit**: redacted introspection evidence with explicit retention pruning
 
 ## Migrations
 
@@ -122,6 +125,12 @@ await up(db, { dialect: 'postgres' });
 // Rollback migrations
 await down(db, { dialect: 'postgres' });
 ```
+
+Migration execution is serialized per database: PostgreSQL uses an advisory transaction lock,
+MySQL uses a named connection lock, and SQLite uses `BEGIN IMMEDIATE` with a bounded busy timeout.
+Run migrations before enabling native clients/resources. The server prunes introspection audit rows
+to `RESOURCE_INTROSPECTION_AUDIT_RETENTION_DAYS`; custom hosts should call
+`pruneResourceIntrospectionAudit(cutoff)` on their own schedule.
 
 ## Database Setup
 

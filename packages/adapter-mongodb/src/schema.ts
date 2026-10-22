@@ -5,6 +5,7 @@ export type MongoUserDocument = {
   createdAt: Date;
   updatedAt: Date;
   lockedUntil: Date | null;
+  disabledAt?: Date | null;
 };
 
 export type MongoAccountDocument = {
@@ -25,6 +26,11 @@ export type MongoSessionDocument = {
   ipAddress: string | null;
   userAgent: string | null;
   createdAt: Date;
+  nativeClientId?: string | null;
+  nativeAudiences?: string[] | null;
+  nativeEmail?: string | null;
+  nativeEmailVerified?: boolean | null;
+  authenticationTime?: Date | null;
 };
 
 export type MongoEmailVerificationDocument = {
@@ -60,7 +66,40 @@ export type MongoOAuthStateDocument = {
   state: string;
   codeVerifier: string | null;
   redirectUri: string | null;
+  nativeClientId: string | null;
+  nativeRedirectUri: string | null;
+  nativeCodeChallenge: string | null;
+  nativeState: string | null;
+  nativeAudience?: string | null;
+  nativeMaxAgeSeconds?: number | null;
   expiresAt: Date;
+  createdAt: Date;
+};
+
+export type MongoNativeAuthorizationGrantDocument = {
+  _id: string;
+  userId: string;
+  clientId: string;
+  selector: string;
+  verifierHash: string;
+  redirectUri: string;
+  codeChallenge: string;
+  requestedAudience?: string | null;
+  requestedFreshnessSeconds?: number | null;
+  authenticationTime?: Date | null;
+  expiresAt: Date;
+  createdAt: Date;
+};
+
+export type MongoResourceIntrospectionAuditDocument = {
+  _id: string;
+  resourceServerHash: string | null;
+  audienceHash: string | null;
+  tokenSelectorHash: string | null;
+  sessionId: string | null;
+  clientIdHash: string | null;
+  sourceIdentityHash: string | null;
+  outcome: string;
   createdAt: Date;
 };
 
@@ -72,6 +111,8 @@ export type MongoCollectionDocuments = {
   passwordResets: MongoPasswordResetDocument;
   loginAttempts: MongoLoginAttemptDocument;
   oauthStates: MongoOAuthStateDocument;
+  nativeAuthorizationGrants: MongoNativeAuthorizationGrantDocument;
+  resourceIntrospectionAudit: MongoResourceIntrospectionAuditDocument;
 };
 
 export type MongoCollectionNames = {
@@ -82,6 +123,8 @@ export type MongoCollectionNames = {
   passwordResets: string;
   loginAttempts: string;
   oauthStates: string;
+  nativeAuthorizationGrants: string;
+  resourceIntrospectionAudit: string;
 };
 
 export const DEFAULT_COLLECTION_NAMES: MongoCollectionNames = {
@@ -92,4 +135,6 @@ export const DEFAULT_COLLECTION_NAMES: MongoCollectionNames = {
   passwordResets: 'password_resets',
   loginAttempts: 'login_attempts',
   oauthStates: 'oauth_states',
+  nativeAuthorizationGrants: 'native_authorization_grants',
+  resourceIntrospectionAudit: 'resource_introspection_audit',
 };

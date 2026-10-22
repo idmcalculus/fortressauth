@@ -94,6 +94,7 @@ describe('Environment configuration', () => {
     expect(env.BREACHED_PASSWORD_API_URL).toBe('https://api.pwnedpasswords.com');
     expect(env.BREACHED_PASSWORD_TIMEOUT_MS).toBe(5000);
     expect(env.LOG_LEVEL).toBe('info');
+    expect(env.RESOURCE_INTROSPECTION_AUDIT_RETENTION_DAYS).toBe(90);
   });
 
   it('should parse PORT as number', async () => {
@@ -143,6 +144,66 @@ describe('Environment configuration', () => {
     const { env } = await import('../env.js');
 
     expect(env.LOG_LEVEL).toBe('debug');
+  });
+
+  it('hashes resource credentials and removes their plaintext environment value', async () => {
+    const secret = 'resource-secret'.padEnd(64, 'x');
+    process.env.RESOURCE_SERVER_CREDENTIALS_JSON = JSON.stringify([
+      {
+        audience: 'desktop-api',
+        credentials: [{ credentialId: 'desktop-api-current', secret }],
+      },
+    ]);
+
+    const { env } = await import('../env.js');
+
+    expect(env.RESOURCE_SERVER_CREDENTIALS_JSON[0]?.credentials[0]?.verifierHash).toMatch(
+      /^[0-9a-f]{64}$/,
+    );
+    expect(JSON.stringify(env.RESOURCE_SERVER_CREDENTIALS_JSON)).not.toContain(secret);
+    expect(process.env.RESOURCE_SERVER_CREDENTIALS_JSON).toBeUndefined();
+  });
+
+  it('rejects misspelled security configuration keys', async () => {
+    process.env.RESOURCE_SERVERS_JSON = JSON.stringify([
+      {
+        audience: 'desktop-api',
+        allowedClientIds: ['desktop-app'],
+        enable: false,
+      },
+    ]);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+
+    await import('../env.js');
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(errorSpy.mock.calls.flat().join(' ')).toContain('RESOURCE_SERVERS_JSON');
+    errorSpy.mockRestore();
+    exitSpy.mockRestore();
+  });
+
+  it('rejects resource credentials that the Bearer parser cannot accept', async () => {
+    process.env.RESOURCE_SERVER_CREDENTIALS_JSON = JSON.stringify([
+      {
+        audience: 'desktop-api',
+        credentials: [
+          {
+            credentialId: 'desktop-api-current',
+            secret: `invalid:${'x'.repeat(64)}`,
+          },
+        ],
+      },
+    ]);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+
+    await import('../env.js');
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(errorSpy.mock.calls.flat().join(' ')).toContain('RESOURCE_SERVER_CREDENTIALS_JSON');
+    errorSpy.mockRestore();
+    exitSpy.mockRestore();
   });
 
   describe('CORS_ORIGINS parsing', () => {

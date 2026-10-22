@@ -339,11 +339,12 @@ describeIf('Property 25: MongoDB Adapter Equivalence', () => {
             expect(failedMongo).toBe(failedSql);
 
             const txEmail = email.replace('@', '+tx@');
+            const txUser = User.create(txEmail);
             await sqlAdapter.transaction(async (txRepo) => {
-              await txRepo.createUser(User.create(txEmail));
+              await txRepo.createUser(txUser);
             });
             await mongoAdapter.transaction(async (txRepo) => {
-              await txRepo.createUser(User.create(txEmail));
+              await txRepo.createUser(txUser);
             });
 
             const txSql = await sqlAdapter.findUserByEmail(txEmail);

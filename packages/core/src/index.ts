@@ -5,8 +5,13 @@ export type { OAuthProviderId, ProviderId } from './domain/entities/account.js';
 export { Account } from './domain/entities/account.js';
 export { EmailVerificationToken } from './domain/entities/email-verification-token.js';
 export { LoginAttempt } from './domain/entities/login-attempt.js';
+export { NativeAuthorizationGrant } from './domain/entities/native-authorization-grant.js';
 export { OAuthState } from './domain/entities/oauth-state.js';
 export { PasswordResetToken } from './domain/entities/password-reset-token.js';
+export {
+  ResourceIntrospectionAuditEvent,
+  type ResourceIntrospectionAuditOutcome,
+} from './domain/entities/resource-introspection-audit-event.js';
 export { Session } from './domain/entities/session.js';
 export { User } from './domain/entities/user.js';
 export type {
@@ -20,11 +25,27 @@ export {
   mergeEmailTemplates,
   renderEmailTemplate,
 } from './email-templates.js';
-export type { AuthResult, ResetPasswordInput, SignInInput, SignUpInput } from './fortress.js';
+export type {
+  AuthResult,
+  NativeOAuthResult,
+  NativeOAuthReturnTarget,
+  NativeTokenResult,
+  ResetPasswordInput,
+  SignInInput,
+  SignUpInput,
+} from './fortress.js';
 export { FortressAuth } from './fortress.js';
 
 // Ports
-export type { AuthRepository } from './ports/auth-repository.js';
+export {
+  type AuthRepository,
+  type NativeAuthorizationRepositoryPort,
+  type NativeAuthRepository,
+  type ResourceIntrospectionAuditRepositoryPort,
+  supportsNativeAuthorizationRepository,
+  supportsNativeAuthRepository,
+  supportsResourceIntrospectionAuditRepository,
+} from './ports/auth-repository.js';
 export type { EmailProviderPort } from './ports/email-provider.js';
 export type { OAuthProviderPort, OAuthTokens, OAuthUser } from './ports/oauth-provider.js';
 export type { RateLimiterPort } from './ports/rate-limiter.js';
@@ -52,7 +73,7 @@ export {
 } from './schemas/auth.js';
 export type { FortressConfig, FortressConfigInput } from './schemas/config.js';
 export { FortressConfigSchema } from './schemas/config.js';
-
+export { isAuthenticationFresh } from './security/authentication-age.js';
 export {
   containsControlCharacters,
   MAX_EMAIL_LENGTH,

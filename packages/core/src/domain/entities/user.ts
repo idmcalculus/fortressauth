@@ -8,11 +8,12 @@ export class User {
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
     public readonly lockedUntil: Date | null,
+    public readonly disabledAt: Date | null,
   ) {}
 
   static create(email: string): User {
     const now = new Date();
-    return new User(uuidv7(), email.toLowerCase(), false, now, now, null);
+    return new User(uuidv7(), email.toLowerCase(), false, now, now, null, null);
   }
 
   static rehydrate(data: {
@@ -22,6 +23,7 @@ export class User {
     createdAt: Date;
     updatedAt: Date;
     lockedUntil: Date | null;
+    disabledAt?: Date | null;
   }): User {
     return new User(
       data.id,
@@ -30,6 +32,7 @@ export class User {
       data.createdAt,
       data.updatedAt,
       data.lockedUntil,
+      data.disabledAt ?? null,
     );
   }
 
@@ -40,8 +43,20 @@ export class User {
     return this.lockedUntil > new Date();
   }
 
+  isDisabled(): boolean {
+    return this.disabledAt !== null;
+  }
+
   withEmailVerified(): User {
-    return new User(this.id, this.email, true, this.createdAt, new Date(), this.lockedUntil);
+    return new User(
+      this.id,
+      this.email,
+      true,
+      this.createdAt,
+      new Date(),
+      this.lockedUntil,
+      this.disabledAt,
+    );
   }
 
   withLock(lockedUntil: Date): User {
@@ -52,6 +67,19 @@ export class User {
       this.createdAt,
       new Date(),
       lockedUntil,
+      this.disabledAt,
+    );
+  }
+
+  withDisabled(disabledAt = new Date()): User {
+    return new User(
+      this.id,
+      this.email,
+      this.emailVerified,
+      this.createdAt,
+      new Date(),
+      this.lockedUntil,
+      disabledAt,
     );
   }
 

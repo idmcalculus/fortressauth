@@ -90,6 +90,39 @@ describe('MemoryRateLimiter', () => {
     });
   });
 
+  describe('reserve()', () => {
+    it('allows only one concurrent reservation when one token remains', async () => {
+      const limiter = new MemoryRateLimiter({
+        introspection: { maxTokens: 1, refillRateMs: 60_000, windowMs: 60_000 },
+      });
+
+      const results = await Promise.all(
+        Array.from({ length: 100 }, () =>
+          limiter.reserve([{ identifier: 'resource', action: 'introspection' }]),
+        ),
+      );
+
+      expect(results.filter(Boolean)).toHaveLength(1);
+    });
+
+    it('does not partially consume a composite reservation when one bucket is empty', async () => {
+      const limiter = new MemoryRateLimiter({
+        introspection: { maxTokens: 1, refillRateMs: 60_000, windowMs: 60_000 },
+      });
+      await limiter.reserve([{ identifier: 'empty', action: 'introspection' }]);
+
+      await expect(
+        limiter.reserve([
+          { identifier: 'available', action: 'introspection' },
+          { identifier: 'empty', action: 'introspection' },
+        ]),
+      ).resolves.toBe(false);
+      await expect(
+        limiter.reserve([{ identifier: 'available', action: 'introspection' }]),
+      ).resolves.toBe(true);
+    });
+  });
+
   describe('reset()', () => {
     it('should reset the bucket for identifier and action', async () => {
       const limiter = new MemoryRateLimiter();

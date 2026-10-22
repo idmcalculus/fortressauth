@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { safeExecute } from './index.js';
+import { createMigrationIndex, safeExecute } from './index.js';
 import type { MigrationColumnTypes } from './types.js';
 import { SQLITE_COLUMN_TYPES } from './types.js';
 
@@ -12,9 +12,9 @@ export async function up<T>(
     db.schema
       .createTable('oauth_states')
       .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('provider_id', 'text', (col) => col.notNull())
-      .addColumn('state', 'text', (col) => col.notNull())
+      .addColumn('id', columnTypes.identifier, (col) => col.primaryKey())
+      .addColumn('provider_id', columnTypes.indexedText, (col) => col.notNull())
+      .addColumn('state', columnTypes.indexedText, (col) => col.notNull())
       .addColumn('code_verifier', 'text')
       .addColumn('redirect_uri', 'text')
       .addColumn('expires_at', columnTypes.timestamp, (col) => col.notNull())
@@ -22,15 +22,13 @@ export async function up<T>(
       .execute(),
   );
 
-  await safeExecute(
-    db.schema
-      .createIndex('oauth_states_state_idx')
-      .ifNotExists()
-      .on('oauth_states')
-      .column('state')
-      .unique()
-      .execute(),
-  );
+  await createMigrationIndex(db, {
+    name: 'oauth_states_state_idx',
+    table: 'oauth_states',
+    columns: ['state'],
+    unique: true,
+    dialect: columnTypes.dialect,
+  });
 }
 
 export async function down<T>(

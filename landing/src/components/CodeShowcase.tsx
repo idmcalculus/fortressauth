@@ -164,10 +164,19 @@ function LoginScreen() {
   );
 }`,
 
-  electronSdk: `import { createAuth } from '@fortressauth/electron-sdk';
+  electronSdk: `import { app, net, shell } from 'electron';
+import { createAuth } from '@fortressauth/electron-sdk';
 
-// Create auth client with electron-store persistence
-const auth = createAuth({ baseUrl: 'http://your-api.com' });
+await app.whenReady();
+// Main process only; keychainStorage persists protected ciphertext.
+const auth = createAuth({
+  baseUrl: 'https://auth.example.com',
+  clientId: 'my-electron-app',
+  redirectUri: 'my-app://auth/callback',
+  storage: keychainStorage,
+  openExternal: (url) => shell.openExternal(url),
+  fetch: net.fetch as typeof globalThis.fetch,
+});
 
 // Subscribe to auth state changes
 auth.subscribe((state) => {
@@ -180,8 +189,8 @@ auth.subscribe((state) => {
   }
 });
 
-// Sign in
-await auth.signIn('user@example.com', 'password');
+// Open the system browser; pass the deep link to handleAuthorizationCallback.
+await auth.signIn('google');
 
 // Sign out
 await auth.signOut();`,

@@ -40,6 +40,7 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 - `packages/svelte-sdk`
 - `packages/react-native-sdk`
 - `packages/expo-sdk`
+- `packages/desktop-sdk` - framework-neutral system-browser + PKCE client for Tauri, Electron, and other native desktop runtimes
 - `packages/electron-sdk`
 
 ### Email providers
@@ -72,6 +73,8 @@ FortressAuth is a security-first authentication platform built as a TypeScript m
 - CSRF protection for state-changing HTTP endpoints
 - Account lockout and rate limiting
 - Secure cookie defaults for browser-based flows
+- One-time, short-lived, PKCE-bound native authorization grants with exact redirect URI binding
+- Audience-bound native sessions with independently authenticated resource-server introspection
 
 ## Local Development
 
@@ -154,6 +157,7 @@ The root docs are intentionally small. Use package docs for the details that bel
 
 - `packages/core/README.md` - core library usage and concepts
 - `packages/server/README.md` - server configuration and HTTP surface
+- `NATIVE_RESOURCE_AUTH.md` - native audience, introspection, step-up, migration, and operator contract
 - `packages/infra-aws/README.md` - AWS/Pulumi deployment workflow
 - `packages/infra-netlify/README.md` - Netlify/Pulumi frontend deployment workflow
 - `CONTRIBUTING.md` - contributor workflow and quality gates

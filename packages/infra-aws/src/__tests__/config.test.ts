@@ -449,6 +449,131 @@ describe('loadConfig', () => {
       });
       expect(() => loadConfig()).toThrow(/appEnv/);
     });
+
+    it('rejects secret-looking values in plaintext appEnv', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({ appEnv: { GOOGLE_CLIENT_SECRET: 'plaintext-secret' } }),
+      });
+      expect(() => loadConfig()).toThrow(/Secret values must be declared in secretEnvKeys/);
+    });
+
+    it('rejects keys declared as both public environment and Secrets Manager values', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: { PUBLIC_SETTING: 'value' },
+          secretEnvKeys: ['PUBLIC_SETTING'],
+        }),
+      });
+      expect(() => loadConfig()).toThrow(/cannot be both public and secret/);
+    });
+
+    it('requires secret-manager credentials for every enabled generic resource server', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            RESOURCE_SERVERS_JSON:
+              '[{"audience":"analytics-api","allowedClientIds":["analytics-desktop"]}]',
+          },
+        }),
+      });
+      expect(() => loadConfig()).toThrow(/RESOURCE_SERVER_CREDENTIALS_JSON/);
+    });
+
+    it('requires a complete Google or Apple provider when Wraith is registered', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON:
+              '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"]}]',
+          },
+          secretEnvKeys: ['GOOGLE_CLIENT_SECRET', 'APPLE_CLIENT_SECRET'],
+        }),
+      });
+      expect(() => loadConfig()).toThrow(/Wraith native OAuth requires/);
+    });
+
+    it('accepts Wraith with the exact redirect and complete Google configuration', async () => {
+      const registry = '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"]}]';
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON: registry,
+            GOOGLE_CLIENT_ID: 'public-google-client-id',
+            GOOGLE_REDIRECT_URI: 'https://api.example.com/auth/oauth/google/callback',
+          },
+          secretEnvKeys: ['GOOGLE_CLIENT_SECRET'],
+        }),
+      });
+      expect(loadConfig().appEnv.NATIVE_CLIENTS_JSON).toBe(registry);
+    });
+
+    it('accepts Wraith with the exact redirect and complete Apple configuration', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON:
+              '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"]}]',
+            APPLE_CLIENT_ID: 'com.example.web',
+            APPLE_TEAM_ID: 'TEAMID',
+            APPLE_KEY_ID: 'KEYID',
+            APPLE_REDIRECT_URI: 'https://api.example.com/auth/oauth/apple/callback',
+          },
+          secretEnvKeys: ['APPLE_CLIENT_SECRET'],
+        }),
+      });
+      expect(() => loadConfig()).not.toThrow();
+    });
+
+    it('rejects a non-exact Wraith redirect allowlist', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON:
+              '[{"clientId":"wraith","redirectUris":["wraith://wrong/callback"]}]',
+          },
+        }),
+      });
+      expect(() => loadConfig()).toThrow(/Invalid Wraith native redirect registry/);
+    });
+
+    it('accepts the Wraith resource-server fixture with secret-manager wiring', async () => {
+      const registry =
+        '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"],"resourceAudiences":["wraith-api"]}]';
+      const resources = '[{"audience":"wraith-api","allowedClientIds":["wraith"],"enabled":true}]';
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON: registry,
+            RESOURCE_SERVERS_JSON: resources,
+            GOOGLE_CLIENT_ID: 'public-google-client-id',
+            GOOGLE_REDIRECT_URI: 'https://api.example.com/auth/oauth/google/callback',
+          },
+          secretEnvKeys: ['GOOGLE_CLIENT_SECRET', 'RESOURCE_SERVER_CREDENTIALS_JSON'],
+        }),
+      });
+
+      expect(loadConfig().appEnv).toMatchObject({
+        NATIVE_CLIENTS_JSON: registry,
+        RESOURCE_SERVERS_JSON: resources,
+      });
+    });
+
+    it('rejects Wraith resource access without independent secret-manager wiring', async () => {
+      const { loadConfig } = await loadWithConfig({
+        values: withRequired({
+          appEnv: {
+            NATIVE_CLIENTS_JSON:
+              '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"],"resourceAudiences":["wraith-api"]}]',
+            RESOURCE_SERVERS_JSON: '[{"audience":"wraith-api","allowedClientIds":["wraith"]}]',
+            GOOGLE_CLIENT_ID: 'public-google-client-id',
+            GOOGLE_REDIRECT_URI: 'https://api.example.com/auth/oauth/google/callback',
+          },
+          secretEnvKeys: ['GOOGLE_CLIENT_SECRET'],
+        }),
+      });
+
+      expect(() => loadConfig()).toThrow(/RESOURCE_SERVER_CREDENTIALS_JSON/);
+    });
   });
 
   describe('secretEnvKeys', () => {

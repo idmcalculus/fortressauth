@@ -7,7 +7,10 @@ export {
   type MongoCollectionNames,
   type MongoEmailVerificationDocument,
   type MongoLoginAttemptDocument,
+  type MongoNativeAuthorizationGrantDocument,
+  type MongoOAuthStateDocument,
   type MongoPasswordResetDocument,
+  type MongoResourceIntrospectionAuditDocument,
   type MongoSessionDocument,
   type MongoUserDocument,
 } from './schema.js';

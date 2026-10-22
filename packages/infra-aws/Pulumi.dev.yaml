@@ -53,6 +53,15 @@ config:
     EMAIL_PROVIDER: console
     BREACHED_PASSWORD_CHECK: 'true'
     CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com,http://localhost:3000,http://localhost:3001,http://localhost:5173,http://localhost:5174
+    NATIVE_CLIENTS_JSON: '[{"clientId":"wraith","redirectUris":["wraith://auth/callback"]}]'
+    GOOGLE_REDIRECT_URI: https://dev-api.fortressauth.com/auth/oauth/google/callback
+    APPLE_REDIRECT_URI: https://dev-api.fortressauth.com/auth/oauth/apple/callback
+    # Before preview/deploy, configure at least one complete provider. These are
+    # public identifiers; never put its client secret in appEnv.
+    # GOOGLE_CLIENT_ID: replace-with-dev-google-client-id
+    # APPLE_CLIENT_ID: replace-with-dev-apple-services-id
+    # APPLE_TEAM_ID: replace-with-apple-team-id
+    # APPLE_KEY_ID: replace-with-apple-key-id
   # Names of secret env vars Pulumi should provision in Secrets Manager.
   # Values are populated post-deploy via `aws secretsmanager put-secret-value`.
   fortressauth-aws:secretEnvKeys:

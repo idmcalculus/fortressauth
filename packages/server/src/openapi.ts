@@ -48,6 +48,80 @@ const CsrfTokenResponseSchema = z
 
 registry.register('CsrfTokenResponse', CsrfTokenResponseSchema);
 
+const NativeTokenRequestSchema = z
+  .object({
+    grantType: z.literal('authorization_code'),
+    clientId: z.string(),
+    code: z.string(),
+    redirectUri: z.string().url(),
+    codeVerifier: z.string().min(43).max(128),
+  })
+  .openapi('NativeTokenRequest');
+
+const NativeTokenResponseSchema = z
+  .object({
+    success: z.literal(true),
+    data: z.object({
+      token: z.string(),
+      tokenType: z.literal('Bearer'),
+      expiresAt: z.iso.datetime(),
+      user: UserResponseSchema,
+    }),
+  })
+  .openapi('NativeTokenResponse');
+
+registry.register('NativeTokenRequest', NativeTokenRequestSchema);
+registry.register('NativeTokenResponse', NativeTokenResponseSchema);
+const ResourceIntrospectionRequestSchema = z
+  .object({
+    token: z.string().min(1).max(256),
+    audience: z.string().min(1).max(256),
+  })
+  .strict()
+  .openapi('ResourceIntrospectionRequest');
+const ResourceIntrospectionResponseSchema = z
+  .discriminatedUnion('active', [
+    z.object({ active: z.literal(false) }).strict(),
+    z
+      .object({
+        active: z.literal(true),
+        sub: z.string(),
+        email: z.string().email().nullable(),
+        email_verified: z.literal(true),
+        aud: z.string(),
+        client_id: z.string(),
+        exp: z.number().int(),
+        sid: z.string().nullable(),
+        auth_time: z.number().int().nullable(),
+      })
+      .strict(),
+  ])
+  .openapi('ResourceIntrospectionResponse');
+const ResourceIntrospectionInactiveSchema = z
+  .object({ active: z.literal(false) })
+  .strict()
+  .openapi('ResourceIntrospectionInactive');
+registry.register('ResourceIntrospectionRequest', ResourceIntrospectionRequestSchema);
+registry.register('ResourceIntrospectionResponse', ResourceIntrospectionResponseSchema);
+registry.register('ResourceIntrospectionInactive', ResourceIntrospectionInactiveSchema);
+
+const noStoreHeaders = {
+  'Cache-Control': {
+    description: 'Introspection responses are never cacheable.',
+    schema: { type: 'string' as const, const: 'no-store' },
+  },
+};
+registry.registerComponent('securitySchemes', 'bearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'FortressAuth split session token',
+});
+registry.registerComponent('securitySchemes', 'resourceServerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'resource-server-specific service credential',
+});
+
 // Register health endpoint
 registry.registerPath({
   method: 'get',
@@ -62,6 +136,139 @@ registry.registerPath({
           schema: HealthResponseSchema,
         },
       },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/auth/native/authorize/{provider}',
+  tags: ['Native Authentication'],
+  summary: 'Start system-browser OAuth authorization with PKCE',
+  request: {
+    params: z.object({ provider: z.string() }),
+    query: z.object({
+      client_id: z.string(),
+      redirect_uri: z.string().url(),
+      state: z.string().min(43).max(128),
+      code_challenge: z.string().length(43),
+      code_challenge_method: z.literal('S256'),
+      audience: z.string().min(1).max(256).optional(),
+      max_age: z.number().int().min(1).max(86_400).optional(),
+    }),
+  },
+  responses: {
+    302: { description: 'Redirect to the configured OAuth provider' },
+    400: {
+      description: 'Invalid client, redirect URI, state, or PKCE challenge',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/auth/resource/introspect',
+  tags: ['Resource Server Authentication'],
+  summary: 'Validate a native opaque session for one exact resource audience',
+  security: [{ resourceServerAuth: [] }],
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/x-www-form-urlencoded': { schema: ResourceIntrospectionRequestSchema },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Active identity claims or an indistinguishable inactive result; no-store',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionResponseSchema } },
+    },
+    400: {
+      description: 'Malformed or non-exact form schema',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+    401: {
+      description: 'Missing or invalid resource-server credential',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+    413: {
+      description: 'Request body exceeds the configured bound',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+    415: {
+      description: 'Content type must be exactly application/x-www-form-urlencoded',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+    429: {
+      description: 'Layered resource introspection rate limit exceeded',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+    503: {
+      description: 'Session lookup or required audit persistence failed closed',
+      headers: noStoreHeaders,
+      content: { 'application/json': { schema: ResourceIntrospectionInactiveSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/auth/native/token',
+  tags: ['Native Authentication'],
+  summary: 'Exchange a one-time authorization code for a bearer session',
+  request: { body: { content: { 'application/json': { schema: NativeTokenRequestSchema } } } },
+  responses: {
+    200: {
+      description: 'Bearer session issued; response is marked no-store',
+      content: { 'application/json': { schema: NativeTokenResponseSchema } },
+    },
+    400: {
+      description: 'Invalid, expired, replayed, or incorrectly bound authorization code',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/auth/native/session',
+  tags: ['Native Authentication'],
+  summary: 'Validate a bearer session',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Current user',
+      content: { 'application/json': { schema: AuthResponseSchema } },
+    },
+    401: {
+      description: 'Invalid session',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/auth/native/logout',
+  tags: ['Native Authentication'],
+  summary: 'Revoke the current bearer session',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Session revoked',
+      content: { 'application/json': { schema: SuccessResponseSchema } },
+    },
+    401: {
+      description: 'Invalid session',
+      content: { 'application/json': { schema: ErrorResponseSchema } },
     },
   },
 });

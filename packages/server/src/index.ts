@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { type Database, SqlAdapter, up } from '@fortressauth/adapter-sql';
 import type { OAuthProviderId, OAuthProviderPort } from '@fortressauth/core';
 import {
@@ -8,6 +8,8 @@ import {
   FortressConfigSchema,
   MemoryRateLimiter,
   type RateLimiterPort,
+  ResourceIntrospectionAuditEvent,
+  Session,
 } from '@fortressauth/core';
 import { AppleOAuthProvider } from '@fortressauth/provider-apple';
 import { DiscordOAuthProvider } from '@fortressauth/provider-discord';
@@ -16,8 +18,10 @@ import { GoogleOAuthProvider } from '@fortressauth/provider-google';
 import { LinkedInOAuthProvider } from '@fortressauth/provider-linkedin';
 import { MicrosoftOAuthProvider } from '@fortressauth/provider-microsoft';
 import { TwitterOAuthProvider } from '@fortressauth/provider-twitter';
+import { getConnInfo } from '@hono/node-server/conninfo';
 import Database_ from 'better-sqlite3';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
@@ -33,8 +37,9 @@ import { env } from './env.js';
 import { ErrorResponseFactory } from './errors/error-response-factory.js';
 import { generateOpenAPIDocument } from './openapi.js';
 import { RedisRateLimiter } from './rate-limiters/redis-rate-limiter.js';
+import { resolveTrustedSourceIdentity } from './security/source-identity.js';
 
-const VERSION = '0.1.14';
+const VERSION = '0.2.0';
 
 // Initialize error response factory based on NODE_ENV
 const errorFactory = new ErrorResponseFactory();
@@ -226,6 +231,17 @@ const fortressConfigInput: FortressConfigInput = {
         : {}),
     },
   },
+  nativeAuth: {
+    authorizationCodeTtlMs: env.NATIVE_AUTHORIZATION_CODE_TTL_MS,
+    sessionTtlMs: env.NATIVE_SESSION_TTL_MS,
+    clients:
+      env.NATIVE_CLIENTS_JSON.length > 0
+        ? env.NATIVE_CLIENTS_JSON
+        : env.NATIVE_CLIENT_ID && env.NATIVE_REDIRECT_URIS.length > 0
+          ? [{ clientId: env.NATIVE_CLIENT_ID, redirectUris: env.NATIVE_REDIRECT_URIS }]
+          : [],
+    resourceServers: env.RESOURCE_SERVERS_JSON,
+  },
 };
 
 const resolvedConfig = (() => {
@@ -238,6 +254,74 @@ const resolvedConfig = (() => {
     console.error(`  - ${issue.path.join('.') || '(root)'}: ${issue.message}`);
   }
   process.exit(1);
+})();
+
+type ResourceAuthenticator = {
+  audience: string;
+  enabled: boolean;
+  verifierHashes: Buffer[];
+  rateLimit: { maxTokens: number; windowMs: number };
+};
+
+const resourceAuthenticators: ResourceAuthenticator[] = (() => {
+  const publicAudiences = new Set(
+    resolvedConfig.nativeAuth.resourceServers.map((resource) => resource.audience),
+  );
+  const configuredAudiences = new Set<string>();
+  const credentialIds = new Set<string>();
+  const verifierHashes = new Set<string>();
+  const authenticators: ResourceAuthenticator[] = [];
+  const failures: string[] = [];
+
+  for (const resource of env.RESOURCE_SERVER_CREDENTIALS_JSON) {
+    if (configuredAudiences.has(resource.audience)) {
+      failures.push(`duplicate credential entry for audience ${resource.audience}`);
+      continue;
+    }
+    configuredAudiences.add(resource.audience);
+    if (!publicAudiences.has(resource.audience)) {
+      failures.push(`credentials reference unregistered audience ${resource.audience}`);
+    }
+    const activeHashes: Buffer[] = [];
+    for (const credential of resource.credentials) {
+      if (credentialIds.has(credential.credentialId)) {
+        failures.push(`credential id ${credential.credentialId} must be globally unique`);
+      }
+      credentialIds.add(credential.credentialId);
+      if (verifierHashes.has(credential.verifierHash)) {
+        failures.push('resource-server credentials must not be shared');
+      }
+      verifierHashes.add(credential.verifierHash);
+      if (credential.enabled) activeHashes.push(Buffer.from(credential.verifierHash, 'hex'));
+    }
+    authenticators.push({
+      audience: resource.audience,
+      enabled:
+        resolvedConfig.nativeAuth.resourceServers.find(
+          (candidate) => candidate.audience === resource.audience,
+        )?.enabled ?? false,
+      rateLimit: resolvedConfig.nativeAuth.resourceServers.find(
+        (candidate) => candidate.audience === resource.audience,
+      )?.rateLimit ?? { maxTokens: 120, windowMs: 60_000 },
+      verifierHashes: activeHashes,
+    });
+  }
+
+  for (const resource of resolvedConfig.nativeAuth.resourceServers) {
+    const authenticator = authenticators.find(
+      (candidate) => candidate.audience === resource.audience,
+    );
+    if (resource.enabled && (!authenticator || authenticator.verifierHashes.length === 0)) {
+      failures.push(`enabled audience ${resource.audience} requires an active service credential`);
+    }
+  }
+
+  if (failures.length > 0) {
+    console.error('[fortressauth] Invalid resource-server credential configuration:');
+    for (const failure of failures) console.error(`  - ${failure}`);
+    process.exit(1);
+  }
+  return authenticators;
 })();
 
 // Initialize rate limiter
@@ -278,8 +362,55 @@ if (resolvedConfig.rateLimit.backend === 'redis' && env.REDIS_URL) {
   });
 }
 
+const introspectionActions = Object.fromEntries([
+  [
+    'resourceIntrospectionGlobal',
+    {
+      maxTokens: env.RESOURCE_INTROSPECTION_GLOBAL_MAX_TOKENS,
+      windowMs: env.RESOURCE_INTROSPECTION_GLOBAL_WINDOW_MS,
+      refillRateMs: Math.max(
+        1,
+        Math.floor(
+          env.RESOURCE_INTROSPECTION_GLOBAL_WINDOW_MS /
+            env.RESOURCE_INTROSPECTION_GLOBAL_MAX_TOKENS,
+        ),
+      ),
+    },
+  ],
+  ...resolvedConfig.nativeAuth.resourceServers.map((resource) => [
+    `resourceIntrospection:${createHash('sha256').update(resource.audience).digest('hex')}`,
+    {
+      maxTokens: resource.rateLimit.maxTokens,
+      windowMs: resource.rateLimit.windowMs,
+      refillRateMs: Math.max(
+        1,
+        Math.floor(resource.rateLimit.windowMs / resource.rateLimit.maxTokens),
+      ),
+    },
+  ]),
+]) as Record<string, { maxTokens: number; refillRateMs: number; windowMs: number }>;
+
+const introspectionRateLimiter = redisClient
+  ? new RedisRateLimiter(redisClient, {
+      prefix: 'fortress:introspection',
+      actions: introspectionActions,
+      failureMode: 'closed',
+    })
+  : new MemoryRateLimiter(introspectionActions);
+
 // Initialize FortressAuth
 const repository = new SqlAdapter(db, { dialect });
+const auditRetentionMs = env.RESOURCE_INTROSPECTION_AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+await repository.pruneResourceIntrospectionAudit(new Date(Date.now() - auditRetentionMs));
+const auditRetentionTimer = setInterval(
+  () => {
+    void repository
+      .pruneResourceIntrospectionAudit(new Date(Date.now() - auditRetentionMs))
+      .catch(() => console.error('[fortressauth] resource introspection audit pruning failed'));
+  },
+  60 * 60 * 1000,
+);
+auditRetentionTimer.unref();
 const sesCredentials =
   env.SES_ACCESS_KEY_ID && env.SES_SECRET_ACCESS_KEY
     ? {
@@ -377,7 +508,20 @@ const config = fortress.getConfig();
 const app = new Hono();
 
 // Middleware
-app.use('*', logger());
+const requestLogger = logger();
+app.use('*', (c, next) => {
+  // The default logger includes the full query string. Native authorization
+  // requests and OAuth callbacks contain state, codes, and PKCE challenges,
+  // so logging their URLs would leak short-lived credentials into log sinks.
+  if (
+    c.req.path === '/auth/resource/introspect' ||
+    c.req.path.startsWith('/auth/native/authorize/') ||
+    /^\/auth\/oauth\/[^/]+\/callback$/.test(c.req.path)
+  ) {
+    return next();
+  }
+  return requestLogger(c, next);
+});
 // Configure security headers - allow iframe embedding for docs from localhost
 app.use(
   '*',
@@ -409,8 +553,55 @@ app.use(
   }),
 );
 
+app.use('/auth/resource/introspect', async (c, next) => {
+  c.header('Cache-Control', 'no-store');
+  c.header('Pragma', 'no-cache');
+  return next();
+});
+app.use('/auth/resource/introspect', async (c, next) => {
+  const sourceIdentity = getTrustedRateLimitIdentity(c);
+  const allowed = await enforceIntrospectionRateLimits([
+    { identifier: 'global', action: 'resourceIntrospectionGlobal' },
+    {
+      identifier: `source:${hashIdentifier(sourceIdentity)}`,
+      action: 'resourceIntrospectionGlobal',
+    },
+  ]);
+  if (!allowed) {
+    const recorded = await recordRateLimitedAuditOnce(
+      'global',
+      env.RESOURCE_INTROSPECTION_GLOBAL_WINDOW_MS,
+      { sourceIdentity, outcome: 'rate_limited' },
+    );
+    return c.json({ active: false }, recorded ? 429 : 503);
+  }
+  return next();
+});
+app.use(
+  '/auth/resource/introspect',
+  bodyLimit({
+    maxSize: env.RESOURCE_INTROSPECTION_MAX_BODY_BYTES,
+    onError: async (c) => {
+      const recorded = await recordIntrospectionAudit({
+        sourceIdentity: getTrustedRateLimitIdentity(c),
+        outcome: 'request_rejected',
+      });
+      return c.json({ active: false }, recorded ? 413 : 503);
+    },
+  }),
+);
+
 app.use('/auth/*', async (c, next) => {
   if (c.req.method === 'POST' && c.req.path === '/auth/oauth/apple/callback') {
+    return next();
+  }
+
+  if (
+    c.req.method === 'POST' &&
+    (c.req.path === '/auth/native/token' ||
+      c.req.path === '/auth/native/logout' ||
+      c.req.path === '/auth/resource/introspect')
+  ) {
     return next();
   }
 
@@ -595,6 +786,24 @@ function createError(errorCode: AuthErrorCode, details?: string, error?: Error) 
   };
 }
 
+type NativeReturnTarget = { redirectUri: string; state: string };
+
+function redirectNativeOAuthError(
+  c: Context,
+  target: NativeReturnTarget,
+  errorCode: AuthErrorCode,
+): Response {
+  const redirect = new URL(target.redirectUri);
+  redirect.searchParams.set('error', errorCode);
+  // This description is intentionally server-controlled. Provider callback
+  // descriptions are untrusted and may contain sensitive implementation details.
+  redirect.searchParams.set('error_description', 'OAuth authorization did not complete.');
+  redirect.searchParams.set('state', target.state);
+  c.header('Cache-Control', 'no-store');
+  c.header('Pragma', 'no-cache');
+  return c.redirect(redirect.toString());
+}
+
 // ---------------------------------------------------------------------------
 // Request body schemas
 // ---------------------------------------------------------------------------
@@ -619,6 +828,138 @@ const resetPasswordSchema = z.object({
   token: z.string().min(1).max(256),
   newPassword: z.string().min(1).max(4096),
 });
+
+const nativeAuthorizeQuerySchema = z
+  .object({
+    client_id: z.string().min(1).max(128),
+    redirect_uri: z.string().url().max(2_048),
+    state: z.string().regex(/^[A-Za-z0-9\-._~]{43,128}$/),
+    code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+    code_challenge_method: z.literal('S256'),
+    audience: z.string().min(1).max(256).optional(),
+    max_age: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 60 * 60)
+      .optional(),
+  })
+  .strict();
+
+const nativeTokenSchema = z
+  .object({
+    grantType: z.literal('authorization_code'),
+    clientId: z.string().min(1).max(128),
+    code: z.string().min(1).max(256),
+    redirectUri: z.string().url().max(2_048),
+    codeVerifier: z.string().regex(/^[A-Za-z0-9\-._~]{43,128}$/),
+  })
+  .strict();
+
+const introspectionFieldSchema = z.object({
+  token: z.string().min(1).max(256),
+  audience: z.string().min(1).max(256),
+});
+
+function getBearerToken(authorization: string | undefined): string | null {
+  if (!authorization) return null;
+  const match = /^Bearer ([^\s]+)$/.exec(authorization);
+  return match?.[1] ?? null;
+}
+
+function hashIdentifier(value: string): string {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function authenticateResourceServer(
+  authorization: string | undefined,
+): ResourceAuthenticator | null {
+  const bounded = authorization && authorization.length <= 320 ? authorization : undefined;
+  const credential = bounded ? /^Bearer ([A-Za-z0-9_-]{43,256})$/.exec(bounded)?.[1] : undefined;
+  const candidateHash = createHash('sha256')
+    .update(credential ?? '')
+    .digest();
+  const dummyHash = createHash('sha256')
+    .update('fortressauth-invalid-resource-credential')
+    .digest();
+  let matched: ResourceAuthenticator | null = null;
+
+  for (const resource of resourceAuthenticators) {
+    for (const verifierHash of resource.verifierHashes) {
+      const equal = timingSafeEqual(candidateHash, verifierHash);
+      if (equal && credential && resource.enabled) matched = resource;
+    }
+  }
+  // Always perform a comparison even when no credentials are configured or the header is missing.
+  timingSafeEqual(candidateHash, dummyHash);
+  return matched;
+}
+
+async function enforceIntrospectionRateLimits(
+  entries: Array<{ identifier: string; action: string }>,
+): Promise<boolean> {
+  return introspectionRateLimiter.reserve(entries);
+}
+
+const rateLimitAuditNextAllowedAt = new Map<string, number>();
+
+async function recordRateLimitedAuditOnce(
+  scope: string,
+  windowMs: number,
+  input: Parameters<typeof recordIntrospectionAudit>[0],
+): Promise<boolean> {
+  const now = Date.now();
+  if ((rateLimitAuditNextAllowedAt.get(scope) ?? 0) > now) return true;
+
+  // Set before awaiting so a concurrent denied burst produces one durable
+  // event for this enforcement window instead of one database write per packet.
+  rateLimitAuditNextAllowedAt.set(scope, now + windowMs);
+  const recorded = await recordIntrospectionAudit(input);
+  if (!recorded) rateLimitAuditNextAllowedAt.delete(scope);
+  return recorded;
+}
+
+async function recordIntrospectionAudit(input: {
+  resourceServerAudience?: string | null;
+  requestedAudience?: string | null;
+  token?: string | null;
+  sessionId?: string | null;
+  clientId?: string | null;
+  sourceIdentity?: string | null;
+  outcome: Parameters<typeof ResourceIntrospectionAuditEvent.create>[0]['outcome'];
+}): Promise<boolean> {
+  const tokenSelector = input.token ? Session.parse(input.token)?.selector : null;
+  try {
+    await repository.recordResourceIntrospectionAudit(
+      ResourceIntrospectionAuditEvent.create({
+        outcome: input.outcome,
+        ...(input.resourceServerAudience !== undefined
+          ? { resourceServerAudience: input.resourceServerAudience }
+          : {}),
+        ...(input.requestedAudience !== undefined
+          ? { requestedAudience: input.requestedAudience }
+          : {}),
+        ...(tokenSelector !== undefined ? { tokenSelector } : {}),
+        ...(input.sessionId !== undefined ? { sessionId: input.sessionId } : {}),
+        ...(input.clientId !== undefined ? { clientId: input.clientId } : {}),
+        ...(input.sourceIdentity !== undefined ? { sourceIdentity: input.sourceIdentity } : {}),
+      }),
+    );
+    return true;
+  } catch {
+    console.error('[fortressauth] resource introspection audit write failed');
+    return false;
+  }
+}
+
+function publicUser(user: { id: string; email: string; emailVerified: boolean; createdAt: Date }) {
+  return {
+    id: user.id,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+  };
+}
 
 /**
  * Reads JSON from the request and validates it against the supplied schema.
@@ -830,6 +1171,216 @@ app.get('/auth/csrf', (c) => {
   return c.json(success({ csrfToken: token }));
 });
 
+app.post('/auth/resource/introspect', async (c) => {
+  const sourceIdentity = getTrustedRateLimitIdentity(c);
+  if (c.req.header('content-type') !== 'application/x-www-form-urlencoded') {
+    const recorded = await recordIntrospectionAudit({
+      sourceIdentity,
+      outcome: 'request_rejected',
+    });
+    return c.json({ active: false }, recorded ? 415 : 503);
+  }
+
+  const rawBody = await c.req.text();
+  if (Buffer.byteLength(rawBody, 'utf8') > env.RESOURCE_INTROSPECTION_MAX_BODY_BYTES) {
+    const recorded = await recordIntrospectionAudit({
+      sourceIdentity,
+      outcome: 'request_rejected',
+    });
+    return c.json({ active: false }, recorded ? 413 : 503);
+  }
+
+  const form = new URLSearchParams(rawBody);
+  const keys = [...form.keys()];
+  const hasExactFields =
+    keys.length === 2 &&
+    keys.every((key) => key === 'token' || key === 'audience') &&
+    form.getAll('token').length === 1 &&
+    form.getAll('audience').length === 1;
+  const parsed = hasExactFields
+    ? introspectionFieldSchema.safeParse({
+        token: form.get('token'),
+        audience: form.get('audience'),
+      })
+    : null;
+  if (!parsed?.success) {
+    const recorded = await recordIntrospectionAudit({
+      requestedAudience: form.get('audience'),
+      sourceIdentity,
+      outcome: 'request_rejected',
+    });
+    return c.json({ active: false }, recorded ? 400 : 503);
+  }
+
+  const resource = authenticateResourceServer(c.req.header('authorization'));
+  if (!resource) {
+    const recorded = await recordIntrospectionAudit({
+      requestedAudience: parsed.data.audience,
+      token: parsed.data.token,
+      sourceIdentity,
+      outcome: 'credential_rejected',
+    });
+    return c.json({ active: false }, recorded ? 401 : 503);
+  }
+
+  const audienceHash = hashIdentifier(resource.audience);
+  const resourceAction = `resourceIntrospection:${audienceHash}`;
+  const resourceAllowed = await enforceIntrospectionRateLimits([
+    { identifier: `resource:${audienceHash}`, action: resourceAction },
+    {
+      identifier: `audience:${hashIdentifier(parsed.data.audience)}`,
+      action: resourceAction,
+    },
+    {
+      identifier: `source:${hashIdentifier(sourceIdentity)}`,
+      action: resourceAction,
+    },
+    {
+      identifier: `combined:${hashIdentifier(`${resource.audience}\0${parsed.data.audience}\0${sourceIdentity}`)}`,
+      action: resourceAction,
+    },
+  ]);
+  if (!resourceAllowed) {
+    const recorded = await recordRateLimitedAuditOnce(
+      `resource:${audienceHash}`,
+      resource.rateLimit.windowMs,
+      {
+        resourceServerAudience: resource.audience,
+        requestedAudience: parsed.data.audience,
+        token: parsed.data.token,
+        sourceIdentity,
+        outcome: 'rate_limited',
+      },
+    );
+    return c.json({ active: false }, recorded ? 429 : 503);
+  }
+
+  let result: Awaited<ReturnType<typeof fortress.introspectNativeSession>>;
+  try {
+    result = await fortress.introspectNativeSession({
+      token: parsed.data.token,
+      audience: parsed.data.audience,
+      authenticatedResourceAudience: resource.audience,
+    });
+  } catch {
+    console.error('[fortressauth] resource introspection lookup failed');
+    await recordIntrospectionAudit({
+      resourceServerAudience: resource.audience,
+      requestedAudience: parsed.data.audience,
+      token: parsed.data.token,
+      sourceIdentity,
+      outcome: 'lookup_failed',
+    });
+    return c.json({ active: false }, 503);
+  }
+  if (!result) {
+    const recorded = await recordIntrospectionAudit({
+      resourceServerAudience: resource.audience,
+      requestedAudience: parsed.data.audience,
+      token: parsed.data.token,
+      sourceIdentity,
+      outcome: 'inactive',
+    });
+    return c.json({ active: false }, recorded ? 200 : 503);
+  }
+
+  const recorded = await recordIntrospectionAudit({
+    resourceServerAudience: resource.audience,
+    requestedAudience: parsed.data.audience,
+    token: parsed.data.token,
+    sessionId: result.sessionId,
+    clientId: result.clientId,
+    sourceIdentity,
+    outcome: 'active',
+  });
+  if (!recorded) return c.json({ active: false }, 503);
+
+  return c.json({
+    active: true,
+    sub: result.userId,
+    email: result.email,
+    email_verified: true,
+    aud: result.audience,
+    client_id: result.clientId,
+    exp: Math.floor(result.expiresAt.getTime() / 1000),
+    sid: result.sessionId,
+    auth_time: result.authenticationTime
+      ? Math.floor(result.authenticationTime.getTime() / 1000)
+      : null,
+  });
+});
+
+app.post('/auth/native/token', async (c) => {
+  try {
+    const parsed = await parseJsonBody(c, nativeTokenSchema);
+    if (!parsed.ok) {
+      const { response, status } = createError('NATIVE_AUTHORIZATION_INVALID', parsed.details);
+      return c.json(response, status);
+    }
+    const userAgent = c.req.header('user-agent');
+    const result = await fortress.exchangeNativeAuthorizationCode({
+      clientId: parsed.data.clientId,
+      code: parsed.data.code,
+      redirectUri: parsed.data.redirectUri,
+      codeVerifier: parsed.data.codeVerifier,
+      ipAddress: getClientIp(c),
+      ...(userAgent ? { userAgent } : {}),
+    });
+    c.header('Cache-Control', 'no-store');
+    c.header('Pragma', 'no-cache');
+    if (!result.success) {
+      const { response, status } = createError(
+        'NATIVE_AUTHORIZATION_INVALID',
+        'Native authorization code exchange failed',
+      );
+      return c.json(response, status);
+    }
+    return c.json(
+      success({
+        token: result.data.token,
+        tokenType: 'Bearer' as const,
+        expiresAt: result.data.expiresAt.toISOString(),
+        user: publicUser(result.data.user),
+      }),
+    );
+  } catch (error) {
+    const { response, status } = createError(
+      'INTERNAL_ERROR',
+      'Unexpected native token exchange error',
+      error instanceof Error ? error : undefined,
+    );
+    return c.json(response, status);
+  }
+});
+
+app.get('/auth/native/session', async (c) => {
+  const token = getBearerToken(c.req.header('authorization'));
+  if (!token) {
+    const { response, status } = createError('SESSION_INVALID', 'Bearer token required');
+    return c.json(response, status);
+  }
+  const result = await fortress.validateSession(token);
+  if (!result.success) {
+    const { response, status } = createError(result.error, 'Session validation failed');
+    return c.json(response, status);
+  }
+  return c.json(success({ user: publicUser(result.data.user) }));
+});
+
+app.post('/auth/native/logout', async (c) => {
+  const token = getBearerToken(c.req.header('authorization'));
+  if (!token) {
+    const { response, status } = createError('SESSION_INVALID', 'Bearer token required');
+    return c.json(response, status);
+  }
+  const result = await fortress.signOut(token);
+  if (!result.success) {
+    const { response, status } = createError(result.error, 'Session logout failed');
+    return c.json(response, status);
+  }
+  return c.json({ success: true });
+});
+
 app.post('/auth/verify-email', async (c) => {
   try {
     const parsed = await parseJsonBody(c, tokenOnlySchema);
@@ -924,6 +1475,70 @@ app.post('/auth/reset-password', async (c) => {
 });
 
 // OAuth Routes
+app.get('/auth/native/authorize/:provider', async (c) => {
+  const providerId = c.req.param('provider') as OAuthProviderId;
+  const provider = oauthProviders[providerId];
+  const parsed = nativeAuthorizeQuerySchema.safeParse(c.req.query());
+  if (!provider) {
+    const { response, status } = createError('OAUTH_NOT_SUPPORTED', 'Provider not supported');
+    return c.json(response, status);
+  }
+  if (!parsed.success) {
+    const { response, status } = createError(
+      'NATIVE_AUTHORIZATION_INVALID',
+      parsed.error.issues.map((issue) => issue.message).join('; '),
+    );
+    return c.json(response, status);
+  }
+  try {
+    const redirect = new URL(parsed.data.redirect_uri);
+    if (
+      redirect.hash ||
+      redirect.searchParams.has('code') ||
+      redirect.searchParams.has('state') ||
+      redirect.searchParams.has('error') ||
+      redirect.searchParams.has('error_description')
+    ) {
+      const { response, status } = createError(
+        'NATIVE_REDIRECT_URI_INVALID',
+        'Redirect URI contains forbidden components',
+      );
+      return c.json(response, status);
+    }
+    const authorizationUrl = await fortress.getOAuthAuthorizationUrl(provider, providerId, {
+      native: {
+        clientId: parsed.data.client_id,
+        redirectUri: parsed.data.redirect_uri,
+        codeChallenge: parsed.data.code_challenge,
+        state: parsed.data.state,
+        ...(parsed.data.audience ? { audience: parsed.data.audience } : {}),
+        ...(parsed.data.max_age !== undefined ? { maxAgeSeconds: parsed.data.max_age } : {}),
+      },
+    });
+    return c.redirect(authorizationUrl);
+  } catch (error) {
+    const code: AuthErrorCode =
+      error instanceof Error &&
+      ['NATIVE_REDIRECT_URI_INVALID', 'NATIVE_AUDIENCE_INVALID', 'STEP_UP_UNSUPPORTED'].includes(
+        error.message,
+      )
+        ? (error.message as AuthErrorCode)
+        : 'INTERNAL_ERROR';
+    if (
+      (code === 'NATIVE_AUDIENCE_INVALID' || code === 'STEP_UP_UNSUPPORTED') &&
+      fortress.isRegisteredNativeRedirect(parsed.data.client_id, parsed.data.redirect_uri)
+    ) {
+      return redirectNativeOAuthError(
+        c,
+        { redirectUri: parsed.data.redirect_uri, state: parsed.data.state },
+        code,
+      );
+    }
+    const { response, status } = createError(code, 'Failed to initiate native authorization');
+    return c.json(response, status);
+  }
+});
+
 app.get('/auth/oauth/:provider', async (c) => {
   const providerId = c.req.param('provider') as OAuthProviderId;
   const provider = oauthProviders[providerId];
@@ -940,7 +1555,7 @@ app.get('/auth/oauth/:provider', async (c) => {
     const url = await fortress.getOAuthAuthorizationUrl(provider, providerId);
     return c.redirect(url);
   } catch (error) {
-    console.error(`OAuth initiation error for ${providerId}:`, error);
+    console.error('[fortressauth] OAuth initiation failed');
     const { response, status } = createError(
       'INTERNAL_ERROR',
       'Failed to initiate OAuth flow',
@@ -955,12 +1570,34 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
   const provider = oauthProviders[providerId];
   const code = c.req.query('code');
   const state = c.req.query('state');
+  const providerError = c.req.query('error');
 
-  if (!provider || !code || !state) {
+  if (!state) {
     const { response, status } = createError('OAUTH_AUTH_FAILED', 'Invalid callback parameters');
     return c.json(response, status);
   }
 
+  if (providerError || !code || !provider) {
+    try {
+      const nativeTarget = await fortress.consumeNativeOAuthFailure(providerId, state);
+      if (nativeTarget.success) {
+        return redirectNativeOAuthError(
+          c,
+          nativeTarget.data,
+          provider ? 'OAUTH_AUTH_FAILED' : 'OAUTH_NOT_SUPPORTED',
+        );
+      }
+    } catch {
+      console.error('[fortressauth] OAuth failure callback processing failed');
+    }
+    const { response, status } = createError(
+      provider ? 'OAUTH_AUTH_FAILED' : 'OAUTH_NOT_SUPPORTED',
+      'Invalid callback parameters',
+    );
+    return c.json(response, status);
+  }
+
+  let nativeTarget: NativeReturnTarget | null = null;
   try {
     const ipAddress = getClientIp(c);
     const userAgent = c.req.header('user-agent');
@@ -968,11 +1605,23 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
     const result = await fortress.handleOAuthCallback(provider, providerId, code, state, {
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
+      onNativeReturn: (target) => {
+        nativeTarget = target;
+      },
     });
 
     if (!result.success) {
+      if (nativeTarget) return redirectNativeOAuthError(c, nativeTarget, result.error);
       const { response, status } = createError(result.error, 'OAuth authentication failed');
       return c.json(response, status);
+    }
+
+    if ('authorizationCode' in result.data) {
+      const redirect = new URL(result.data.redirectUri);
+      redirect.searchParams.set('code', result.data.authorizationCode);
+      redirect.searchParams.set('state', result.data.state);
+      c.header('Cache-Control', 'no-store');
+      return c.redirect(redirect.toString());
     }
 
     const { user, token } = result.data;
@@ -995,7 +1644,8 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
 
     return c.redirect(env.BASE_URL);
   } catch (error) {
-    console.error(`OAuth callback error for ${providerId}:`, error);
+    console.error('[fortressauth] OAuth callback processing failed');
+    if (nativeTarget) return redirectNativeOAuthError(c, nativeTarget, 'INTERNAL_ERROR');
     const { response, status } = createError(
       'INTERNAL_ERROR',
       'Unexpected error during OAuth callback',
@@ -1007,12 +1657,26 @@ app.get('/auth/oauth/:provider/callback', async (c) => {
 
 // Apple uses form_post for its callback, so we need a POST route too
 app.post('/auth/oauth/apple/callback', async (c) => {
+  let nativeTarget: NativeReturnTarget | null = null;
   try {
     const body = await c.req.parseBody();
     const code = typeof body.code === 'string' ? body.code : null;
     const state = typeof body.state === 'string' ? body.state : null;
+    const providerError = typeof body.error === 'string' ? body.error : null;
 
-    if (!code || !state) {
+    if (!state) {
+      const { response, status } = createError(
+        'OAUTH_AUTH_FAILED',
+        'Invalid Apple callback parameters',
+      );
+      return c.json(response, status);
+    }
+
+    if (providerError || !code) {
+      const target = await fortress.consumeNativeOAuthFailure('apple', state);
+      if (target.success) {
+        return redirectNativeOAuthError(c, target.data, 'OAUTH_AUTH_FAILED');
+      }
       const { response, status } = createError(
         'OAUTH_AUTH_FAILED',
         'Invalid Apple callback parameters',
@@ -1032,11 +1696,23 @@ app.post('/auth/oauth/apple/callback', async (c) => {
     const result = await fortress.handleOAuthCallback(provider, 'apple', code, state, {
       ipAddress,
       ...(userAgent ? { userAgent } : {}),
+      onNativeReturn: (target) => {
+        nativeTarget = target;
+      },
     });
 
     if (!result.success) {
+      if (nativeTarget) return redirectNativeOAuthError(c, nativeTarget, result.error);
       const { response, status } = createError(result.error, 'Apple authentication failed');
       return c.json(response, status);
+    }
+
+    if ('authorizationCode' in result.data) {
+      const redirect = new URL(result.data.redirectUri);
+      redirect.searchParams.set('code', result.data.authorizationCode);
+      redirect.searchParams.set('state', result.data.state);
+      c.header('Cache-Control', 'no-store');
+      return c.redirect(redirect.toString());
     }
 
     const { token } = result.data;
@@ -1044,7 +1720,8 @@ app.post('/auth/oauth/apple/callback', async (c) => {
 
     return c.redirect(env.BASE_URL);
   } catch (error) {
-    console.error('Apple callback error:', error);
+    console.error('[fortressauth] Apple callback processing failed');
+    if (nativeTarget) return redirectNativeOAuthError(c, nativeTarget, 'INTERNAL_ERROR');
     const { response, status } = createError(
       'INTERNAL_ERROR',
       'Unexpected error during Apple callback',
@@ -1076,6 +1753,7 @@ async function gracefulShutdown(signal: string, exitCode = 0): Promise<void> {
     return;
   }
   isShuttingDown = true;
+  clearInterval(auditRetentionTimer);
   console.log(`\n${signal} received. Shutting down gracefully...`);
 
   const shutdownTimeoutMs = 10_000;
@@ -1234,6 +1912,20 @@ function getClientIp(c: { req: { header: (name: string) => string | undefined } 
   if (xri) return xri;
 
   return 'unknown';
+}
+
+function getTrustedRateLimitIdentity(c: Context): string {
+  let directAddress: string | undefined;
+  try {
+    directAddress = getConnInfo(c).remote.address;
+  } catch {
+    // app.request() and non-Node test adapters do not expose socket bindings.
+  }
+  return resolveTrustedSourceIdentity({
+    trustedProxyHopCount: env.TRUSTED_PROXY_HOP_COUNT,
+    forwardedFor: c.req.header('x-forwarded-for'),
+    directAddress,
+  });
 }
 
 async function resolveServerPort(

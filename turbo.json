@@ -85,11 +85,29 @@
     "test": {
       "dependsOn": [
         "build"
+      ],
+      "env": [
+        "MONGODB_TEST_URL",
+        "MONGODB_URL",
+        "POSTGRES_TEST_URL",
+        "POSTGRES_URL",
+        "MYSQL_TEST_URL",
+        "MYSQL_URL",
+        "REQUIRE_POSTGRES_TESTS"
       ]
     },
     "test:coverage": {
       "dependsOn": [
         "build"
+      ],
+      "env": [
+        "MONGODB_TEST_URL",
+        "MONGODB_URL",
+        "POSTGRES_TEST_URL",
+        "POSTGRES_URL",
+        "MYSQL_TEST_URL",
+        "MYSQL_URL",
+        "REQUIRE_POSTGRES_TESTS"
       ]
     },
     "lint": {},

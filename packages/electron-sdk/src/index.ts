@@ -1,5 +1,5 @@
 export { createAuth, FortressAuth } from './auth.js';
-export { createElectronStorage, getDefaultStorage } from './storage.js';
+export { createMemoryStorage } from './storage.js';
 export type {
   ApiResponse,
   AuthConfig,

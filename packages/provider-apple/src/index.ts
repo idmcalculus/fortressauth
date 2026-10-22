@@ -174,10 +174,21 @@ export class AppleOAuthProvider implements OAuthProviderPort {
     });
   }
 
-  async getUserInfo(accessToken: string): Promise<Result<OAuthUser, 'OAUTH_USER_INFO_FAILED'>> {
-    // For Apple, user info is contained in the ID token (JWT).
+  async getUserInfoFromTokens(
+    tokens: OAuthTokens,
+  ): Promise<Result<OAuthUser, 'OAUTH_USER_INFO_FAILED'>> {
+    if (!tokens.idToken) {
+      return err('OAUTH_USER_INFO_FAILED');
+    }
+
+    return this.getUserInfo(tokens.idToken);
+  }
+
+  async getUserInfo(idToken: string): Promise<Result<OAuthUser, 'OAUTH_USER_INFO_FAILED'>> {
+    // For Apple, user info is contained in the ID token (JWT). Core calls
+    // getUserInfoFromTokens so this ID-token dependency stays explicit.
     try {
-      const parts = accessToken.split('.');
+      const parts = idToken.split('.');
       if (parts.length !== 3) {
         return err('OAUTH_USER_INFO_FAILED');
       }
