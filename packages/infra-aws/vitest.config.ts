@@ -5,6 +5,11 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // The first test in a file registers resources through the Pulumi mocks,
+    // which loads the provider SDK lazily. That takes about 3 seconds on a
+    // GitHub runner and has gone past vitest's 5-second default on a slow
+    // one, so allow more.
+    testTimeout: 20_000,
     // Pulumi resource construction registers resources with a singleton
     // monitor; running tests in parallel inside the same process would let
     // resources from one test leak into another. Forcing a single fork keeps
