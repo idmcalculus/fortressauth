@@ -13,6 +13,12 @@ export interface SecretEnvRef {
 export interface RuntimeResources {
   readonly serviceAccount: gcp.serviceaccount.Account;
   readonly secretEnv: readonly SecretEnvRef[];
+  /**
+   * The grants that let the runtime account read each secret. Cloud Run
+   * checks that access when it creates a revision, so the service must wait
+   * for these.
+   */
+  readonly secretReaders: readonly gcp.secretmanager.SecretIamMember[];
 }
 
 /**
@@ -39,6 +45,7 @@ export function buildRuntime(
     { dependsOn },
   );
 
+  const secretReaders: gcp.secretmanager.SecretIamMember[] = [];
   const secretEnv = config.secretEnvKeys.map((key): SecretEnvRef => {
     const slug = key.toLowerCase().replace(/_/g, '-');
     const secret = new gcp.secretmanager.Secret(
@@ -65,15 +72,17 @@ export function buildRuntime(
       },
     );
 
-    new gcp.secretmanager.SecretIamMember(`${config.namePrefix}-secret-${slug}-reader`, {
-      project: config.project,
-      secretId: secret.secretId,
-      role: 'roles/secretmanager.secretAccessor',
-      member: serviceAccount.member,
-    });
+    secretReaders.push(
+      new gcp.secretmanager.SecretIamMember(`${config.namePrefix}-secret-${slug}-reader`, {
+        project: config.project,
+        secretId: secret.secretId,
+        role: 'roles/secretmanager.secretAccessor',
+        member: serviceAccount.member,
+      }),
+    );
 
     return { name: key, secretId: secret.secretId, version: version.version };
   });
 
-  return { serviceAccount, secretEnv };
+  return { serviceAccount, secretEnv, secretReaders };
 }

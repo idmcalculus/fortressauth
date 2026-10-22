@@ -69,7 +69,7 @@ export function buildService(
       },
     },
     {
-      dependsOn,
+      dependsOn: [...dependsOn, ...runtime.secretReaders],
       ignoreChanges: ['template.containers[0].image', 'client', 'clientVersion'],
     },
   );
