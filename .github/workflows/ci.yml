@@ -51,6 +51,9 @@ jobs:
               packages/infra-aws/*|packages/infra-netlify/*)
                 infra=true
                 ;;
+              packages/infra-gcp/*|deploy/cloudrun/*)
+                infra=true
+                ;;
               packages/*)
                 test=true
                 frontend=true
@@ -104,6 +107,15 @@ jobs:
         run: pnpm install --frozen-lockfile
         env:
           CI: true
+
+      - name: Lint GCP infra package
+        run: pnpm --filter @fortressauth/infra-gcp lint
+
+      - name: Typecheck GCP infra package
+        run: pnpm --filter @fortressauth/infra-gcp typecheck
+
+      - name: Test GCP infra package
+        run: pnpm --filter @fortressauth/infra-gcp test
 
       - name: Lint Netlify infra package
         run: pnpm --filter @fortressauth/infra-netlify lint

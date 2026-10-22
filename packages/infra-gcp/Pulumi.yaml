@@ -1,0 +1,7 @@
+name: fortressauth-gcp
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: FortressAuth API on Google Cloud Run (scale to zero) with Artifact Registry and GitHub deploy access
+main: src/index.ts

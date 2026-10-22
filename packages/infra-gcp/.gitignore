@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.turbo/
+
+# Pulumi.<stack>.yaml files are committed: they hold non-secret stack config
+# (project, region, domains, sizes). Secret env values are set with
+# `pulumi config set --secret`, so only their ciphertext is stored here.

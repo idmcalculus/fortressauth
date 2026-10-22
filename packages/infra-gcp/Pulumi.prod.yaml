@@ -1,0 +1,51 @@
+config:
+  # Google Cloud project and region. Pulumi uses your own login:
+  #   gcloud auth application-default login
+  # europe-west1 is a Tier 1 pricing region and supports domain mappings.
+  gcp:project: fortressauth-502419
+  gcp:region: europe-west1
+  # Hostnames mapped to the service, each with a Google-managed certificate.
+  # fortressauth.com is verified in Search Console. Add gcp-api first; add
+  # api.fortressauth.com when DNS moves over.
+  # fortressauth-gcp:appDomains:
+  #   - gcp-api.fortressauth.com
+
+  # How many X-Forwarded-For entries Google adds in front of the server.
+  # Check it after the first deploy (deploy/cloudrun/README.md, step 6).
+  fortressauth-gcp:trustedProxyHopCount: "1"
+  # Plain env vars for the server. The stack itself sets NODE_ENV, HOST,
+  # TRUSTED_PROXY_HOP_COUNT, the cookie Secure flags and METRICS_ENABLED,
+  # and Cloud Run sets PORT; config validation rejects those keys here.
+  fortressauth-gcp:appEnv:
+    BASE_URL: https://fortressauth.com
+    CORS_ORIGINS: https://fortressauth.com,https://react-demo.fortressauth.com
+    COOKIE_SAMESITE: lax
+    CSRF_COOKIE_SAMESITE: lax
+    LOG_LEVEL: info
+    BREACHED_PASSWORD_CHECK: 'true'
+    EMAIL_PROVIDER: resend
+    EMAIL_FROM_ADDRESS: noreply@fortressauth.com
+    EMAIL_FROM_NAME: FortressAuth
+    # Add the OAuth client IDs and redirect URIs you use, for example:
+    # GOOGLE_CLIENT_ID: replace-me.apps.googleusercontent.com
+    # GOOGLE_REDIRECT_URI: https://api.fortressauth.com/auth/oauth/google/callback
+  # Secret env vars, kept in Secret Manager. Six at most: that is how many
+  # secret versions Secret Manager stores for free. Set each value with
+  #   pulumi config set --secret --path 'secretEnv.DATABASE_URL'
+  # (Pulumi prompts for it), so only its ciphertext lands in this file.
+  fortressauth-gcp:secretEnvKeys:
+    - DATABASE_URL
+    - RESEND_API_KEY
+  # Spend alert, emailed to the billing account's admins at 50% and 100% of
+  # £1 a month, and when the forecast passes £1.
+  fortressauth-gcp:billingAccountId: 01534C-F6AAF0-ADFAA5
+  fortressauth-gcp:budgetAmount: "1"
+  fortressauth-gcp:budgetCurrency: GBP
+  # Pulumi refuses to delete the service while this is true. Set it to false
+  # only when you mean to tear the stack down.
+  fortressauth-gcp:deletionProtection: "true"
+  fortressauth-gcp:secretEnv:
+    DATABASE_URL:
+      secure: AAABAIKbPIEpGi8KM77UJcmGNMitHq6lTi9ckhLj2Ir0LsY7hlmHAFOUDDLWHaOI7foJZOfQ2/ITPef1/YK7mkZcPQa//R26Mta9muil5Ua1XxQnL8Q07fJ0+ddRW5SOO3Tb1TrRZD51bVk1lSdI3dpDW5+bo5zQbYxXA0qOY79ok0hiu3rICMhhb5wn1mVD859vgYNg3rHBFAz/qdII5RKSjqIXq5gwSUIXptuVtKtfi19fExfTyMtz/daD
+    RESEND_API_KEY:
+      secure: AAABAPIsZ4y3Zg3bFaWsvAOHuitIVRObRtobYkBWaUyhryJVthWMtXucX3kkxd4/CT1JJrkup4PiuPdC/KZK+JhGAvY=

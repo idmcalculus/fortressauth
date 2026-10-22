@@ -24,6 +24,7 @@ This file summarizes the FortressAuth platform specs in `.kiro/specs/fortressaut
 - The active production target is AWS via `packages/infra-aws/`. Stacks are `idmcalculus/fortressauth-aws/dev` (account 552072248716) and `idmcalculus/fortressauth-aws/prod` (account 437040615654), both in eu-west-1.
 - Prefer `pulumi preview` for validation when the needed stack config and provider credentials are available.
 - Do not run `pulumi up`, `pulumi destroy`, or delegate mutating work to Pulumi Neo without explicit user confirmation.
+- The free-tier target is Google Cloud Run via `packages/infra-gcp/` (stack `idmcalculus/fortressauth-gcp/prod`, `europe-west1`) with Neon Postgres; `deploy/cloudrun/README.md` is the runbook. Keep it inside the free tier: at most one instance, CPU only during requests, at most 6 secret env keys, and no 5-minute pings at `/health` (it wakes Neon).
 - When changing Pulumi behavior, update the relevant package README and GitHub Actions workflow docs if the operational process changes.
 
 **Core Security Defaults**

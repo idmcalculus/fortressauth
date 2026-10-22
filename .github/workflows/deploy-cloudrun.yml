@@ -1,0 +1,139 @@
+name: Deploy Cloud Run
+
+# Builds the server image for linux/amd64, pushes it to Artifact Registry and
+# rolls it out to the Cloud Run service that packages/infra-gcp manages.
+# One-time setup (Google Cloud project, Neon, GitHub environment) is in
+# deploy/cloudrun/README.md.
+#
+# Deploys after CI passes on main stay off until the repository variable
+# CLOUDRUN_DEPLOY_ENABLED is "true". Manual runs always go ahead.
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-cloudrun
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        vars.CLOUDRUN_DEPLOY_ENABLED == 'true' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    # Google accepts this job's token only from this environment (see
+    # packages/infra-gcp/src/github.ts), so its branch rules decide who
+    # can deploy.
+    environment: cloudrun-prod
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: >-
+            ${{
+              github.event_name == 'workflow_run'
+                && github.event.workflow_run.head_sha
+                || github.sha
+            }}
+
+      - name: Resolve deployment ref
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >>"${GITHUB_OUTPUT}"
+
+      - name: Validate deployment config
+        env:
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
+          CLOUDRUN_IMAGE: ${{ vars.CLOUDRUN_IMAGE }}
+          CLOUDRUN_APP_URL: ${{ vars.CLOUDRUN_APP_URL }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for var in GCP_WORKLOAD_IDENTITY_PROVIDER GCP_DEPLOY_SERVICE_ACCOUNT GCP_REGION CLOUDRUN_SERVICE CLOUDRUN_IMAGE CLOUDRUN_APP_URL; do
+            if [ -z "${!var:-}" ]; then
+              echo "Missing environment variable: ${var}" >&2
+              missing=1
+            fi
+          done
+          [ "${missing}" = "0" ]
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          token_format: access_token
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Artifact Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.GCP_REGION }}-docker.pkg.dev
+          username: oauth2accesstoken
+          password: ${{ steps.auth.outputs.access_token }}
+
+      - name: Build and push amd64 image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ vars.CLOUDRUN_IMAGE }}:sha-${{ steps.sha.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.sha.outputs.sha }}
+          cache-from: type=gha,scope=deploy-cloudrun
+          cache-to: type=gha,mode=max,scope=deploy-cloudrun
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Changes only the image. Everything else about the service (scaling,
+      # env, secrets) belongs to packages/infra-gcp, which ignores the image.
+      - name: Deploy new revision
+        env:
+          CLOUDRUN_SERVICE: ${{ vars.CLOUDRUN_SERVICE }}
+          GCP_REGION: ${{ vars.GCP_REGION }}
+          IMAGE: ${{ vars.CLOUDRUN_IMAGE }}@${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          gcloud run services update "${CLOUDRUN_SERVICE}" \
+            --region "${GCP_REGION}" \
+            --image "${IMAGE}" \
+            --quiet
+
+      # The first request after a deploy also wakes Neon, so allow time.
+      - name: Smoke test deployed app
+        env:
+          CLOUDRUN_APP_URL: ${{ vars.CLOUDRUN_APP_URL }}
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 30 --retry-all-errors --retry-delay 5 \
+            "${CLOUDRUN_APP_URL%/}/health" >/dev/null
+          curl -fsS --retry 30 --retry-all-errors --retry-delay 5 \
+            "${CLOUDRUN_APP_URL%/}/openapi.json" >/dev/null
